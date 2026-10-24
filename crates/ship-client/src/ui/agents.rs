@@ -26,13 +26,15 @@ pub(super) enum Display {
 }
 
 impl Display {
-    /// Lower ranks first; blocked and error share the top rank.
+    /// Lower ranks first. Error outranks blocked: an error may have stopped
+    /// the agent for good, while blocked is a normal pause.
     fn rank(self) -> u8 {
         match self {
-            Self::Blocked | Self::Error => 0,
-            Self::Unseen => 1,
-            Self::Working => 2,
-            Self::Idle => 3,
+            Self::Error => 0,
+            Self::Blocked => 1,
+            Self::Unseen => 2,
+            Self::Working => 3,
+            Self::Idle => 4,
         }
     }
 }
@@ -111,7 +113,7 @@ pub(super) fn list<'a>(tabs: &'a Tabs, attention: &Attention) -> Vec<Agent<'a>> 
 }
 
 /// The first pane needing the user after `selection` in `agents`, the
-/// list's order: blocked and error, then unseen. With none of those, every
+/// list's order: error and blocked, then unseen. With none of those, every
 /// agent takes their place. Wraps to the first when the selection is the
 /// last of them or isn't one.
 pub(super) fn next(agents: &[Agent], selection: Option<NodeId>) -> Option<IdOf<Pane>> {

@@ -62,11 +62,7 @@ When nothing is selected, the client SHALL show the number of top-level tabs and
 - **THEN** it shows `2 tabs · alt-right to open one` and keys that reach programs are dropped
 
 ### Requirement: Pane size
-A tab's area SHALL follow the smallest reported viewing-client area in each dimension, excluding that client's sidebar. The status line overlay SHALL NOT reduce the area. The server SHALL publish actual pane frame/content geometry and size visible programs to their content rectangles, except that both PTY and emulator dimensions SHALL be clamped independently to at least 1 column and 1 row on startup and resize. Published geometry SHALL NOT be clamped. Cells and cursors SHALL be clipped to actual content; when either content dimension is zero, neither SHALL be drawn. A client viewing another tab SHALL NOT constrain it. Unviewed tabs and zoom-hidden panes SHALL retain their last terminal sizes. Larger clients SHALL draw the shared geometry at the pane area's top-left and mark unused space.
-
-#### Scenario: Resize the terminal
-- **WHEN** the only client viewing a split tab resizes its terminal
-- **THEN** its panes fit the new tab area with unchanged stored proportions and each visible program redraws at its own content size
+A tab's area SHALL follow the smallest reported viewing-client area in each dimension, excluding that client's sidebar. The status line overlay SHALL NOT reduce the area. A client viewing another tab SHALL NOT constrain it. Unviewed tabs and zoom-hidden panes SHALL retain their last terminal sizes. Larger clients SHALL draw the shared geometry at the pane area's top-left and mark unused space.
 
 #### Scenario: Two clients of different sizes
 - **WHEN** two clients of different pane-area sizes view the same tab, and the smaller one then moves to a pane in another tab
@@ -80,30 +76,44 @@ A tab's area SHALL follow the smallest reported viewing-client area in each dime
 - **WHEN** a tab is zoomed and its viewing area changes
 - **THEN** the zoomed pane follows that area while hidden panes continue running at their previous terminal sizes
 
-### Requirement: Status line
-The status line SHALL be a one-row overlay drawn over the bottom row of the pane area, the area right of the sidebar, never over the sidebar. It SHALL NOT change the reported area or any pane's geometry, and SHALL hide the pane cells beneath it only while it is shown. It SHALL be shown only while it has content: outside normal mode, while reconnecting, while the selected pane's program has exited, and while an error is pending. It SHALL NOT show tab labels, pane labels or a session.
+### Requirement: Program terminal size
+The server SHALL publish actual pane frame/content geometry and size visible programs to their content rectangles, except that both PTY and emulator dimensions SHALL be clamped independently to at least 1 column and 1 row on startup and resize. Published geometry SHALL NOT be clamped.
 
-Outside normal mode it SHALL show the active mode's name and key hints for that mode: each bound chord in the config file's order, labeled by its binding's `label` when set, else by a word from its action: the mode's name, the direction, the key sent, else the action's name. Hints that don't fit SHALL be cut from the end. It SHALL show a disconnected indicator while reconnecting, and the selected pane's exit status once its program has exited. It SHALL show the latest config error, a key action's failure or "not available yet" until the next key action.
+#### Scenario: Resize the terminal
+- **WHEN** the only client viewing a split tab resizes its terminal
+- **THEN** its panes fit the new tab area with unchanged stored proportions and each visible program redraws at its own content size
+
+### Requirement: Pane content clipping
+Cells and cursors SHALL be clipped to actual content; when either content dimension is zero, neither SHALL be drawn.
+
+#### Scenario: Zero-sized content
+- **WHEN** either dimension of a pane's actual content is zero
+- **THEN** neither cells nor cursors are drawn
+
+### Requirement: Status line
+The status line SHALL be a one-row overlay drawn over the bottom row of the pane area, the area right of the sidebar, never over the sidebar. It SHALL NOT change the reported area or any pane's geometry, and SHALL hide the pane cells beneath it only while it is shown.
+
+#### Scenario: Overlay leaves sizes alone
+- **WHEN** a pane runs `stty size` in normal mode, and again after the user presses `alt-r`
+- **THEN** both report the same size, and the status line covers only the pane area's bottom row, not the sidebar
+
+### Requirement: Status line visibility
+The status line SHALL be shown only while it has content: outside normal mode, while reconnecting, while the selected pane's program has exited, and while an error is pending. It SHALL NOT show tab labels, pane labels or a session.
 
 #### Scenario: Hidden in normal mode
 - **WHEN** a connected client in normal mode selects a running pane with no pending error
 - **THEN** no status line is drawn and the pane's last row is visible
 
-#### Scenario: Exited program
-- **WHEN** the selected pane's program exits with code 3
-- **THEN** the status line appears showing `exited (3)` and stays while that pane is selected
-
 #### Scenario: Labels without a session
 - **WHEN** a client enters `resize` mode with the pane `nvim` selected in a tab named `work`
 - **THEN** the status line does not show `work` or `nvim`
 
+### Requirement: Mode key hints
+Outside normal mode the status line SHALL show the active mode's name and key hints for that mode: each bound chord in the config file's order, labeled by its binding's `label` when set, else by a word from its action: the mode's name, the direction, the key sent, else the action's name. Hints that don't fit SHALL be cut from the end.
+
 #### Scenario: Active mode
 - **WHEN** the user presses `alt-r`
 - **THEN** the status line appears showing `resize` with `h left  j down  k up  l right  shift-h sidebar left  shift-l sidebar right  esc normal`, and disappears after `esc`
-
-#### Scenario: Overlay leaves sizes alone
-- **WHEN** a pane runs `stty size` in normal mode, and again after the user presses `alt-r`
-- **THEN** both report the same size, and the status line covers only the pane area's bottom row, not the sidebar
 
 #### Scenario: Custom binding hint
 - **WHEN** the file binds `"f" = { action = { server.pane.zoom = {} } }` in `resize` mode and the user enters it
@@ -112,6 +122,13 @@ Outside normal mode it SHALL show the active mode's name and key hints for that 
 #### Scenario: Set label
 - **WHEN** the file binds `"f" = { action = { server.pane.zoom = {} }, label = "fill" }` in `resize` mode and the user enters it
 - **THEN** the hints include `f fill` and not `f zoom`
+
+### Requirement: Status line messages
+The status line SHALL show a disconnected indicator while reconnecting, and the selected pane's exit status once its program has exited. It SHALL show the latest config error, a key action's failure or "not available yet" until the next key action.
+
+#### Scenario: Exited program
+- **WHEN** the selected pane's program exits with code 3
+- **THEN** the status line appears showing `exited (3)` and stays while that pane is selected
 
 ### Requirement: Derived labels
 An unnamed pane's label SHALL be its program's current title, else its command. An unnamed tab's label SHALL be the last component of its first own pane's current directory in layout order, `~` for the home directory, else that pane's label, else its 1-based position among its siblings. Labels SHALL update as titles and current directories change and SHALL return to the derived form when a name is cleared.
@@ -163,15 +180,11 @@ A tab with two or more panes SHALL draw labeled borders around its visible split
 - **THEN** that border is drawn in the selected-border color until release
 
 ### Requirement: Tab sidebar presentation
-The sidebar's tabs section SHALL show a plain `tabs` title above one row per visible tab in tree order, indented by depth and using derived labels. Tabs with children SHALL have expanded/folded markers. It SHALL highlight the selected tab or the selected pane's tab, and no row when nothing is selected. A zoomed tab's row SHALL carry a zoom marker; while the sidebar is hidden, no zoom marker is shown. A tab row SHALL end with its rollup icon as agent-attention's Tab rollup describes. `client.sidebar.toggle` SHALL hide/show it per client while preserving its folds, width and split and giving freed width to panes. The `tabs` heading SHALL end with a button that opens the global menu (see context-menus). While a row is dragged, the drop line SHALL be an underline on the cells of the row above the gap, from the target depth's indent to the divider; the gap above the first row SHALL use the blank row under the heading.
+The sidebar's tabs section SHALL show a plain `tabs` title above one row per visible tab in tree order, indented by depth and using derived labels. Tabs with children SHALL have expanded/folded markers. It SHALL highlight the selected tab or the selected pane's tab, and no row when nothing is selected. A zoomed tab's row SHALL carry a zoom marker; while the sidebar is hidden, no zoom marker is shown. A tab row SHALL end with its rollup icon as agent-attention's Tab rollup describes.
 
 #### Scenario: Nested rows
 - **WHEN** a client opens a three-level tab tree and folds an intermediate row
 - **THEN** the sidebar retains that row with a folded marker and hides its descendants without hiding their programs
-
-#### Scenario: Toggle preserves presentation
-- **WHEN** a client hides its folded sidebar and shows it again
-- **THEN** the same folds return and another client's sidebar visibility is unchanged
 
 #### Scenario: Zoom marker
 - **WHEN** the selected tab is zoomed
@@ -181,17 +194,30 @@ The sidebar's tabs section SHALL show a plain `tabs` title above one row per vis
 - **WHEN** nothing is selected or an empty tab is selected
 - **THEN** the existing corresponding empty-state hint appears in the pane area beside the sidebar
 
+#### Scenario: Rollup icon
+- **WHEN** a pane in a tab's child tab is `working`
+- **THEN** both tabs' rows end with the working icon
+
+### Requirement: Sidebar toggle
+`client.sidebar.toggle` SHALL hide/show the sidebar per client while preserving its folds, width and split and giving freed width to panes.
+
+#### Scenario: Toggle preserves presentation
+- **WHEN** a client hides its folded sidebar and shows it again
+- **THEN** the same folds return and another client's sidebar visibility is unchanged
+
+### Requirement: Sidebar heading button
+The `tabs` heading SHALL end with a button that opens the global menu (see context-menus).
+
 #### Scenario: Heading button
 - **WHEN** a client shows its sidebar
 - **THEN** the `tabs` heading ends with a button, and the rows below it are unchanged
 
+### Requirement: Tab drop line
+While a row is dragged, the drop line SHALL be an underline on the cells of the row above the gap, from the target depth's indent to the divider; the gap above the first row SHALL use the blank row under the heading.
+
 #### Scenario: Drop line
 - **WHEN** a user drags a row over the gap below a top-level tab with the pointer one indent further right
 - **THEN** the row above the gap is underlined from that indent to the divider, and no row moves until release
-
-#### Scenario: Rollup icon
-- **WHEN** a pane in a tab's child tab is `working`
-- **THEN** both tabs' rows end with the working icon
 
 ### Requirement: Scroll indicator
 A pane scrolled up from the bottom SHALL show how far it is from the bottom, on its border, or at its content's top right when it has no border. A pane at the bottom SHALL show no indicator. Its exact wording is settled in rendering review.
@@ -201,7 +227,7 @@ A pane scrolled up from the bottom SHALL show how far it is from the bottom, on 
 - **THEN** the pane's border shows its distance from the bottom, and the indicator disappears once input returns it to the bottom
 
 ### Requirement: Ordered input
-A client's bound actions, menu items, typed keys, pastes, `client.send`, clicks, fold clicks, wheel turns, drags and mouse input to programs SHALL take effect on the server in the order they happened. A border position still waiting its turn SHALL be replaced in place by a newer position for the same edge, as mouse-input's Border drags requires. Anything that depends on the selection, the layout or the folds SHALL be resolved against the state after everything before it has taken effect. The one exception is a server action, which can take effect before keys typed just before it.
+A client's bound actions, menu items, typed keys, pastes, `client.send`, clicks, fold clicks, wheel turns, drags and mouse input to programs SHALL take effect on the server in the order they happened. Anything that depends on the selection, the layout or the folds SHALL be resolved against the state after everything before it has taken effect. The one exception is a server action, which can take effect before keys typed just before it.
 
 #### Scenario: Type right after a new tab
 - **WHEN** 500 ms of delay is added each way between client and server, and the user presses `alt-n` then types `echo hi` and Enter at once
@@ -214,6 +240,13 @@ A client's bound actions, menu items, typed keys, pastes, `client.send`, clicks,
 #### Scenario: Idle typing
 - **WHEN** nothing is waiting and the user types into a shell on a local server
 - **THEN** each key is sent at once and feels no slower than before
+
+### Requirement: Ordered border positions
+A border position still waiting its turn SHALL be replaced in place by a newer position for the same edge, as mouse-input's Border drag positions requires.
+
+#### Scenario: Waiting border position replaced in place
+- **WHEN** a newer position arrives for an edge whose earlier position is still waiting its turn
+- **THEN** the newer position replaces that edge's waiting position in place
 
 ### Requirement: Failed actions in order
 A key action that fails SHALL show its error on the status line, and input after it SHALL still take effect in order.

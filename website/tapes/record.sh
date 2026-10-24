@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Records one tape against a fresh demo world, into website/tapes/out/:
-# <tape>.webm (muted) and <tape>.png (poster).
+# <tape>.webm (muted), <tape>.png (poster) and <tape>.gif (for the README).
 #
 #   website/tapes/record.sh waterline.tape          real take, real models
 #   website/tapes/record.sh waterline.tape --dry    stub agents, for tuning
@@ -193,4 +193,7 @@ cd "$TAPES"
 PATH=$ROOT/bin:$PATH vhs -q -o "$out/$name.webm" "$tape"
 
 ffmpeg -loglevel error -y -ss "${POSTER_AT:-9}" -i "$out/$name.webm" -frames:v 1 "$out/$name.png"
-say "wrote $out/$name.webm and $out/$name.png"
+# GitHub won't play a hotlinked webm in the README. Half size at 10 fps keeps
+# the text readable at about 4 MB.
+ffmpeg -loglevel error -y -i "$out/$name.webm" -vf "fps=10,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" "$out/$name.gif"
+say "wrote $out/$name.webm, $out/$name.png and $out/$name.gif"

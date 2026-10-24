@@ -7,7 +7,7 @@ Let users exercise Ship through a real, observable health request with predictab
 ## Requirements
 
 ### Requirement: Health contract and result
-A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing `service` equal to `ship`, `protocolVersion` equal to 14, informational string `version`, and `log`, the path of the log part the server is writing. Health response JSON field names SHALL use camelCase; Rust fields retain snake_case. The current client SHALL validate service/protocol compatibility before any other request, including ordinary commands with `--server-url` or `SHIP_SERVER_URL` and `server stop`. Explicit targets, status and stop SHALL NOT start a server. Endpoint methods SHALL remain policy-free; application dispatch owns this validation. `ship server status` SHALL print one health JSON line on stdout only on success, and SHALL never start a server.
+A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing `service` equal to `ship`, `protocolVersion` equal to 14, informational string `version`, and `log`, the path of the log part the server is writing. Health response JSON field names SHALL use camelCase; Rust fields retain snake_case. `ship server status` SHALL print one health JSON line on stdout only on success, and SHALL never start a server.
 
 #### Scenario: Compatible health
 - **WHEN** `ship server status` contacts a compatible server
@@ -20,6 +20,9 @@ A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing
 #### Scenario: Status with no server
 - **WHEN** no server is running and a user runs `ship server status`
 - **THEN** it reports that no server is running, exits 1 and starts nothing
+
+### Requirement: Health check before other requests
+The current client SHALL validate service/protocol compatibility before any other request, including ordinary commands with `--server-url` or `SHIP_SERVER_URL` and `server stop`. Explicit targets, status and stop SHALL NOT start a server. Endpoint methods SHALL remain policy-free; application dispatch owns this validation.
 
 #### Scenario: Incompatible or malformed health
 - **WHEN** the target returns the wrong status, invalid JSON, wrong service or incompatible protocol version
@@ -45,15 +48,11 @@ This legacy exception is Cyan's approved slice-1 acceptance adjustment. It does 
 - **THEN** it reports incompatibility before attempting any other request or attach and does not replace the running server
 
 ### Requirement: Default-local startup and reuse
-Without an explicit target, bare `ship` and the tab and pane commands SHALL use `http://127.0.0.1:43179`, reuse compatible health, and launch a background server with the starter only upon positively established connection refusal. That server SHALL restore the port's saved tabs. They SHALL NOT replace or kill an occupied, incompatible or unhealthy listener. When bare `ship` launched the server, its client SHALL open on the first top-level tab's first pane, whether that tab was restored or created by the starter. A client attaching to a server that was already running SHALL start with nothing selected.
+Without an explicit target, bare `ship` and the tab and pane commands SHALL use `http://127.0.0.1:43179`, reuse compatible health, and launch a background server with the starter only upon positively established connection refusal. That server SHALL restore the port's saved tabs. They SHALL NOT replace or kill an occupied, incompatible or unhealthy listener.
 
 #### Scenario: Absent default server
 - **WHEN** the default connection is refused, nothing is saved for the port, and the user runs `ship`
 - **THEN** Ship launches a local background server with the starter, waits for compatible readiness and opens the client on the starter tab
-
-#### Scenario: Absent default server with saved tabs
-- **WHEN** the default connection is refused, the port has saved tabs, and the user runs `ship`
-- **THEN** Ship launches a local background server, which restores the saved tabs without adding a starter tab, and opens the client on the first top-level tab's first pane
 
 #### Scenario: Repeated launches
 - **WHEN** the default server is stopped and started through bare `ship` ten times
@@ -66,6 +65,17 @@ Without an explicit target, bare `ship` and the tab and pane commands SHALL use 
 #### Scenario: Occupied or uncertain endpoint
 - **WHEN** the default endpoint times out, fails other than refusal, or responds incompatibly
 - **THEN** `ship` fails without spawning a replacement or terminating the listener
+
+### Requirement: First selection after launch
+When bare `ship` launched the server, its client SHALL open on the first top-level tab's first pane, whether that tab was restored or created by the starter. A client attaching to a server that was already running SHALL start with nothing selected.
+
+#### Scenario: Absent default server with saved tabs
+- **WHEN** the default connection is refused, the port has saved tabs, and the user runs `ship`
+- **THEN** Ship launches a local background server, which restores the saved tabs without adding a starter tab, and opens the client on the first top-level tab's first pane
+
+#### Scenario: Attach to a running server
+- **WHEN** a server is already running and a user runs `ship`
+- **THEN** the client starts with nothing selected
 
 ### Requirement: Persistent daemon and bounded launch cleanup
 An automatically launched ready server SHALL remain reachable after client exit and launching-terminal closure. Readiness SHALL have a five-second absolute deadline; ordinary TCP connect and health requests SHALL be bounded by one and two seconds respectively. Failed launch cleanup SHALL affect only that invocation's child. Concurrent invocations SHALL leave at most one serving daemon and no surviving losing children.
@@ -131,11 +141,7 @@ SIGINT and SIGTERM SHALL request graceful server shutdown, bounded by five secon
 - **THEN** it drains active health requests within the bound, exits and no longer accepts connections
 
 ### Requirement: Server starter
-`ship server --starter` SHALL create one top-level tab holding one pane running the configured shell, else the login shell, in the server user's home directory before it accepts any connection, only when the server has no tabs after restoring. That includes a first run with no saved file, saved tabs that held no tabs, `--no-restore`, and an unreadable saved file. Its help SHALL say so. The starter tab SHALL be saved like any other change. `ship server` without it SHALL start with no tabs when there is nothing to restore. A server SHALL create tabs on its own only at startup. If the starter's program cannot start, the server SHALL exit with that error instead of serving.
-
-#### Scenario: With and without the starter
-- **WHEN** nothing is saved for the port and a user runs `ship server`, and separately `ship server --starter`
-- **THEN** `ship tab list` prints `{}` for the first and one tab with one pane for the second
+`ship server --starter` SHALL create one top-level tab holding one pane running the configured shell, else the login shell, in the server user's home directory before it accepts any connection, only when the server has no tabs after restoring. That includes a first run with no saved file, saved tabs that held no tabs, `--no-restore`, and an unreadable saved file. Its help SHALL say so. The starter tab SHALL be saved like any other change.
 
 #### Scenario: Starter after a restore
 - **WHEN** the port has saved tabs with two top-level tabs and a user runs `ship server --starter`
@@ -144,6 +150,13 @@ SIGINT and SIGTERM SHALL request graceful server shutdown, bounded by five secon
 #### Scenario: Starter with --no-restore
 - **WHEN** the port has saved tabs and a user runs `ship server --starter --no-restore`
 - **THEN** `ship tab list` shows one tab with one pane, and the new tab schedules a save 5 seconds later; after that save completes, the saved file holds that tab and `<port>.json.prev` holds the earlier saved tabs
+
+### Requirement: Tabs a server creates itself
+`ship server` without `--starter` SHALL start with no tabs when there is nothing to restore. A server SHALL create tabs on its own only at startup. If the starter's program cannot start, the server SHALL exit with that error instead of serving.
+
+#### Scenario: With and without the starter
+- **WHEN** nothing is saved for the port and a user runs `ship server`, and separately `ship server --starter`
+- **THEN** `ship tab list` prints `{}` for the first and one tab with one pane for the second
 
 #### Scenario: Broken starter
 - **WHEN** nothing is saved for the port and a user runs `HOME=/nonexistent ship server --starter`

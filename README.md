@@ -19,6 +19,8 @@ Not here: keys, configuration and CLI walkthroughs (docs/site/).
 > [!WARNING]
 > **Ship is a work in progress.** There are no releases yet. See [what works today](#what-works-today) and [what isn't built yet](#not-built-yet).
 
+[![Claude Code and Pi working side by side in nested tabs, with the sidebar marking each agent's state](https://shipmux.github.io/ship/demo/waterline.gif)](https://shipmux.github.io/ship/)
+
 ## Overview
 
 Ship is a terminal multiplexer, like tmux or Zellij, except it treats coding agents as first-class citizens instead of just another program in a pane. Your shells and agents run in tabs and split panes on a background server, so they keep going after you close the window.
@@ -81,6 +83,7 @@ Linux and macOS are the priority platforms. Windows is best effort.
 - Searching a pane's history, and a keyboard copy mode. For now, `ship pane read --lines N | grep ...` covers search.
 - Resuming agent conversations or rerunning programs after a restart. Saved tabs come back with fresh shells.
 - Connecting to another machine's server directly. The server only accepts local connections for now, so [use an SSH tunnel](docs/site/windows-and-the-server.md#using-ship-on-another-machine).
+- A login for the server. Anything running on your machine, under any user account, can drive it. [More](docs/site/windows-and-the-server.md#using-ship-on-another-machine)
 - Testing on Linux. Most features have only been checked on macOS so far.
 
 ## Installation

@@ -77,7 +77,7 @@ The CLI SHALL create, list or inspect, set attributes of, and close tabs and pan
 - **THEN** the CLI rejects the unknown subcommand, exits 2 and nothing changes
 
 ### Requirement: Tab placement and one-destination moves
-Creating a tab SHALL append it to its parent's children, or to the top level, or place it before or after a sibling under that sibling's parent when given `--before` or `--after`. A tab SHALL be movable, carrying its whole subtree and panes, to exactly one destination: appended under a parent tab, appended at the top level, or placed before or after a sibling, under that sibling's parent. Neither a create nor a move SHALL name both a parent and a sibling. Panes SHALL NOT move between tabs; same-tab swaps SHALL exchange positions as described by Explicit pane swaps.
+Creating a tab SHALL append it to its parent's children, or to the top level, or place it before or after a sibling under that sibling's parent when given `--before` or `--after`. A tab SHALL be movable, carrying its whole subtree and panes, to exactly one destination: appended under a parent tab, appended at the top level, or placed before or after a sibling, under that sibling's parent. Neither a create nor a move SHALL name both a parent and a sibling.
 
 #### Scenario: Reorder siblings
 - **WHEN** a user moves the last of three sibling tabs with `--before` naming the first
@@ -98,6 +98,13 @@ Creating a tab SHALL append it to its parent's children, or to the top level, or
 #### Scenario: Create next to a sibling
 - **WHEN** a user runs `ship tab create --after <id>` where `<id>` is the first of two top-level tabs
 - **THEN** the new tab sits second among the top-level tabs
+
+### Requirement: Pane tab ownership
+Panes SHALL NOT move between tabs; same-tab swaps SHALL exchange positions as described by Explicit pane swaps.
+
+#### Scenario: Panes stay in their tab
+- **WHEN** panes belong to different tabs
+- **THEN** they cannot move between tabs; same-tab swaps exchange positions as Explicit pane swaps describes
 
 ### Requirement: Tab parents
 Tab creation SHALL accept a tab as the parent, or no parent for the top level. Pane creation SHALL accept `--tab ID` to select the tab or `--pane ID` to anchor a split in that pane, with `--tab` winning when both are given. Inside a pane, `SHIP_PANE_ID` SHALL supply the default pane anchor. `--tab` SHALL reject a pane ID.
@@ -156,11 +163,14 @@ Invalid operations SHALL fail with an understandable error on stderr and leave t
 - **THEN** the command fails with a not-found error and nothing moves
 
 ### Requirement: Versioned HTTP API
-The tab, pane and attachment HTTP routes SHALL be served under `/api/v0` and SHALL address entities by ID only. The existing `/health` route SHALL remain at `/health`. Errors SHALL use HTTP 400 for malformed input, 404 for a missing target, 422 for an invalid structural relationship, and 503 when server machinery is unavailable. Malformed input means a malformed path ID or a request body that is not valid JSON. A JSON request body that does not fit the operation, such as an ID of the wrong kind or a move body naming no destination, SHALL be rejected with 422.
+The tab, pane and attachment HTTP routes SHALL be served under `/api/v0` and SHALL address entities by ID only. The existing `/health` route SHALL remain at `/health`.
 
 #### Scenario: Prefixed route
 - **WHEN** a client sends `GET /api/v0/tabs` to a running server
 - **THEN** it receives the ordered top-level tabs with their descendants, while `GET /health` still returns the health response
+
+### Requirement: HTTP error statuses
+Errors SHALL use HTTP 400 for malformed input, 404 for a missing target, 422 for an invalid structural relationship, and 503 when server machinery is unavailable. Malformed input means a malformed path ID or a request body that is not valid JSON. A JSON request body that does not fit the operation, such as an ID of the wrong kind or a move body naming no destination, SHALL be rejected with 422.
 
 #### Scenario: Empty move body
 - **WHEN** a client sends `POST /api/v0/tabs/{id}/move` with `{}`
@@ -208,7 +218,7 @@ A tab's pane order SHALL be its binary split tree traversed first child before s
 - **THEN** all pane IDs, programs, tree structure and stored proportions survive, and enlarged panes recover their proportions subject to rounding
 
 ### Requirement: Split placement
-Pane creation SHALL split an anchor right or down, defaulting to right. With only a tab target it SHALL split that tab's largest pane by content area, breaking ties by layout order, or create the first pane in an empty tab. A split that would leave either half with less than 1 column and 1 row of content SHALL be refused with "no space for new pane", without starting a program or changing the layout. Closing a split pane SHALL replace its parent split with the sibling subtree, which takes its space; closing the only pane SHALL leave the tab empty.
+Pane creation SHALL split an anchor right or down, defaulting to right. With only a tab target it SHALL split that tab's largest pane by content area, breaking ties by layout order, or create the first pane in an empty tab. A split that would leave either half with less than 1 column and 1 row of content SHALL be refused with "no space for new pane", without starting a program or changing the layout.
 
 #### Scenario: Explicit anchor
 - **WHEN** a user runs `ship pane create --pane <id> --direction down` with enough room for the split
@@ -225,6 +235,9 @@ Pane creation SHALL split an anchor right or down, defaulting to right. With onl
 #### Scenario: No space for the split
 - **WHEN** a user splits a pane right whose content is 2 columns wide
 - **THEN** the command fails with "no space for new pane", no program starts, and the layout is unchanged
+
+### Requirement: Closing split panes
+Closing a split pane SHALL replace its parent split with the sibling subtree, which takes its space; closing the only pane SHALL leave the tab empty.
 
 #### Scenario: Close a nested split
 - **WHEN** a user closes A in the layout `[A | [B / C]]`
@@ -246,7 +259,7 @@ The server swap operation SHALL take two explicit pane IDs in the same tab and e
 - **THEN** the request fails and neither tab's layout or zoom state changes
 
 ### Requirement: Directional edge resize
-`server.pane.resize` and `ship pane resize` SHALL move the requested edge of the targeted pane in the given direction by `amount` cells, or 1 cell when neither `amount` nor `to` is given. At the tab boundary they SHALL use the opposite-edge fallback in that direction. Given `to` instead of `amount`, they SHALL move that same edge so its border is drawn at `to`, a cell position starting at 0 from the tab's left edge for `left` and `right` or its top edge for `up` and `down`. The move SHALL stop where any pane would have less than 1 column and 1 row of content. An edge that can't move, or is already at `to`, SHALL change nothing. A request giving both `to` and `amount` SHALL be rejected without changing anything, and the CLI SHALL exit 2 for it. The amount and `to` SHALL remain bindable action arguments. There SHALL be no additional grow/shrink flag or resize mode.
+`server.pane.resize` and `ship pane resize` SHALL move the requested edge of the targeted pane in the given direction by `amount` cells, or 1 cell when neither `amount` nor `to` is given. At the tab boundary they SHALL use the opposite-edge fallback in that direction. The move SHALL stop where any pane would have less than 1 column and 1 row of content. An edge that can't move, or is already at `to`, SHALL change nothing.
 
 #### Scenario: Move a shared edge
 - **WHEN** a user runs `ship pane resize --pane <left-pane> --direction right --amount 5` on a two-pane horizontal split with room to move
@@ -264,9 +277,8 @@ The server swap operation SHALL take two explicit pane IDs in the same tab and e
 - **WHEN** a caller resizes a pane right by 10 into a neighbor with 3 columns of content
 - **THEN** the edge moves 2 columns, leaving the neighbor 1 column of content, and a further resize right changes nothing
 
-#### Scenario: Bind the amount
-- **WHEN** a user binds a directional resize with `amount = 5` to a chord outside resize mode and presses it
-- **THEN** the selected pane's edge moves by the same amount as the corresponding CLI command
+### Requirement: Absolute edge resize
+Given `to` instead of `amount`, `server.pane.resize` and `ship pane resize` SHALL move the edge chosen by Directional edge resize so its border is drawn at `to`, a cell position starting at 0 from the tab's left edge for `left` and `right` or its top edge for `up` and `down`.
 
 #### Scenario: Absolute position
 - **WHEN** a user runs `ship pane resize --pane <left-pane> --direction right --to 40` on a two-pane horizontal split
@@ -275,6 +287,13 @@ The server swap operation SHALL take two explicit pane IDs in the same tab and e
 #### Scenario: Absolute from the other side
 - **WHEN** a user runs `ship pane resize --pane <right-pane> --direction left --to 40` on the same split
 - **THEN** the same border moves to column 40
+
+### Requirement: Resize arguments
+A request giving both `to` and `amount` SHALL be rejected without changing anything, and the CLI SHALL exit 2 for it. The amount and `to` SHALL remain bindable action arguments. There SHALL be no additional grow/shrink flag or resize mode.
+
+#### Scenario: Bind the amount
+- **WHEN** a user binds a directional resize with `amount = 5` to a chord outside resize mode and presses it
+- **THEN** the selected pane's edge moves by the same amount as the corresponding CLI command
 
 #### Scenario: Both `to` and `amount`
 - **WHEN** a user runs `ship pane resize --pane <p> --direction right --to 5 --amount 2`, or sends both fields in an HTTP body
@@ -311,34 +330,68 @@ A selecting create SHALL take its attachment from `--attachment ID`, defaulting 
 - **THEN** the command fails with a not-found error, exits 1, `ship tab list` is unchanged and no shell was left running
 
 ### Requirement: Set attributes
-`server.tab.set` and `ship tab set`, and `server.pane.set` and `ship pane set`, SHALL change a tab's or a pane's attributes in one edit. Each attribute SHALL be an optional field, and a field left out SHALL stay as it is. A tab's only attribute SHALL be `name` (`--name`). A pane's attributes SHALL be `name` (`--name`), `right_click_passthrough` (`--right-click-passthrough`), `exit_behavior` (`--exit-behavior`) and `scrollback_bytes` (`--scrollback-bytes`). A blank name SHALL clear it. A two-valued attribute SHALL take `true`, `false` or `toggle`. `toggle` SHALL switch to the other value, resolved against the stored value when the edit takes effect. Toggling SHALL be offered only on attributes with exactly two values. From keys and menus, `set` SHALL act on the selected tab or pane. From the CLI it SHALL act on `--tab`, `--pane` or the caller's pane, as other tab and pane commands do. A `set` with no field, or one that changes nothing, SHALL succeed and SHALL NOT change the shared state's revision. Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "rightClickPassthrough"?, "exitBehavior"?, "scrollbackBytes"? }`. An absent or JSON `null` field SHALL leave its attribute unchanged; a present empty or whitespace-only `name` SHALL clear it. Both SHALL return the entity, and an unknown field SHALL be rejected without changing anything. `rename` SHALL NOT exist as a command or action.
+`server.tab.set` and `ship tab set`, and `server.pane.set` and `ship pane set`, SHALL change a tab's or a pane's attributes in one edit. Each attribute SHALL be an optional field, and a field left out SHALL stay as it is. A blank name SHALL clear it. A `set` with no field, or one that changes nothing, SHALL succeed and SHALL NOT change the shared state's revision. `rename` SHALL NOT exist as a command or action.
 
 #### Scenario: Two attributes in one edit
 - **WHEN** a script runs `ship pane set --pane <id> --name build --right-click-passthrough true`
 - **THEN** both change in one edit, and `ship pane get` shows them
 
-#### Scenario: Exit behavior and history in one edit
-- **WHEN** a script runs `ship pane set --pane <id> --exit-behavior keep_failed --scrollback-bytes 50000000`
-- **THEN** both change in one edit, and `ship pane get` shows `exitBehavior: keep_failed` and `scrollbackBytes: 50000000`
-
-#### Scenario: Toggle twice
-- **WHEN** a script runs `ship pane set --pane <id> --right-click-passthrough toggle` twice
-- **THEN** the setting is back to its first value
-
 #### Scenario: Nothing to set
 - **WHEN** a script runs `ship pane set --pane <id>` with no attribute
 - **THEN** nothing changes, the revision stays, and it exits 0
-
-#### Scenario: Bad switch value
-- **WHEN** a script runs `ship pane set --pane <id> --right-click-passthrough maybe`
-- **THEN** the CLI rejects the value, exits 2 and nothing changes
 
 #### Scenario: Old command
 - **WHEN** a script runs `ship tab rename --tab <id> notes`
 - **THEN** the CLI reports an unknown subcommand, exits 2 and nothing changes
 
+### Requirement: Set attribute fields
+A tab's only attribute SHALL be `name` (`--name`). A pane's attributes SHALL be `name` (`--name`), `right_click_passthrough` (`--right-click-passthrough`), `exit_behavior` (`--exit-behavior`) and `scrollback_bytes` (`--scrollback-bytes`).
+
+#### Scenario: Exit behavior and history in one edit
+- **WHEN** a script runs `ship pane set --pane <id> --exit-behavior keep_failed --scrollback-bytes 50000000`
+- **THEN** both change in one edit, and `ship pane get` shows `exitBehavior: keep_failed` and `scrollbackBytes: 50000000`
+
+### Requirement: Two-valued attributes
+A two-valued attribute SHALL take `true`, `false` or `toggle`. `toggle` SHALL switch to the other value, resolved against the stored value when the edit takes effect. Toggling SHALL be offered only on attributes with exactly two values.
+
+#### Scenario: Toggle twice
+- **WHEN** a script runs `ship pane set --pane <id> --right-click-passthrough toggle` twice
+- **THEN** the setting is back to its first value
+
+#### Scenario: Bad switch value
+- **WHEN** a script runs `ship pane set --pane <id> --right-click-passthrough maybe`
+- **THEN** the CLI rejects the value, exits 2 and nothing changes
+
+### Requirement: Set targets
+From keys and menus, `set` SHALL act on the selected tab or pane. From the CLI it SHALL act on `--tab`, `--pane` or the caller's pane, as other tab and pane commands do.
+
+#### Scenario: Key and CLI set targets
+- **WHEN** a user invokes `set` from a key or menu, or from the CLI
+- **THEN** the key or menu acts on the selected tab or pane, and the CLI acts on `--tab`, `--pane` or the caller's pane, as other tab and pane commands do
+
+### Requirement: HTTP set fields
+Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "rightClickPassthrough"?, "exitBehavior"?, "scrollbackBytes"? }`. An absent or JSON `null` field SHALL leave its attribute unchanged; a present empty or whitespace-only `name` SHALL clear it.
+
+#### Scenario: Omitted and blank HTTP fields
+- **WHEN** a caller patches a tab or pane with an absent or JSON `null` attribute, or an empty or whitespace-only `name`
+- **THEN** an absent or `null` field leaves its attribute unchanged, and a present blank `name` clears it
+
+### Requirement: HTTP set results
+Both HTTP set routes SHALL return the entity, and an unknown field SHALL be rejected without changing anything.
+
+#### Scenario: HTTP set response
+- **WHEN** a caller patches a tab or pane
+- **THEN** the route returns the entity, and an unknown field is rejected without changing anything
+
 ### Requirement: Right-click passthrough setting
-Every pane SHALL have a `right_click_passthrough` setting, on or off. It is shared state: one value per pane, the same for every client, shown as `rightClickPassthrough` by `ship pane get` and in `ship tab list` output. `server.pane.create` SHALL accept `right_click_passthrough = true` or `false`, and `ship pane create` the switch `--right-click-passthrough` (on) or `--right-click-passthrough=false`. Otherwise a new pane, including a tab's starter pane, SHALL take `[server.defaults.pane] right_click_passthrough`, which defaults to off. The setting SHALL survive a server restart as part of the saved tabs.
+Every pane SHALL have a `right_click_passthrough` setting, on or off. It is shared state: one value per pane, the same for every client, shown as `rightClickPassthrough` by `ship pane get` and in `ship tab list` output. The setting SHALL survive a server restart as part of the saved tabs.
+
+#### Scenario: Survives a restart
+- **WHEN** a pane has `rightClickPassthrough: true` and the server restarts
+- **THEN** the restored pane shows `rightClickPassthrough: true`
+
+### Requirement: Initial right-click passthrough
+`server.pane.create` SHALL accept `right_click_passthrough = true` or `false`, and `ship pane create` the switch `--right-click-passthrough` (on) or `--right-click-passthrough=false`. Otherwise a new pane, including a tab's starter pane, SHALL take `[server.defaults.pane] right_click_passthrough`, which defaults to off.
 
 #### Scenario: Create with passthrough
 - **WHEN** a script runs `ship pane create --tab <t> --right-click-passthrough -- nvim`
@@ -351,7 +404,3 @@ Every pane SHALL have a `right_click_passthrough` setting, on or off. It is shar
 #### Scenario: Starter pane
 - **WHEN** the config has no `right_click_passthrough` and a script runs `ship tab create --starter`
 - **THEN** its starter pane shows `rightClickPassthrough: false`
-
-#### Scenario: Survives a restart
-- **WHEN** a pane has `rightClickPassthrough: true` and the server restarts
-- **THEN** the restored pane shows `rightClickPassthrough: true`

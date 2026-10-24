@@ -33,7 +33,7 @@ use kameo::{
     actor::{ActorRef, Spawn},
     mailbox,
 };
-use libghostty_vt::log::TracingLogger;
+use libghostty_vt::log::{Level, Logger, TracingLogger};
 use ship_core::{
     LogChange, LogFilter,
     geometry::{PaneGeometry, TabGeometry},
@@ -175,7 +175,7 @@ pub async fn serve(
     tracing::info!(%address, pid = process::id(), protocol_version = ship_core::PROTOCOL_VERSION, config = %config.display(), save = %save.display(), restore, "server listening");
     // Ghostty drops its own logs unless given a logger.
     // SAFETY: No pane exists yet, so no other thread is inside libghostty.
-    if let Err(error) = unsafe { libghostty_vt::set_logger(Some(Box::new(TracingLogger))) } {
+    if let Err(error) = unsafe { libghostty_vt::set_logger(Some(Box::new(GhosttyLogger))) } {
         tracing::warn!("cannot route Ghostty's logs: {error}");
     }
     // Axum awaits shutdown directly. This channel only observes its result so
@@ -271,6 +271,21 @@ pub async fn serve(
         }
     }
     result_rx.borrow().clone().unwrap_or(Ok(()))
+}
+
+/// Routes Ghostty's logs to tracing. Rejected OSC 7501 reports are a program's
+/// mistake that Ship already ignores, so they log at debug, not warn.
+struct GhosttyLogger;
+
+impl Logger for GhosttyLogger {
+    fn log(&self, level: Level, scope: &str, message: &str) {
+        let level = if scope == "osc_program_status" {
+            Level::Debug
+        } else {
+            level
+        };
+        TracingLogger.log(level, scope, message);
+    }
 }
 
 /// Subscribe before constructing the state so restored panes' early events wait.
