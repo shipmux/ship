@@ -11,11 +11,11 @@ Let users configure Ship in one TOML file that the client and the server each re
 
 #### Scenario: Change applies to the next pane
 - **WHEN** a user sets `exit_behavior = "keep"` in `[server.defaults.pane]`, saves, and creates a pane on a running server
-- **THEN** the new pane shows `exitBehavior: keep` and existing panes keep their values
+- **THEN** the new pane shows `exit_behavior: keep` and existing panes keep their values
 
 #### Scenario: Create request overrides the table
 - **WHEN** the table sets `exit_behavior = "keep"` and a script runs `ship pane create --exit-behavior close`
-- **THEN** the new pane shows `exitBehavior: close`
+- **THEN** the new pane shows `exit_behavior: close`
 
 ### Requirement: Pane shell setting
 `[server.defaults.pane] shell` SHALL name the program a pane runs when created without a command, started as a login shell. A relative path SHALL resolve from the config file's folder. When it is absent, the pane SHALL run the login shell.

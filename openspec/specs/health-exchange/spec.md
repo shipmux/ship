@@ -7,7 +7,7 @@ Let users exercise Ship through a real, observable health request with predictab
 ## Requirements
 
 ### Requirement: Health contract and result
-A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing `service` equal to `ship`, `protocolVersion` equal to 14, informational string `version`, and `log`, the path of the log part the server is writing. Health response JSON field names SHALL use camelCase; Rust fields retain snake_case. `ship server status` SHALL print one health JSON line on stdout only on success, and SHALL never start a server.
+A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing `service` equal to `ship`, `protocol_version` equal to 16, informational string `version`, and `log`, the path of the log part the server is writing. Health response JSON field names SHALL use snake case. `ship server status` SHALL print one health JSON line on stdout only on success, and SHALL never start a server.
 
 #### Scenario: Compatible health
 - **WHEN** `ship server status` contacts a compatible server
@@ -29,7 +29,7 @@ The current client SHALL validate service/protocol compatibility before any othe
 - **THEN** the client reports contextual failure, emits no success result and exits 1
 
 #### Scenario: Client from an earlier protocol
-- **WHEN** a client built for protocol version 1 to 13 validates health from a server reporting protocol version 14
+- **WHEN** a client built for protocol version 1 to 15 validates health from a server reporting protocol version 16
 - **THEN** the client reports the incompatible protocol version and exits 1 without attaching
 
 #### Scenario: Already-built protocol-7 explicit ordinary command
@@ -193,7 +193,7 @@ Middleware request duration SHALL measure time until the response is ready, not 
 - **AND** an unrelated `x-ship-*` header is not recorded
 
 ### Requirement: Error bodies
-An HTTP error response's body SHALL be one error object. An internal error SHALL have `source` equal to `internal`, `message`, and `type` with the error's `kind` and, for kinds that carry it, `data`. It MAY have `data` and `causedBy`, the error it wraps as a nested error object. An external error SHALL have `source` equal to `external`, `code` shaped like `type`, `error`, a text snapshot of the foreign error, and optional `data`. Keys SHALL use camelCase and kinds SHALL use snake_case.
+An HTTP error response's body SHALL be one error object. An internal error SHALL have `source` equal to `internal`, `message`, and `type` with the error's `kind` and, for kinds that carry it, `data`. It MAY have `data` and `caused_by`, the error it wraps as a nested error object. An external error SHALL have `source` equal to `external`, `code` shaped like `type`, `error`, a text snapshot of the foreign error, and optional `data`. Keys and kinds SHALL use snake case.
 
 #### Scenario: Missing pane over HTTP
 - **WHEN** a client requests a pane that doesn't exist
@@ -201,7 +201,7 @@ An HTTP error response's body SHALL be one error object. An internal error SHALL
 
 #### Scenario: Error with a cause
 - **WHEN** a request fails with an error that wraps another
-- **THEN** the wrapped error appears under `causedBy` as its own object
+- **THEN** the wrapped error appears under `caused_by` as its own object
 
 ### Requirement: CLI error line
 When a `ship` command other than `ship config check` fails, it SHALL print its error as one error object, as in Error bodies, on a single line that is the last line on stderr, write nothing to stdout, and exit 1. Log lines MAY come before it. It SHALL print the same line whether or not stderr is a terminal. Usage errors that the argument parser reports SHALL keep their text and exit 2, and `--help` and `--version` SHALL behave as before.

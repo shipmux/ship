@@ -111,12 +111,12 @@ On startup, before it accepts any connection, the server SHALL rebuild the saved
 - **THEN** `ship tab list` shows the same IDs, names, nesting, proportions and zoom
 
 #### Scenario: Pane settings come back
-- **WHEN** a pane with `exitBehavior: keep` and `scrollbackBytes: 50000000` is saved and the server restarts
+- **WHEN** a pane with `exit_behavior: keep` and `scrollback_bytes: 50000000` is saved and the server restarts
 - **THEN** the restored pane, a fresh shell, shows the same two values
 
 #### Scenario: Saved before pane settings existed
 - **WHEN** a saved file from before exit behavior and per-pane history size is restored
-- **THEN** its panes get `exitBehavior: close` and `scrollbackBytes: 10000000`, the built-in defaults
+- **THEN** its panes get `exit_behavior: close` and `scrollback_bytes: 10000000`, the built-in defaults
 
 #### Scenario: Reconnecting client
 - **WHEN** a client stays open while the server stops and starts again
