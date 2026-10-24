@@ -75,7 +75,7 @@ jobs:
       - run: rustup toolchain install
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
-          version: 0.16.0
+          version: 0.17.0
           use-cache: false
       # Noto covers the symbols claude draws that JetBrains Mono lacks (⏵⏵ before "don't ask on", its
       # spinners), which otherwise render as boxes. pi warns on screen when it can't find fd (it accepts

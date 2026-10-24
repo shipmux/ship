@@ -129,7 +129,6 @@ impl Widget for &mut TerminalWidget<'_, '_, '_> {
         }
 
         // Reused across cells, so filling the buffer doesn't allocate per cell.
-        let mut chars = Vec::new();
         let mut symbol = String::new();
         let mut row_idx: u16 = 0;
         while let Some(row) = row_iteration.next() {
@@ -159,13 +158,8 @@ impl Widget for &mut TerminalWidget<'_, '_, '_> {
                     break;
                 }
 
-                symbol.clear();
-                if let Ok(len @ 1..) = cell.graphemes_len() {
-                    chars.resize(len, '\0');
-                    if cell.graphemes_buf(&mut chars).is_ok() {
-                        symbol.extend(&chars);
-                    }
-                }
+                // Leaves `symbol` empty on error or for a cell without text.
+                cell.graphemes_utf8(&mut symbol).ok();
                 if symbol.is_empty() {
                     symbol.push(' ');
                 }

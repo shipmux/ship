@@ -88,7 +88,7 @@ Linux and macOS are the priority platforms. Windows is best effort.
 There are no releases yet, so you'll need to build from source. You need:
 
 - a recent stable [Rust toolchain](https://www.rust-lang.org/tools/install)
-- [Zig](https://ziglang.org/download/) 0.16 on your `PATH`, to build Ghostty's terminal library
+- [Zig](https://ziglang.org/download/) 0.17 on your `PATH`, to build Ghostty's terminal library
 - `git` and a network connection on the first build, which fetches Ghostty's source
 - on Linux, `pkg-config` and ALSA's development headers for sound (`libasound2-dev` on Debian and Ubuntu, `alsa-lib-devel` on Fedora)
 

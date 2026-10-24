@@ -174,7 +174,8 @@ pub async fn serve(
     });
     tracing::info!(%address, pid = process::id(), protocol_version = ship_core::PROTOCOL_VERSION, config = %config.display(), save = %save.display(), restore, "server listening");
     // Ghostty drops its own logs unless given a logger.
-    if let Err(error) = libghostty_vt::set_logger(Some(Box::new(TracingLogger))) {
+    // SAFETY: No pane exists yet, so no other thread is inside libghostty.
+    if let Err(error) = unsafe { libghostty_vt::set_logger(Some(Box::new(TracingLogger))) } {
         tracing::warn!("cannot route Ghostty's logs: {error}");
     }
     // Axum awaits shutdown directly. This channel only observes its result so
