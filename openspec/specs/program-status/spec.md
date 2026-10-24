@@ -50,11 +50,15 @@ A pane SHALL keep at most 64 status records. A report that would add a 65th SHAL
 - **THEN** the pane keeps the last 64 and not the first
 
 ### Requirement: Clean text
-A report SHALL be dropped when its decoded `title` or `msg` holds a control character, when its `app` falls outside the protocol's character set, or when a field exceeds the protocol's limits: `app` 32 bytes, `title` 192, `msg` 2048 and `id` 128. Bidirectional formatting characters SHALL be removed from `title` and `msg` before a record is kept.
+A report SHALL be dropped when its decoded `title` or `msg` holds a control character, when its `app` falls outside the protocol's character set, or when a field exceeds the protocol's limits: `app` 32 bytes, `title` 192, `msg` 2048 and `id` 128. Bidirectional formatting characters SHALL be removed from `title` and `msg` before a record is kept. An ESC ends a report as it ends any OSC string, and the fields before it apply.
 
-#### Scenario: Escapes in a report
-- **WHEN** a program reports with an `app` containing an escape sequence, or a base64 `msg` that decodes to text containing ESC
+#### Scenario: Escape in decoded text
+- **WHEN** a program reports a base64 `msg` that decodes to text containing ESC
 - **THEN** the pane's records are unchanged
+
+#### Scenario: Escape inside a report
+- **WHEN** a program writes an ESC partway through a report, as in `state=done:app=a` then `ESC[31m` then `b:id=e1`
+- **THEN** the report ends at the ESC as any OSC string does, and the root record becomes `done` with `app` `a`
 
 #### Scenario: Bidirectional override
 - **WHEN** a program reports a `msg` containing U+202E

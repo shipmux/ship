@@ -25,6 +25,7 @@ This copy keeps all five. Two edits differ from the experiment copy:
 
 - `Cargo.toml` names libghostty-rs by git rev instead of `"0.2.1"` plus the experiment's workspace `[patch.crates-io]`: `libghostty-vt = { git = "https://github.com/uzaaft/libghostty-rs", rev = "8953a740bc378cec3e07e1f6ca949f0595eab19b" }`. That's the checkout the experiment built against, and the tip of upstream `master` on 2026-10-06.
 - On 2026-10-15 the rev moved to `d2036baeb605d31d09a9e2ba6d0c923e04c34d54` (upstream `master` on 2026-10-09). Its Ghostty no longer links Zig's `std.Io.Threaded`, whose 256 KiB per-thread signal stack cost every Ship thread about 270 KB. The clipboard-write callback in `src/session.rs` now returns `()` instead of a `Result`, matching the new API.
+- On 2026-10-24 the rev moved to `9ede35b8ea94a55ed3608408d67e102883129f1e` (upstream `master` that day) for its program status and semantic prompt callbacks. Its API returns titles, directories and clipboard MIME types as bytes, and `set_logger` became `unsafe`; change 24 covers the wrapper's side.
 - rustfmt reformatted `tests/terminal_move_after_callback.rs` and `tests/widget_render.rs`, both adapted by change 5. No test logic changed.
 
 All 80 wrapper tests pass against both revs.
@@ -92,6 +93,12 @@ All 80 wrapper tests pass after change 21, run in place with `cargo test -p rata
 22. A key or paste marks the terminal changed only when it scrolled the view back to the bottom or cleared a selection. It had marked it changed every time, so with `render_on_request` every keystroke woke Ship's pane task for a render that showed nothing new, and the echo arriving moments later waited behind that render.
 23. With `render_on_request`, a change found while answering a render request no longer also wakes the caller, since that render already shows it. Each keystroke's echo was written by the render request it triggered, so the change woke Ship's pane task again for a second render that showed nothing new.
 
+Made for Ship on 2026-10-24:
+
+24. Program status reports, prompt starts and resets come from libghostty's `on_program_status` and `on_semantic_prompt` callbacks, pushed with the other callback events. `src/program_status.rs` had been a byte scanner run on each batch before `vt_write`, standing in until libghostty-rs exposed them; it now only copies each report into the owned `ProgramStatus`, which outlives the callback. Ghostty answers the `OSC 7501 ; ?` support query itself through the PTY write callback, and reports RIS as a `clear` with an empty id, so `SessionEvent` is unchanged. Titles and directories that aren't UTF-8 are skipped, as `title()` and `pwd()` rejected them before. `widget.rs` reads each cell with `graphemes_utf8` into the reused `String`, replacing change 20's `Vec<char>`.
+
+All 80 wrapper tests pass after change 24, run in place with `cargo test -p ratatui-ghostty`; the pre-existing crash-reproduction test remains ignored.
+
 No crates.io release works yet. `libghostty-vt` 0.2.1 and 0.2.2 come from the `release/0.2.x` branch, which lacks `Terminal::new(cols, rows)` and builds Ghostty `a887df42`, which needs Zig 0.15.2. When a release ships Ghostty `22d13172` or later, swap the git dependency for that version.
 
 ## License
@@ -100,4 +107,4 @@ The published manifest declares **MIT**, but neither the package nor the recorde
 
 ## Native Ghostty
 
-`libghostty-vt-sys`'s build script at `d2036bae` clones Ghostty commit `3425025e585a3403340d4dc6d65132f42e05e605` into Cargo's `OUT_DIR` and builds it with whatever `zig` is on `PATH`. That commit declares `minimum_zig_version = "0.16.0"`, and `requireZig` also needs the same major.minor version, so 0.15 and 0.17 are rejected. Building `ship-server` therefore needs Zig 0.16 and network access.
+`libghostty-vt-sys`'s build script at `9ede35b8` clones Ghostty commit `521cf2c5d30bd48028ca61546c64e7913764073d` into Cargo's `OUT_DIR` and builds it with `zig` from `PATH`, or the command in `ZIG` when set. That commit declares `minimum_zig_version = "0.17.0"`, and `requireZig` also needs the same major.minor version. Building `ship-server` therefore needs Zig 0.17 and network access.

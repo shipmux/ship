@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::io::{self, Read as IoRead, Write};
 use std::rc::Rc;
+use std::str::from_utf8;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, mpsc};
 use std::thread;
@@ -22,7 +23,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent,
 
 use crate::colors::{HostColors, Rgb};
 use crate::input::{self, IntoKeyInput, IntoMouseInput, KeyInput, MouseInput};
-use crate::program_status::{Found, ProgramState, ProgramStatus, QUERY_REPLY, Scanner, Terminator};
+use crate::program_status::ProgramStatus;
 use crate::widget::{CursorState, TerminalWidget};
 use crossbeam_channel::{Receiver, Sender};
 use libghostty_vt::fmt::{Format, Formatter, FormatterOptions};
@@ -34,7 +35,7 @@ use libghostty_vt::selection::gesture::{
 };
 use libghostty_vt::selection::{FormatOptions, Selection};
 use libghostty_vt::terminal::{
-    ClipboardLocation, ColorScheme, CursorStyle, Mode, ScrollViewport, Terminal,
+    ClipboardLocation, ColorScheme, CursorStyle, Mode, ScrollViewport, SemanticPromptKind, Terminal,
 };
 use libghostty_vt::terminal::{Point, PointCoordinate};
 use libghostty_vt::{key, mouse};
@@ -747,33 +748,6 @@ fn surface(x: i32, y: i32) -> (f64, f64) {
 }
 
 impl<'a> SessionState<'a> {
-    fn found(&mut self, found: Found) {
-        let event = match found {
-            Found::Query(terminator) => {
-                let mut writer = self.writer.borrow_mut();
-                let end = match terminator {
-                    Terminator::Bel => "\x07",
-                    Terminator::St => "\x1b\\",
-                };
-                write!(writer, "\x1b]7501;{QUERY_REPLY}{end}").ok();
-                writer.flush().ok();
-                return;
-            }
-            Found::Report(report) => SessionEvent::ProgramStatus(report),
-            Found::PromptStart => SessionEvent::PromptStart,
-            Found::Reset => SessionEvent::ProgramStatus(ProgramStatus {
-                state: ProgramState::Clear,
-                kind: None,
-                progress: None,
-                id: String::new(),
-                app: None,
-                title: None,
-                message: None,
-            }),
-        };
-        self.events.borrow_mut().push(event);
-    }
-
     fn geometry(&self) -> Geometry {
         Geometry {
             columns: u32::from(self.cols),
@@ -1133,10 +1107,12 @@ fn session_thread(
     terminal.on_title_changed({
         let events = Rc::clone(&events_local);
         move |term: &Terminal| {
-            if let Ok(t) = term.title() {
+            if let Ok(t) = term.title()
+                && let Ok(t) = from_utf8(t)
+            {
                 events
                     .borrow_mut()
-                    .push(SessionEvent::TitleChanged(t.to_string()));
+                    .push(SessionEvent::TitleChanged(t.to_owned()));
             }
         }
     })?;
@@ -1144,10 +1120,12 @@ fn session_thread(
     terminal.on_pwd_changed({
         let events = Rc::clone(&events_local);
         move |term: &Terminal| {
-            if let Ok(pwd) = term.pwd() {
+            if let Ok(pwd) = term.pwd()
+                && let Ok(pwd) = from_utf8(pwd)
+            {
                 events
                     .borrow_mut()
-                    .push(SessionEvent::CwdChanged(pwd.to_string()));
+                    .push(SessionEvent::CwdChanged(pwd.to_owned()));
             }
         }
     })?;
@@ -1159,10 +1137,32 @@ fn session_thread(
             if write.location() == ClipboardLocation::Standard
                 && let Some(text) = write
                     .contents()
-                    .find(|content| content.mime.starts_with("text/plain"))
+                    .find(|content| content.mime.starts_with(b"text/plain"))
             {
                 let text = String::from_utf8_lossy(text.data).into_owned();
                 events.borrow_mut().push(SessionEvent::ClipboardWrite(text));
+            }
+        }
+    })?;
+
+    // Ghostty answers the support query through the pty write callback while
+    // this is set, and reports RIS as a clear with an empty id.
+    terminal.on_program_status({
+        let events = Rc::clone(&events_local);
+        move |_, report| {
+            if let Some(report) = ProgramStatus::copy(report) {
+                events
+                    .borrow_mut()
+                    .push(SessionEvent::ProgramStatus(report));
+            }
+        }
+    })?;
+
+    terminal.on_semantic_prompt({
+        let events = Rc::clone(&events_local);
+        move |_, event| {
+            if let Ok(SemanticPromptKind::PromptStart) = event.kind() {
+                events.borrow_mut().push(SessionEvent::PromptStart);
             }
         }
     })?;
@@ -1253,15 +1253,12 @@ fn session_thread(
     // since the last render.
     let mut stale = false;
     let mut batch = Vec::new();
-    let mut scanner = Scanner::default();
     let mut woke = None;
     loop {
         // Every pass writes the waiting output first, so a command sees all
         // output read before it, like the modes that change how keys encode.
         pending.take(&mut batch);
         if !batch.is_empty() {
-            // Answer queries before libghostty can answer DA1 in this batch.
-            scanner.scan(&batch, |found| state.found(found));
             state.terminal.vt_write(&batch);
             batch.clear();
             needs_render = true;

@@ -11,7 +11,7 @@ Ship is a work in progress and has no releases yet. The [README](../../README.md
 
 ## Install
 
-There are no releases yet, so Ship builds from source. You need a recent stable [Rust toolchain](https://www.rust-lang.org/tools/install), [Zig](https://ziglang.org/download/) 0.16 on your `PATH`, and `git` with a network connection for the first build, which fetches Ghostty's source. On Linux you also need `pkg-config` and ALSA's development headers for sound (`libasound2-dev` on Debian and Ubuntu, `alsa-lib-devel` on Fedora).
+There are no releases yet, so Ship builds from source. You need a recent stable [Rust toolchain](https://www.rust-lang.org/tools/install), [Zig](https://ziglang.org/download/) 0.17 on your `PATH`, and `git` with a network connection for the first build, which fetches Ghostty's source. On Linux you also need `pkg-config` and ALSA's development headers for sound (`libasound2-dev` on Debian and Ubuntu, `alsa-lib-devel` on Fedora).
 
 ```sh
 git clone https://github.com/shipmux/ship.git
