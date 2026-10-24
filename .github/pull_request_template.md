@@ -10,7 +10,7 @@ Worth knowing:
 What the reviewer must not miss, one bullet each. Delete what doesn't apply.
 -->
 
-- **Breaking:** <!-- changed commands, routes, wire types; protocolVersion -->
+- **Breaking:** <!-- changed commands, routes, wire types; protocol_version -->
 - <!-- open decisions, workarounds and their tracking issues -->
 - <!-- platforms not checked: Linux unverified, Windows unverified -->
 
