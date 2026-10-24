@@ -31,4 +31,6 @@ Run `ship` on the other machine once first so its server is up. Passing `--serve
 
 The server also refuses web pages and proxies, so opening it in a browser or putting it behind a proxy such as Tailscale Serve or Caddy won't work. Use an SSH tunnel to reach it from elsewhere.
 
+The server has no login yet. Anything running on the server's machine can drive it, including programs run by other user accounts, and so can anyone who reaches it through a proxy that rewrites the address to `localhost`, as nginx does by default. Only run Ship on machines whose users you trust.
+
 Sounds and clipboard copies happen on the machine you're sitting at. Through a tunnel, `ship server stop` stops the server but may report that it's still running, because the tunnel keeps accepting connections after the server is gone.

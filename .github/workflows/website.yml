@@ -111,6 +111,7 @@ jobs:
           path: |
             ${{ runner.temp }}/demo/*.webm
             ${{ runner.temp }}/demo/*.png
+            ${{ runner.temp }}/demo/*.gif
           if-no-files-found: ignore
 
   # One Astro build per docs version, merged into a single folder for Pages.
@@ -150,7 +151,7 @@ jobs:
         working-directory: website
         run: |
           mkdir -p dist/demo
-          for f in waterline.webm waterline.png relay.webm relay.png; do
+          for f in waterline.webm waterline.png waterline.gif relay.webm relay.png; do
             if [ -f "$RUNNER_TEMP/demo/$f" ]; then
               cp "$RUNNER_TEMP/demo/$f" dist/demo/
             elif ! curl -fsSLo "dist/demo/$f" "$SHIP_SITE_URL/demo/$f"; then

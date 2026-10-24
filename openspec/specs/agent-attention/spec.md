@@ -40,11 +40,15 @@ Each display state SHALL have an icon distinct in both shape and color: blocked 
 - **THEN** its row's `icon` token and its tab show a red `▲`
 
 ### Requirement: Tab rollup
-A tab row SHALL show the icon of the highest-ranked display state among its own panes and all its descendant tabs, ranking `blocked` and `error` first, then `unseen`, `working` and `idle`. A tab with no display states beneath it SHALL show no icon. The icon SHALL sit in a fixed column at the row's left edge, ahead of the indent and fold marker, in line with the agent entries' icons.
+A tab row SHALL show the icon of the highest-ranked display state among its own panes and all its descendant tabs, ranking `error` first, then `blocked`, `unseen`, `working` and `idle`. A tab with no display states beneath it SHALL show no icon. The icon SHALL sit in a fixed column at the row's left edge, ahead of the indent and fold marker, in line with the agent entries' icons.
 
 #### Scenario: Blocked inside a folded tab
 - **WHEN** a pane two levels down in a folded tab is `blocked` and a sibling pane is `working`
 - **THEN** the folded tab's row shows the blocked icon
+
+#### Scenario: Error and blocked in one tab
+- **WHEN** a tab holds a `blocked` pane and, later in tree order, an `error` pane
+- **THEN** the tab's row shows the error icon
 
 #### Scenario: Nested and long labels
 - **WHEN** a top-level tab and a tab two levels down with a long label both show icons
@@ -76,7 +80,7 @@ Each entry SHALL be drawn from the configured lines of tokens (see config-file's
 - **THEN** the entry is one line holding the icon and the pane's label
 
 ### Requirement: Jump to what needs the user
-`client.agents.next` SHALL go through the panes that need the user, `blocked` and `error` ones first and then `unseen` ones, in agent list order. It SHALL select the first of them after the selected pane in that order, wrapping to the first when the selected pane is the last or isn't one of them. With none, it SHALL go through every listed agent the same way, and with no agents it SHALL do nothing. It SHALL take its turn in input order like other selection-changing actions.
+`client.agents.next` SHALL go through the panes that need the user, `error` and `blocked` ones first and then `unseen` ones, in agent list order. It SHALL select the first of them after the selected pane in that order, wrapping to the first when the selected pane is the last or isn't one of them. With none, it SHALL go through every listed agent the same way, and with no agents it SHALL do nothing. It SHALL take its turn in input order like other selection-changing actions.
 
 #### Scenario: Blocked, then unseen
 - **WHEN** one agent is blocked in another tab, another finished unseen, and the user presses `alt-a` twice
