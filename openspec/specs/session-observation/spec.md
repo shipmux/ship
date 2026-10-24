@@ -159,11 +159,7 @@ Fold state SHALL be independent for each client. `client.tab.collapse` and `clie
 - **THEN** `j` moves the selection to the next visible row, `h` and `l` fold/unfold that row, and `esc` returns to normal on the same selection without Enter
 
 ### Requirement: Published pane geometry
-The server SHALL publish each viewed tab's size and visible pane frame/content rectangles in layout order, relative to the tab area, as optional `geometry` on that tab recursively. Unviewed tabs SHALL omit geometry; a viewed empty tab SHALL include its size and an empty pane map. `Replica` SHALL NOT contain a parallel geometry map. Geometry SHALL be derived from source layouts and current viewers when publishing, not independently mutable or cached server state. Tab list/get/create/set/move responses SHALL use the same published-tab semantics. PTY sizing SHALL consume the committed published tab geometry. Clients SHALL render and resolve neighbors from that geometry rather than compute a second layout. Geometry SHALL change with shared layout edits and reported viewing areas.
-
-#### Scenario: Inspect a split tab through observation
-- **WHEN** a caller observes a viewed tab after splitting it
-- **THEN** the published geometry describes the same content sizes that its visible programs receive
+The server SHALL publish each viewed tab's size and visible pane frame/content rectangles in layout order, relative to the tab area, as optional `geometry` on that tab recursively. Unviewed tabs SHALL omit geometry; a viewed empty tab SHALL include its size and an empty pane map. `Replica` SHALL NOT contain a parallel geometry map.
 
 #### Scenario: Viewed child under unviewed ancestors
 - **WHEN** a viewer selects a pane in the grandchild of an unviewed tab
@@ -172,6 +168,20 @@ The server SHALL publish each viewed tab's size and visible pane frame/content r
 #### Scenario: Last viewer leaves a tab
 - **WHEN** the last viewer of a tab selects another tab or detaches
 - **THEN** subsequent publications and tab inspection omit that tab's geometry while its programs retain their last terminal sizes
+
+### Requirement: Geometry publication
+Geometry SHALL be derived from source layouts and current viewers when publishing, not independently mutable or cached server state. Tab list/get/create/set/move responses SHALL use the same published-tab semantics. Geometry SHALL change with shared layout edits and reported viewing areas.
+
+#### Scenario: Geometry follows viewing areas
+- **WHEN** a viewed tab's reported viewing area changes
+- **THEN** its published geometry changes with that area, and tab list/get/create/set/move responses use the same published-tab semantics
+
+### Requirement: Geometry consumers
+PTY sizing SHALL consume the committed published tab geometry. Clients SHALL render and resolve neighbors from that geometry rather than compute a second layout.
+
+#### Scenario: Inspect a split tab through observation
+- **WHEN** a caller observes a viewed tab after splitting it
+- **THEN** the published geometry describes the same content sizes that its visible programs receive
 
 ### Requirement: Directional pane focus
 `client.pane.focus` SHALL select a pane sharing the requested side of the selected pane's frame. Multiple candidates SHALL resolve to the one this client selected most recently, else the nearest center, with remaining ties resolved by layout order. Pane-selection history SHALL NOT be sent to the server.

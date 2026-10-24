@@ -104,7 +104,7 @@ Before a server's first save replaces an existing saved file, the server SHALL c
 - **THEN** `<port>.json.prev` holds the file as it was before the first of those saves
 
 ### Requirement: Restore on startup
-On startup, before it accepts any connection, the server SHALL rebuild the saved tabs with the same IDs, names, structure, proportions, zoom and each pane's `right_click_passthrough`, `exit_behavior` and `scrollback_bytes`. Each restored pane SHALL run `[server.defaults.pane] shell`, else the login shell, as configured at restore time, in its saved directory, which SHALL be its starting directory for `ship pane get`. It SHALL NOT run the pane's earlier program. A missing saved file SHALL start with no restored tabs.
+On startup, before it accepts any connection, the server SHALL rebuild the saved tabs with the same IDs, names, structure, proportions, zoom and each pane's `right_click_passthrough`, `exit_behavior` and `scrollback_bytes`. A missing saved file SHALL start with no restored tabs.
 
 #### Scenario: Structure comes back
 - **WHEN** a server with nested tabs, named tabs and panes, custom proportions and a zoomed pane restarts
@@ -118,13 +118,16 @@ On startup, before it accepts any connection, the server SHALL rebuild the saved
 - **WHEN** a saved file from before exit behavior and per-pane history size is restored
 - **THEN** its panes get `exitBehavior: close` and `scrollbackBytes: 10000000`, the built-in defaults
 
-#### Scenario: Program not rerun
-- **WHEN** a pane running `nvim foo.rs` in `~/projects/ship` is restored
-- **THEN** the pane runs the configured shell in `~/projects/ship` and `nvim` is not started
-
 #### Scenario: Reconnecting client
 - **WHEN** a client stays open while the server stops and starts again
 - **THEN** after reconnecting it keeps the tab or pane it had selected
+
+### Requirement: Restored pane programs
+Each restored pane SHALL run `[server.defaults.pane] shell`, else the login shell, as configured at restore time, in its saved directory, which SHALL be its starting directory for `ship pane get`. It SHALL NOT run the pane's earlier program.
+
+#### Scenario: Program not rerun
+- **WHEN** a pane running `nvim foo.rs` in `~/projects/ship` is restored
+- **THEN** the pane runs the configured shell in `~/projects/ship` and `nvim` is not started
 
 ### Requirement: Starting without restoring
 `ship server --no-restore` SHALL start without reading the saved file. Its help SHALL say that the saved tabs are replaced on the first save and kept as `<port>.json.prev`. Every server launched automatically SHALL restore.
