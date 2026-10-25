@@ -116,7 +116,11 @@ pub(crate) async fn attach(
         .fuse()
         .map(move |event| {
             let _ = &guard;
-            serde_json::to_string(&event).map(|json| Event::default().data(json))
+            let _encode = tracing::debug_span!("encode").entered();
+            serde_json::to_string(&event).map(|json| {
+                tracing::debug!(bytes = json.len(), "event encoded");
+                Event::default().data(json)
+            })
         });
     Ok(Sse::new(events)
         .keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))

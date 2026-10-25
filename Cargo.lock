@@ -2715,6 +2715,7 @@ dependencies = [
  "libghostty-vt",
  "portable-pty",
  "ratatui",
+ "tracing",
 ]
 
 [[package]]

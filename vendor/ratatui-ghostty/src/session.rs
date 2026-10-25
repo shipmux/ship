@@ -946,6 +946,7 @@ impl<'a> SessionState<'a> {
                 if let Ok(data) = input::encode_key(&mut self.key_encoder, &input, &self.terminal)
                     && !data.is_empty()
                 {
+                    let _write = tracing::debug_span!("pty write", bytes = data.len()).entered();
                     let mut w = self.writer.borrow_mut();
                     let _ = w.write_all(&data);
                     let _ = w.flush();
@@ -1211,6 +1212,7 @@ fn session_thread(
                     match reader.read(&mut buf) {
                         Ok(0) | Err(_) => break,
                         Ok(n) => {
+                            tracing::debug!(bytes = n, "pty read");
                             let mut queue = pending.lock();
                             if queue.closed {
                                 break;
@@ -1259,6 +1261,7 @@ fn session_thread(
         // output read before it, like the modes that change how keys encode.
         pending.take(&mut batch);
         if !batch.is_empty() {
+            let _parse = tracing::debug_span!("vt_write", bytes = batch.len()).entered();
             state.terminal.vt_write(&batch);
             batch.clear();
             needs_render = true;

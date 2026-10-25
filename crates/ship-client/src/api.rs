@@ -224,12 +224,18 @@ impl Client {
         let response = self
             .stream(Method::POST, "/api/v0/attach", Some(request))
             .await?;
-        Ok(SseByteStream::new(response.bytes_stream())
+        let body = response
+            .bytes_stream()
+            .inspect_ok(|chunk| tracing::debug!(bytes = chunk.len(), "attach chunk"));
+        Ok(SseByteStream::new(body)
             .try_filter_map(|block| ready(Ok(block.data)))
             .map(|data| match data {
-                Ok(data) => serde_json::from_str(&data).map_err(
-                    |error| err!(Serialization, "cannot decode attach event", @external: error),
-                ),
+                Ok(data) => {
+                    let _decode = tracing::debug_span!("decode", bytes = data.len()).entered();
+                    serde_json::from_str(&data).map_err(
+                        |error| err!(Serialization, "cannot decode attach event", @external: error),
+                    )
+                }
                 Err(sse_stream::Error::Body(error)) => match error.downcast::<reqwest::Error>() {
                     Ok(error) => Err(http_error(*error)),
                     Err(error) => {
