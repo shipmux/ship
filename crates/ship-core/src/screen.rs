@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 /// A pane's visible grid at one moment. Full snapshot; zstd on the stream
 /// supplies the savings between frames.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Screen {
     pub size: Size,
     /// `size.rows` rows, top to bottom.
@@ -26,7 +26,7 @@ pub(crate) fn is_false(value: &bool) -> bool {
 
 /// Rows above the bottom, out of the history's rows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Scrolled {
     pub offset: u32,
     pub history: u32,
@@ -35,7 +35,7 @@ pub struct Scrolled {
 /// One row of cells as text plus style runs. Cells past `text` are blank,
 /// with the default style; an empty field is omitted on the wire.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Row {
     /// One char per cell, through the last cell that isn't a default blank. A
     /// wide character's trailing cell is its own blank.
@@ -51,7 +51,7 @@ pub struct Row {
 
 /// Adjacent cells sharing a style. Default-valued fields are omitted.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Run {
     pub cells: u16,
     #[serde(default, skip_serializing_if = "Color::is_default")]
@@ -76,14 +76,14 @@ impl Run {
 /// A cell's grapheme of more than one char, like a combining mark or a ZWJ
 /// emoji piece.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Multi {
     pub col: u16,
     pub symbol: String,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum Color {
     /// The viewing terminal's own default color.
     #[default]
@@ -100,7 +100,7 @@ impl Color {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum Attr {
     Bold,
     Dim,
@@ -114,7 +114,7 @@ pub enum Attr {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Cursor {
     pub x: u16,
     pub y: u16,
@@ -123,7 +123,7 @@ pub struct Cursor {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum CursorShape {
     Block,
     Underline,

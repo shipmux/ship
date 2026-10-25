@@ -8,7 +8,7 @@ use utoipa::ToSchema;
 use crate::{id::IdOf, model::Pane, prelude::*};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "snake_case")]
 #[expect(
     clippy::large_enum_variant,
     reason = "keep pane leaves inline; the record map pushes Pane past the size heuristic"
@@ -20,7 +20,7 @@ pub enum Layout {
 
 /// First is left or above second, and receives `ratio` of the split area.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Split {
     pub axis: Axis,
     pub ratio: Ratio,
@@ -31,7 +31,7 @@ pub struct Split {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub enum Axis {
     Horizontal,
     Vertical,

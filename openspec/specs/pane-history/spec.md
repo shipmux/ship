@@ -55,7 +55,7 @@ Each pane's history SHALL be limited to its own `scrollback_bytes`, with no line
 
 #### Scenario: Size on create
 - **WHEN** a script runs `ship pane create --scrollback-bytes 50000000`
-- **THEN** `ship pane get` shows `scrollbackBytes: 50000000` for the new pane
+- **THEN** `ship pane get` shows `scrollback_bytes: 50000000` for the new pane
 
 #### Scenario: Lowering drops old history at once
 - **WHEN** a pane has printed `seq 1 700000` and a script runs `ship pane set --pane <id> --scrollback-bytes 1000000`

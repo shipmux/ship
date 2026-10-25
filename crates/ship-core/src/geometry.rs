@@ -11,7 +11,7 @@ use utoipa::{
 use crate::{command::Direction, id::IdOf, model::Pane, screen::Size};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct TabGeometry {
     pub size: Size,
     #[schema(schema_with = panes_schema)]
@@ -19,7 +19,7 @@ pub struct TabGeometry {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct PaneGeometry {
     #[schema(schema_with = rect_schema)]
     pub frame: Rect,

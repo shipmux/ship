@@ -214,7 +214,7 @@ Errors from `send` and `wait` SHALL follow the CLI error line in the `health-exc
 - **THEN** the wait exits 1 with an error saying the server stopped while waiting on the pane
 
 ### Requirement: Send outcome in errors
-On `send --wait`, the outermost error's `message` SHALL be exactly `nothing was sent` for failures before writing, `the input may have been sent` when writing fails, and `the input was sent` for failures after writing, with the specific failure under `causedBy`.
+On `send --wait`, the outermost error's `message` SHALL be exactly `nothing was sent` for failures before writing, `the input may have been sent` when writing fails, and `the input was sent` for failures after writing, with the specific failure under `caused_by`.
 
 #### Scenario: Refused before writing
 - **WHEN** a script runs `send --wait` on a `blocked` pane without `--if blocked`

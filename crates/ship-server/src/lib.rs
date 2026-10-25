@@ -338,7 +338,7 @@ async fn actor_stopped(
 
 /// Stops the state actor, then the relay. The state actor goes first so its
 /// queued commits still publish. Dropping the relay drops the replica watch
-/// sender, which ends every attach stream with `serverShutdown` so Axum's
+/// sender, which ends every attach stream with `server_shutdown` so Axum's
 /// drain can finish. Stopping an actor that already stopped is a no-op.
 /// `wait_for_shutdown_result`, unlike `wait_for_shutdown`, also waits for the
 /// state actor's `on_stop`, which tears down every pane.

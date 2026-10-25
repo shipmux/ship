@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Tab {
     pub id: IdOf<Tab>,
     #[serde(default)]
@@ -31,7 +31,7 @@ pub struct Tab {
 
 /// A leaf running one program in its own terminal. Owns no layout or children.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Pane {
     pub id: IdOf<Pane>,
     #[serde(default)]
@@ -93,7 +93,7 @@ impl ExitBehavior {
 pub const ROOT: &str = "";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct StatusRecord {
     pub state: ReportedState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -119,8 +119,8 @@ pub struct StatusRecord {
     utoipa::ToSchema,
     strum::IntoStaticStr,
 )]
-#[serde(rename_all = "camelCase")]
-#[strum(serialize_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum ReportedState {
     Idle,
     Working,
@@ -140,8 +140,8 @@ pub enum ReportedState {
     strum::IntoStaticStr,
     utoipa::ToSchema,
 )]
-#[serde(rename_all = "camelCase")]
-#[strum(serialize_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum BlockedKind {
     Permission,
     Question,
@@ -155,14 +155,14 @@ impl Pane {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(tag = "state", rename_all = "camelCase")]
+#[serde(tag = "state", rename_all = "snake_case")]
 pub enum PaneStatus {
     Running,
     Exited(ExitStatus),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct ExitStatus {
     pub code: u32,
     /// The signal's name when a signal ended the program.

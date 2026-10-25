@@ -11,7 +11,7 @@ When a command fails, its last stderr line is a JSON error and it exits 1, with 
 if ship pane send --pane "$PANE" "Continue" --key enter --wait 2>ship-error.log; then
   echo "Turn finished"
 else
-  tail -n 1 ship-error.log | jq -r '.message, .causedBy.message'
+  tail -n 1 ship-error.log | jq -r '.message, .caused_by.message'
 fi
 ```
 
@@ -28,6 +28,6 @@ For `send --wait`, the outer `message` tells you whether the input went out:
 - `the input was sent`: don't send it again; read the pane or use `pane wait`.
 - `the input may have been sent`: inspect the pane before deciding whether to retry.
 
-The specific failure is under `causedBy`. Other command errors also have a category, such as `.type.kind` equal to `not_found` for a missing pane.
+The specific failure is under `caused_by`. Other command errors also have a category, such as `.type.kind` equal to `not_found` for a missing pane.
 
 A mistyped flag or invalid argument keeps the argument parser's text and exits 2, not JSON. `ship config check` is another exception: it prints findings as text and exits 1, without an extra error line; a valid config prints nothing and exits 0. `--help` and `--version` still exit 0.
