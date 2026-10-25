@@ -3251,6 +3251,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "etcetera",
+ "libc",
  "nix 0.31.3",
  "reqwest",
  "serde",
