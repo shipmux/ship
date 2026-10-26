@@ -17,6 +17,7 @@ use serde::{
 use ship_core::{
     command::{Command, Direction, pane::PaneCommand},
     config,
+    model::Switch,
     prelude::*,
 };
 
@@ -309,6 +310,12 @@ pub enum ClientPane {
     /// Exchange with the neighbor `focus` would pick, through `server.pane.swap`.
     Swap {
         direction: Direction,
+    },
+    /// Zoom the selected pane (`true`), unzoom its tab (`false`), or flip
+    /// between the two (`"toggle"`), deciding from the rendered tree, through
+    /// `server.tab.set`. Required, so a binding states which it does.
+    Zoom {
+        zoomed: Switch,
     },
 }
 

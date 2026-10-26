@@ -27,7 +27,8 @@ The CLI can do the same things. Panes created from the CLI start in your current
 TAB=$(ship tab create --name work | jq -r .id)
 LEFT=$(ship pane create --tab "$TAB" | jq -r .id)
 RIGHT=$(ship pane create --pane "$LEFT" --direction right -- htop | jq -r .id)
-ship pane zoom --pane "$LEFT"                    # zoom, run again to unzoom
+ship tab set --tab "$TAB" --zoomed "$LEFT"      # zoom
+ship tab set --tab "$TAB" --zoomed               # unzoom
 ship pane swap --pane "$LEFT" --other "$RIGHT"
 ship pane resize --pane "$LEFT" --direction right --amount 5
 ship tab get --tab "$TAB" | jq .layout

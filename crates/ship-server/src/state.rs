@@ -18,7 +18,7 @@ use ship_core::{
     prelude::*,
     protocol::{
         AttachRequest, Attached, CreatePane, CreateTab, MoveTab, NewPane, PaneAt, Replica,
-        ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput, ViewingRecord, ZoomPane,
+        ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput, ViewingRecord,
     },
     screen::Size,
 };
@@ -402,10 +402,6 @@ pub struct Attach {
     pub request: AttachRequest,
 }
 pub struct Detach(pub IdOf<Attachment>);
-pub struct Zoom {
-    pub id: IdOf<Pane>,
-    pub zoom: ZoomPane,
-}
 pub struct Swap {
     pub id: IdOf<Pane>,
     pub swap: SwapPane,
@@ -515,9 +511,18 @@ impl Message<Set<Tab, SetTab>> for ServerState {
         _: &mut Context<Self, Self::Reply>,
     ) -> Self::Reply {
         let tab = tree::tab(&self.tabs, id)?;
-        if let Some(name) = set.name.filter(|name| *name != tab.name) {
+        if let Some(Some(pane)) = set.zoomed
+            && tree::pane_owner(&self.tabs, pane)? != id
+        {
+            return Err(err!(InvalidStructure, "pane {} is not in tab {}", pane, id));
+        }
+        let name = set.name.unwrap_or_else(|| tab.name.clone());
+        let zoomed = set.zoomed.unwrap_or(tab.zoomed);
+        if name != tab.name || zoomed != tab.zoomed {
             self.commit(|tabs, _| {
-                tree::tab_mut(tabs, id)?.name = name;
+                let tab = tree::tab_mut(tabs, id)?;
+                tab.name = name;
+                tab.zoomed = zoomed;
                 Ok(())
             })
             .await?;
@@ -720,34 +725,6 @@ impl Message<Remove<Pane>> for ServerState {
             Ok(())
         })
         .await
-    }
-}
-
-#[named]
-impl Message<Zoom> for ServerState {
-    type Reply = Result<Tab>;
-
-    /// Absent toggles the pane; `false` unzooms its tab and `true` zooms it.
-    /// A request that changes nothing commits nothing. Answers with the tab.
-    async fn handle(
-        &mut self,
-        Zoom { id, zoom }: Zoom,
-        _: &mut Context<Self, Self::Reply>,
-    ) -> Self::Reply {
-        let owner = tree::pane_owner(&self.tabs, id)?;
-        let current = tree::tab(&self.tabs, owner)?.zoomed;
-        let zoomed = match zoom.zoomed.unwrap_or(current != Some(id)) {
-            true => Some(id),
-            false => None,
-        };
-        if zoomed != current {
-            self.commit(|tabs, _| {
-                tree::tab_mut(tabs, owner)?.zoomed = zoomed;
-                Ok(())
-            })
-            .await?;
-        }
-        self.published_tab(owner)
     }
 }
 

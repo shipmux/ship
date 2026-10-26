@@ -181,13 +181,16 @@ pub struct MoveTabBody {
     pub at: MoveTab,
 }
 
-/// PATCH /tabs/{id}: absent leaves the name, null clears it.
+/// PATCH /tabs/{id}: absent leaves a field, null clears it.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct SetTab {
     #[serde(default, with = "double_option")]
     pub name: Option<Option<String>>,
+    /// A pane in this tab fills it; null unzooms.
+    #[serde(default, with = "double_option")]
+    pub zoomed: Option<Option<IdOf<Pane>>>,
 }
 
 /// PATCH /panes/{id}: absent leaves an attribute, only name accepts null.
@@ -213,17 +216,6 @@ fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     deserializer: D,
 ) -> Result<Option<T>, D::Error> {
     T::deserialize(deserializer).map(Some)
-}
-
-/// POST /panes/{id}/zoom body. `{}` toggles; `false` unzooms the pane's tab
-/// and `true` zooms the pane.
-#[serde_with::skip_serializing_none]
-#[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct ZoomPane {
-    #[serde(default, deserialize_with = "present")]
-    #[schema(nullable = false)]
-    pub zoomed: Option<bool>,
 }
 
 /// POST /panes/{id}/swap body: the pane to exchange places with, in the same

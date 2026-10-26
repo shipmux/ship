@@ -17,7 +17,7 @@ use ship_core::{
     prelude::*,
     protocol::{
         CreatePane, CreateTab, MoveTab, MoveTabBody, NewPane, NewTab, PaneAt, ReadPane, ResizePane,
-        ScrollPane, SetPane, SetTab, SwapPane, ZoomPane,
+        ScrollPane, SetPane, SetTab, SwapPane,
     },
     tree::{self, Tabs},
 };
@@ -100,9 +100,9 @@ impl Client {
                 TabCommand::Get(tab::Get { tab }) => {
                     Outcome::Tab(self.get::<Tab>(self.tab_target(tab, scope).await?).await?)
                 }
-                TabCommand::Set(tab::Set { tab, name }) => {
+                TabCommand::Set(tab::Set { tab, name, zoomed }) => {
                     let id = self.tab_target(tab, scope).await?;
-                    Outcome::Tab(self.set::<Tab>(id, &SetTab { name }).await?)
+                    Outcome::Tab(self.set::<Tab>(id, &SetTab { name, zoomed }).await?)
                 }
                 TabCommand::Close(tab::Close { tab }) => {
                     self.remove::<Tab>(self.tab_target(tab, scope).await?)
@@ -260,10 +260,6 @@ impl Client {
                 PaneCommand::Wait(pane::Wait { pane, status }) => {
                     let id = Self::pane_target(pane, scope)?;
                     Outcome::Pane(self.wait(id, Condition::new(status)).await?)
-                }
-                PaneCommand::Zoom(pane::Zoom { pane, zoomed }) => {
-                    let id = Self::pane_target(pane, scope)?;
-                    Outcome::Tab(self.zoom(id, &ZoomPane { zoomed }).await?)
                 }
                 PaneCommand::Swap(pane::Swap { pane, other }) => {
                     let id = Self::pane_target(pane, scope)?;

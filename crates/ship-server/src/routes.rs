@@ -108,7 +108,8 @@ pub(crate) async fn get_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Resul
     responses(
         (status = 200, body = Tab),
         (status = 400, description = "Malformed tab ID or request validation failed", body = AppError),
-        (status = 404, body = AppError),
+        (status = 404, description = "Tab or zoomed pane not found", body = AppError),
+        (status = 422, description = "The zoomed pane is in another tab", body = AppError),
         (status = 503, body = AppError),
     ),
 )]
@@ -232,28 +233,6 @@ pub(crate) async fn set_pane(
 pub(crate) async fn remove_pane(State(app): App, Path(id): Path<IdOf<Pane>>) -> Result<Response> {
     app.state.ask(Remove::<Pane>(id)).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
-}
-
-#[utoipa::path(
-    post,
-    path = "/api/v0/panes/{id}/zoom",
-    operation_id = "zoom_pane",
-    params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
-    request_body = ZoomPane,
-    responses(
-        (status = 200, description = "The pane's tab", body = Tab),
-        (status = 400, description = "Malformed pane ID or request validation failed", body = AppError),
-        (status = 404, body = AppError),
-        (status = 503, body = AppError),
-    ),
-)]
-pub(crate) async fn zoom_pane(
-    State(app): App,
-    Path(id): Path<IdOf<Pane>>,
-    Body(zoom): Body<ZoomPane>,
-) -> Result<Response> {
-    let value = app.state.ask(Zoom { id, zoom }).await?;
-    Ok(Json(value).into_response())
 }
 
 #[utoipa::path(

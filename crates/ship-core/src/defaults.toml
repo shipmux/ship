@@ -36,7 +36,7 @@ popups = false                       # bool; also write notifications as OSC 9 p
 pane = [
   { label = "split right", action = { server.pane.create = { direction = "right", select = true } } },
   { label = "split down", action = { server.pane.create = { direction = "down", select = true } } },
-  { label = "zoom", action = { server.pane.zoom = {} } },
+  { label = "zoom", action = { client.pane.zoom = { zoomed = "toggle" } } },
   { label = "right-click passthrough", action = { server.pane.set = { right_click_passthrough = "toggle" } } },
   { label = "close", action = { server.pane.close = {} } },
 ]
@@ -69,7 +69,7 @@ global = [
 "alt-k"       = { action = { client.pane.focus.direction = "up" } }
 "alt-l"       = { action = { client.pane.focus.direction = "right" } }
 "alt-tab"     = { action = { client.pane.next = {} } }
-"alt-f"       = { action = { server.pane.zoom = {} } }
+"alt-f"       = { action = { client.pane.zoom = { zoomed = "toggle" } } }
 "alt-shift-h" = { action = { client.pane.swap.direction = "left" } }
 "alt-shift-j" = { action = { client.pane.swap.direction = "down" } }
 "alt-shift-k" = { action = { client.pane.swap.direction = "up" } }

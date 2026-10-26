@@ -14,7 +14,7 @@ use ship_core::{
     prelude::*,
     protocol::{
         AttachRequest, CreatePane, CreateTab, InputFrame, MoveTabBody, REVISION_HEADER, ReadPane,
-        ResizePane, ScrollPane, SelectView, SseEvent, SwapPane, ViewInput, ViewingRecord, ZoomPane,
+        ResizePane, ScrollPane, SelectView, SseEvent, SwapPane, ViewInput, ViewingRecord,
     },
     tree::Tabs,
 };
@@ -149,11 +149,6 @@ impl Client {
         let path = format!("{}/{id}/move", Tab::COLLECTION);
         self.request(Method::POST, &path, Some(to), None, StatusCode::OK)
             .await
-    }
-
-    /// Zoom or unzoom the pane; returns its tab.
-    pub async fn zoom(&self, pane: IdOf<Pane>, body: &ZoomPane) -> Result<Tab> {
-        self.pane_edit(pane, "zoom", body).await
     }
 
     /// Exchange the pane with `body.other`; returns their tab.

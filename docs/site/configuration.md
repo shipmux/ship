@@ -109,7 +109,7 @@ Each right-click menu can be replaced with your own list of actions, written lik
 ```toml
 [client.menus]
 pane = [
-  { action = { server.pane.zoom = {} }, label = "fill" },
+  { action = { client.pane.zoom = { zoomed = "toggle" } }, label = "fill" },
   { action = { server.pane.close = {} } },
 ]
 tab = []    # no tab menu

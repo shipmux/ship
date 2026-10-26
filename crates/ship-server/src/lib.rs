@@ -102,7 +102,6 @@ fn api_router() -> OpenApiRouter<AppState> {
         routes::get_pane,
         routes::set_pane,
         routes::remove_pane,
-        routes::zoom_pane,
         routes::swap_pane,
         routes::resize_pane,
         routes::scroll_pane,
