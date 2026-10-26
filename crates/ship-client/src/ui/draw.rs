@@ -170,7 +170,7 @@ fn status_line<'a>(
 /// The pane's name, else its program's title, else its command's file name.
 pub(super) fn pane_label(pane: &Pane) -> &str {
     pane.name
-        .get()
+        .as_deref()
         .or(pane.title.as_deref())
         .or_else(|| {
             let program = Path::new(pane.command.first()?).file_name()?;
@@ -183,7 +183,7 @@ pub(super) fn pane_label(pane: &Pane) -> &str {
 /// that pane's label, else its 1-based `position` among its siblings.
 pub(super) fn tab_label(tab: &Tab, position: usize) -> String {
     tab.name
-        .get()
+        .as_deref()
         .map(str::to_owned)
         .or_else(|| {
             tab.panes().next().map(|pane| {

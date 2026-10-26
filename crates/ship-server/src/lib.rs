@@ -37,9 +37,8 @@ use libghostty_vt::log::{Level, Logger, TracingLogger};
 use ship_core::{
     LogChange, LogFilter,
     geometry::{PaneGeometry, TabGeometry},
-    model::OptionalName,
     prelude::*,
-    protocol::{CreateTab, MoveTab, PaneSpec, Replica, Starter, ViewingRecord},
+    protocol::{CreateTab, MoveTab, NewTab, Replica, Starter, ViewingRecord},
     relay,
 };
 use tokio::{
@@ -72,10 +71,9 @@ pub fn loopback_addr(port: u16) -> Result<SocketAddr> {
 /// Document metadata. Expanding the derive here takes title, version and
 /// description from ship-server's manifest; paths and schemas come from
 /// `routes!`. Schemas reached only through a hand-written `$ref`, such as
-/// `Replica::viewers` or the flattened `PaneSpec` in `CreatePane`, are
-/// registered here.
+/// `Replica::viewers`, are registered here.
 #[derive(OpenApi)]
-#[openapi(components(schemas(ViewingRecord, PaneSpec, TabGeometry, PaneGeometry)))]
+#[openapi(components(schemas(ViewingRecord, TabGeometry, PaneGeometry)))]
 struct ApiDoc;
 
 /// One `.routes(routes!(handler))` per handler. Registrations on the same path
@@ -212,7 +210,7 @@ pub async fn serve(
     // starter tab exists.
     let starter_tab = CreateTab {
         at: MoveTab::top(),
-        name: OptionalName::default(),
+        tab: NewTab::default(),
         starter: Some(Starter::Shell),
         select: None,
     };

@@ -1,7 +1,7 @@
 use std::{fmt, str::FromStr};
 
 use indexmap::IndexMap;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use utoipa::openapi::{Object, ObjectBuilder, Ref};
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
 pub struct Tab {
     pub id: IdOf<Tab>,
     #[serde(default)]
-    pub name: OptionalName,
+    pub name: Option<String>,
     #[schema(schema_with = tabs_schema)]
     pub tabs: Tabs,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -35,7 +35,7 @@ pub struct Tab {
 pub struct Pane {
     pub id: IdOf<Pane>,
     #[serde(default)]
-    pub name: OptionalName,
+    pub name: Option<String>,
     /// The argv the pane started; the shell's path for the default login shell.
     pub command: Vec<String>,
     /// Starting directory.
@@ -258,31 +258,6 @@ impl FromStr for Switch {
                 value
             )),
         }
-    }
-}
-
-/// Optional tab or pane name. Blank or whitespace-only input means none, so
-/// missing, `null`, `""` and `"  "` all deserialize to `None`. The only place
-/// the rule lives.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, utoipa::ToSchema)]
-#[schema(value_type = Option<String>)]
-pub struct OptionalName(Option<String>);
-
-impl OptionalName {
-    pub fn get(&self) -> Option<&str> {
-        self.0.as_deref()
-    }
-}
-
-impl From<Option<String>> for OptionalName {
-    fn from(name: Option<String>) -> Self {
-        Self(name.filter(|name| !name.trim().is_empty()))
-    }
-}
-
-impl<'de> Deserialize<'de> for OptionalName {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Option::<String>::deserialize(deserializer).map(Self::from)
     }
 }
 

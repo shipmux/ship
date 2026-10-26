@@ -134,6 +134,7 @@ pub enum CursorShape {
 
 /// Terminal size in cells. Also the viewer size and tab size.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Size {
     pub cols: u16,
     pub rows: u16,

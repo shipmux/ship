@@ -40,8 +40,8 @@ use ship_core::{
     model::{NodeId, Pane, Tab},
     prelude::*,
     protocol::{
-        AttachRequest, ClipboardText, EndReason, Ended, InputFrame, KeyInput, MoveTab, PasteInput,
-        ResizePane, SelectView, SseEvent, ViewInput,
+        AttachRequest, ClipboardText, EndReason, Ended, InputFrame, KeyInput, MoveTab, MoveTabBody,
+        PasteInput, ResizePane, SelectView, SseEvent, ViewInput,
     },
     screen::{Screen, Size},
     tree::{self, Tabs},
@@ -623,7 +623,10 @@ impl Local {
                     self.sidebar.tabs.fold(parent, false);
                 }
                 Turn::Wait(Box::pin(async move {
-                    match client.move_tab(moving.tab, &moving.to).await {
+                    match client
+                        .move_tab(moving.tab, &MoveTabBody { at: moving.to })
+                        .await
+                    {
                         Err(error)
                             if matches!(
                                 error.code(),

@@ -13,7 +13,7 @@ use ship_core::{
     model::{Pane, Tab},
     prelude::*,
     protocol::{
-        AttachRequest, CreatePane, CreateTab, InputFrame, MoveTab, REVISION_HEADER, ReadPane,
+        AttachRequest, CreatePane, CreateTab, InputFrame, MoveTabBody, REVISION_HEADER, ReadPane,
         ResizePane, ScrollPane, SelectView, SseEvent, SwapPane, ViewInput, ViewingRecord, ZoomPane,
     },
     tree::Tabs,
@@ -145,7 +145,7 @@ impl Client {
             .await
     }
 
-    pub async fn move_tab(&self, id: IdOf<Tab>, to: &MoveTab) -> Result<Tab> {
+    pub async fn move_tab(&self, id: IdOf<Tab>, to: &MoveTabBody) -> Result<Tab> {
         let path = format!("{}/{id}/move", Tab::COLLECTION);
         self.request(Method::POST, &path, Some(to), None, StatusCode::OK)
             .await

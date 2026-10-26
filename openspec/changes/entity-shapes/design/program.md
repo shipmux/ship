@@ -385,4 +385,5 @@ Each slice is a commit in one pull request (no tiny PRs). Checks use an owned te
 
 ## Deviation log
 
-Empty.
+- Slice 1 also updates `crates/ship-client/src/ui/mod.rs`: sidebar drag moves call `Client::move_tab` directly and need the new `MoveTabBody` wrapper.
+- Slice 1 adds `deny_unknown_fields` to `Size` in `crates/ship-core/src/screen.rs`, since it is nested in attachment request bodies.

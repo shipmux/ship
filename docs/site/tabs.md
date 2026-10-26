@@ -26,7 +26,8 @@ REVIEW=$(ship tab create --name review "$PROJECT" | jq -r .id)   # nested under 
 ship pane create --tab "$REVIEW" --name checks
 ship tab list
 ship tab set --tab "$REVIEW" --name code-review
+ship tab set --tab "$REVIEW" --name   # bring back the automatic label
 ship tab close --tab "$PROJECT"   # closes review and its pane too
 ```
 
-`ship tab move` reorders or reparents a tab. Setting a name to `""` clears it and brings back the automatic label.
+`ship tab move` reorders or reparents a tab. A bare `--name`, as in `ship tab set --tab "$REVIEW" --name`, clears the name and brings back the automatic label. `--name ""` sets an empty label.

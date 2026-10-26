@@ -17,9 +17,8 @@ use ship_core::{
     model::*,
     prelude::*,
     protocol::{
-        AttachRequest, Attached, CreatePane, CreateTab, MoveTab, PaneAt, PaneInput, PaneSpec,
-        Replica, ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput, ViewingRecord,
-        ZoomPane,
+        AttachRequest, Attached, CreatePane, CreateTab, MoveTab, NewPane, PaneAt, Replica,
+        ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput, ViewingRecord, ZoomPane,
     },
     screen::Size,
 };
@@ -119,12 +118,13 @@ impl ServerState {
                     None
                 }
             };
-            let input = PaneInput {
+            let input = NewPane {
                 name: saved.name,
                 right_click_passthrough: Some(saved.right_click_passthrough),
                 exit_behavior: Some(saved.exit_behavior),
                 scrollback_bytes: Some(saved.scrollback_bytes),
-                spec: PaneSpec { command: None, cwd },
+                command: None,
+                cwd,
             };
             match self.start_pane(saved.id, Size::FALLBACK, input) {
                 Ok(pane) => *tab.pane_mut(saved.id).expect("saved pane belongs to tab") = pane,
@@ -325,14 +325,14 @@ impl ServerState {
 
     /// Start before insertion; commit cleanup owns failed-edit teardown.
     /// Settings absent from `input` take `[server.defaults.pane]`, read once.
-    fn start_pane(&mut self, id: IdOf<Pane>, size: Size, input: PaneInput) -> Result<Pane> {
-        let cwd = Self::pane_cwd(input.spec.cwd)?;
+    fn start_pane(&mut self, id: IdOf<Pane>, size: Size, input: NewPane) -> Result<Pane> {
+        let cwd = Self::pane_cwd(input.cwd)?;
         let defaults = self.pane_env.settings().defaults.pane;
         let scrollback_bytes = input.scrollback_bytes.unwrap_or(defaults.scrollback_bytes);
         let Spawned { runtime, command } = pane::spawn(
             Launch {
                 pane: id,
-                command: input.spec.command,
+                command: input.command,
                 cwd: cwd.clone(),
                 size,
                 shell: defaults.shell,
@@ -464,14 +464,14 @@ impl Message<CreateTab> for ServerState {
             Some(Layout::Pane(self.start_pane(
                 Id::new(),
                 Size::FALLBACK,
-                PaneInput::default(),
+                NewPane::default(),
             )?))
         } else {
             None
         };
         let tab = Tab {
             id,
-            name: create.name,
+            name: create.tab.name,
             tabs: IndexMap::new(),
             layout,
             geometry: None,
@@ -623,9 +623,9 @@ impl Message<CreatePane> for ServerState {
             };
         }
         // Keys send no directory: the anchor's current one, else its starting one.
-        let mut input = create.input;
-        if input.spec.cwd.is_none() {
-            input.spec.cwd = anchor
+        let mut input = create.pane;
+        if input.cwd.is_none() {
+            input.cwd = anchor
                 .and_then(|anchor| tab.pane(anchor))
                 .map(|anchor| anchor.dir.clone().unwrap_or_else(|| anchor.cwd.clone()));
         }

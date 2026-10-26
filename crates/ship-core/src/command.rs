@@ -165,7 +165,7 @@ pub mod tab {
     pub struct Create {
         #[cfg_attr(feature = "clap", command(flatten))]
         pub to: Destination,
-        /// Tab name; omitted or blank means none
+        /// Tab name; omitted means none
         #[cfg_attr(feature = "clap", arg(long))]
         pub name: Option<String>,
         /// Open the tab with one pane running the shell
@@ -209,9 +209,9 @@ pub mod tab {
     pub struct Set {
         #[cfg_attr(feature = "clap", command(flatten))]
         pub tab: TabTarget,
-        /// New name; blank clears it
-        #[cfg_attr(feature = "clap", arg(long))]
-        pub name: Option<String>,
+        /// New name; a bare --name clears it
+        #[cfg_attr(feature = "clap", arg(long, value_name = "NAME"))]
+        pub name: Option<Option<String>>,
     }
 
     #[derive(Clone, Debug, Default, Deserialize)]
@@ -299,7 +299,7 @@ pub mod pane {
         /// Which side of the anchor to split; right by default
         #[cfg_attr(feature = "clap", arg(long))]
         pub direction: Option<SplitDirection>,
-        /// Pane name; omitted or blank means none
+        /// Pane name; omitted means none
         #[cfg_attr(feature = "clap", arg(long))]
         pub name: Option<String>,
         /// Give right-clicks on contents to a program that tracks the mouse;
@@ -353,9 +353,9 @@ pub mod pane {
     pub struct Set {
         #[cfg_attr(feature = "clap", command(flatten))]
         pub pane: PaneTarget,
-        /// New name; blank clears it
-        #[cfg_attr(feature = "clap", arg(long))]
-        pub name: Option<String>,
+        /// New name; a bare --name clears it
+        #[cfg_attr(feature = "clap", arg(long, value_name = "NAME"))]
+        pub name: Option<Option<String>>,
         /// Give right-clicks on contents to a program that tracks the mouse
         #[cfg_attr(feature = "clap", arg(long, value_name = "true|false|toggle"))]
         pub right_click_passthrough: Option<Switch>,

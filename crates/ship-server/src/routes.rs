@@ -136,7 +136,7 @@ pub(crate) async fn remove_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Re
     path = "/api/v0/tabs/{id}/move",
     operation_id = "move_tab",
     params(("id" = String, Path, description = "Tab ID, e.g. tab:3f2a...")),
-    request_body = MoveTab,
+    request_body = MoveTabBody,
     responses(
         (status = 200, description = "The moved tab with its subtree", body = Tab),
         (status = 400, description = "Malformed tab ID"),
@@ -145,17 +145,12 @@ pub(crate) async fn remove_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Re
         (status = 503, body = AppError),
     ),
 )]
-/// The body is read as a JSON value first: serde_json calls a map without
-/// exactly one destination key a syntax error, which `Json<MoveTab>` would
-/// answer with 400 rather than 422.
 pub(crate) async fn move_tab(
     State(app): App,
     Path(id): Path<IdOf<Tab>>,
-    Json(to): Json<serde_json::Value>,
+    Json(body): Json<MoveTabBody>,
 ) -> Result<Response> {
-    let to: MoveTab = serde_json::from_value(to)
-        .map_err(|error| err!(InvalidStructure, "malformed move body", @external: error))?;
-    let value = app.state.ask(Move { id, to }).await?;
+    let value = app.state.ask(Move { id, to: body.at }).await?;
     Ok(Json(value).into_response())
 }
 
