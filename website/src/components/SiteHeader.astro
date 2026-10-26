@@ -1,0 +1,40 @@
+---
+// The top bar on every page: the landing, the 404, the docs and the blog. The page wraps it in its own
+// header.bar (Starlight draws that element for the docs), and a page's extras, the landing's places menu or
+// the docs search, go in the slot between the links and the day and night toggle.
+import { withBase } from "../base";
+import { modeButton } from "../mode";
+import { siteLinks } from "../site-links";
+
+interface Props {
+  /** Which link is the current page, if any. */
+  current?: "docs" | "blog";
+  /** Where the docs link goes. A docs build links its own version. */
+  docs?: string;
+  /** The landing's mark scrolls back to the top instead of loading the landing page again. */
+  top?: boolean;
+}
+
+const { current, docs, top = false } = Astro.props;
+---
+
+<div class="bar-in">
+  <a class="home" href={top ? "#sky" : withBase("/")}>
+    <img class="px mark" src={withBase("/marks/app-large.svg")} width="44" height="44" alt="" />
+    <span class="wordmark pixel p22">ship</span>
+    <span class="sr-only">{top ? "ship, back to the top" : "ship, back to the landing page"}</span>
+  </a>
+  <nav aria-label="main">
+    <ul>
+      {siteLinks(docs).map((l) => (
+        <li>
+          <a href={l.href} aria-current={l.id === current ? "page" : undefined}>
+            {l.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+  <slot />
+  <Fragment set:html={modeButton} />
+</div>

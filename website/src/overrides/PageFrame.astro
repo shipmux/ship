@@ -4,6 +4,8 @@ import { withBase } from "../base";
 // a sticky bar, a full-width banner, then one centred 1328px grid (side, doc, toc), then the footer.
 import VersionBanner from "../components/VersionBanner.astro";
 import { isBlogPage } from "../blog";
+import { siteLinks } from "../site-links";
+import { version } from "../version";
 const { hasSidebar, id } = Astro.locals.starlightRoute;
 const blog = isBlogPage(id); // the blog is unversioned: no version banner or picker
 ---
@@ -28,9 +30,9 @@ const blog = isBlogPage(id); // the blog is unversioned: no version banner or pi
   </p>
   <nav aria-label="footer">
     <a href={withBase("/")}>back to the ship</a>
-    <a href={withBase("/#install")}>install</a>
-    <a href={withBase("/#keys")}>keys</a>
-    <a href="https://github.com/shipmux/ship">github</a>
+    {siteLinks(`${version.prefix}/`).map((l) => (
+      <a href={l.href}>{l.label}</a>
+    ))}
   </nav>
 </footer>
 <script>

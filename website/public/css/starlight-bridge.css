@@ -171,14 +171,25 @@ main {
   }
 } /* ansi's .doc h2 rule, moved onto Starlight's wrapper */
 .doc .expressive-code .ec-line .code {
-  padding-inline: 18px 54px !important;
+  padding-inline: 18px !important;
 }
-/* the copy key sits over the first line: a wrapping block keeps that line clear of it, a scrolling one gives the key a strip of its own */
-.doc .expressive-code pre.wrap .ec-line:first-child .code {
-  padding-inline-end: 76px !important;
+/* the copy key shows over the block while you point at it or Tab into it, so no line or strip is kept clear
+   for it. Without a pointer that can hover it stays up, and the first line keeps clear of it */
+.doc .expressive-code div.copy {
+  opacity: 0;
+  transition: opacity 0.12s;
 }
-.doc .expressive-code pre:not(.wrap) {
-  padding-top: 44px !important;
+.doc .expressive-code:hover div.copy,
+.doc .expressive-code:focus-within div.copy {
+  opacity: 1;
+}
+@media (hover: none) {
+  .doc .expressive-code div.copy {
+    opacity: 1;
+  }
+  .doc .expressive-code .ec-line:first-child .code {
+    padding-inline-end: 76px !important;
+  }
 }
 
 /* ---- added in the port: what the ansi docs page had no example of ---- */
@@ -255,11 +266,19 @@ main {
 /* a plain blockquote (not an alert): the note's haze without the box or the crew */
 .doc blockquote {
   margin: 0 0 22px;
-  padding: 14px 20px 0;
+  padding: 14px 20px;
   background: var(--haze);
 }
 .doc blockquote p {
   max-width: 64ch;
+}
+.doc blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* starlight-blog's post list titles its posts in the body font; the post page's title is pixel */
+.doc .sl-blog-preview-title {
+  font: 33px/44px var(--pixel);
 }
 
 /* Starlight's own :::note asides, should a page use one: the note box, no crewmate */

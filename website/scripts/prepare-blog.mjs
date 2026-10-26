@@ -1,7 +1,8 @@
 // Turns docs/blog into blog posts for Starlight. Runs after prepare-docs.mjs, which clears src/content/docs/.
 //
 // Sources stay plain GitHub markdown named YYYY-MM-DD-slug.md: the date comes from the filename and the
-// title from the `# Title` line, so nothing in the source needs frontmatter. Posts are written to
+// title from the `# Title` line, and the paragraph after the title is the post's preview in the post list, so
+// nothing in the source needs frontmatter or an excerpt marker. Posts are written to
 // src/content/docs/blog/<slug>.md, outside the versioned docs prefix.
 //
 // The date is written as noon UTC: starlight-blog formats it in the build machine's time zone, and noon
@@ -29,6 +30,14 @@ for (const name of readdirSync(src).sort()) {
   const h1 = /^# (.+)\n+/m.exec(text);
   if (!h1) throw new Error(`docs/blog/${name}: a post starts with a "# Title" heading`);
   const body = text.slice(0, h1.index) + text.slice(h1.index + h1[0].length);
+  // starlight-blog shows a post in full in the list unless an excerpt marker says where its preview ends
+  const first = /^[^\n#>`|*<-][^\n]*(?:\n[^\n]+)*/.exec(body);
+  if (!first) throw new Error(`docs/blog/${name}: the title is followed by a paragraph, the post's preview`);
+  const end = first.index + first[0].length;
+  const withExcerpt = `${body.slice(0, end)}\n\n<!-- excerpt -->${body.slice(end)}`;
   mkdirSync(out, { recursive: true });
-  writeFileSync(join(out, `${slug}.md`), `---\ntitle: ${yaml(h1[1].trim())}\ndate: ${date}T12:00:00Z\n---\n\n${body}`);
+  writeFileSync(
+    join(out, `${slug}.md`),
+    `---\ntitle: ${yaml(h1[1].trim())}\ndate: ${date}T12:00:00Z\n---\n\n${withExcerpt}`,
+  );
 }

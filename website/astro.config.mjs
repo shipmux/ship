@@ -7,6 +7,7 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightBlog from "starlight-blog";
 import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { satteri } from "@astrojs/markdown-satteri";
 import { alerts } from "./src/markdown/alerts.mjs";
 import { rebaseLinks } from "./src/markdown/links.mjs";
@@ -19,6 +20,20 @@ const meta = JSON.parse(readFileSync(new URL("./.generated/site.json", import.me
 const ship16 = JSON.parse(readFileSync(new URL("./src/ship16.theme.json", import.meta.url), "utf8"));
 // scripts/prepare-blog.mjs writes posts only in the main build; the other builds leave /blog/ alone
 const hasBlog = existsSync(new URL("./src/content/docs/blog/", import.meta.url));
+// starlight-blog's post list imports its Preview.astro by a relative path and offers no override for it, so
+// this resolves that one import to ours, which wraps the plugin's preview and adds a "read more" link
+const blogPreview = {
+  name: "ship-blog-preview",
+  enforce: /** @type {const} */ ("pre"),
+  /** @param {string} source @param {string | undefined} importer */
+  resolveId(source, importer) {
+    if (
+      source === "./Preview.astro" &&
+      importer?.replaceAll("\\", "/").endsWith("/starlight-blog/components/Posts.astro")
+    )
+      return fileURLToPath(new URL("./src/components/BlogPreview.astro", import.meta.url));
+  },
+};
 const css = (/** @type {string} */ href) => ({
   tag: /** @type {const} */ ("link"),
   attrs: { rel: "stylesheet", href },
@@ -32,6 +47,7 @@ export default defineConfig({
   base,
   outDir: process.env.DOCS_OUT ?? "./dist",
   trailingSlash: "always",
+  vite: { plugins: [blogPreview] },
   markdown: {
     processor: satteri({
       mdastPlugins: [alerts, rebaseLinks(base.replace(/\/$/, ""))],
