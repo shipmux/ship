@@ -195,10 +195,10 @@ PTY sizing SHALL consume the committed published tab geometry. Clients SHALL ren
 - **THEN** the nearest center wins, with equal distances resolved by layout order
 
 ### Requirement: Shared zoom
-`server.pane.zoom` and `ship pane zoom` SHALL toggle the targeted pane to fill its tab for all viewers while other programs keep running. Pane focus or next from the zoomed pane SHALL unzoom before moving, and a directional client swap SHALL unzoom before resolving its neighbor, even when none is found. Creating, closing, swapping or resizing a pane SHALL unzoom that tab before the edit. Selecting another tab SHALL leave zoom unchanged.
+A tab's zoomed pane, set as session-structure's Tab zoom describes, SHALL fill the tab for all viewers while other programs keep running. Pane focus or next from the zoomed pane SHALL unzoom before moving, and a directional client swap SHALL unzoom before resolving its neighbor, even when none is found. Creating, closing, swapping or resizing a pane SHALL unzoom that tab before the edit. Selecting another tab SHALL leave zoom unchanged.
 
 #### Scenario: Two viewers zoom together
-- **WHEN** one client toggles zoom on its selected pane
+- **WHEN** one client zooms its selected pane
 - **THEN** both viewers see that pane alone and hidden selected panes repair to it
 
 #### Scenario: Move out of zoom
@@ -212,6 +212,10 @@ PTY sizing SHALL consume the committed published tab geometry. Clients SHALL ren
 #### Scenario: Visit another tab
 - **WHEN** a client leaves a zoomed tab to view a different tab
 - **THEN** the original tab stays zoomed for its other viewers and for a later return
+
+#### Scenario: Zoom from a script
+- **WHEN** a script runs `ship tab set --tab <t> --zoomed <p>` for a tab no client is attached to, then attaches a client to it
+- **THEN** the client shows `<p>` filling the tab
 
 ### Requirement: Who changes a selection
 The server SHALL hold each attachment's selection. It SHALL change only through its own client's navigation and clicks, a select naming that attachment, a create that selects for it, and Selection repair. A client SHALL show a selection set by someone else as it shows its own, within a frame of the server publishing it.

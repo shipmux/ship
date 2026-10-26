@@ -20,7 +20,7 @@ pub enum Command {
     /// List, create, inspect, set attributes, close or move tabs
     #[cfg_attr(feature = "clap", command(subcommand))]
     Tab(tab::TabCommand),
-    /// Create, inspect, set attributes, close, resize, zoom or swap panes
+    /// Create, inspect, set attributes, close, resize or swap panes
     #[cfg_attr(feature = "clap", command(subcommand))]
     Pane(pane::PaneCommand),
 }
@@ -128,6 +128,7 @@ pub mod tab {
     use super::{Destination, PaneTarget, TabTarget};
     use crate::{
         id::{Attachment, IdOf},
+        model::Pane,
         protocol::Starter,
     };
 
@@ -165,7 +166,7 @@ pub mod tab {
     pub struct Create {
         #[cfg_attr(feature = "clap", command(flatten))]
         pub to: Destination,
-        /// Tab name; omitted or blank means none
+        /// Tab name; omitted means none
         #[cfg_attr(feature = "clap", arg(long))]
         pub name: Option<String>,
         /// Open the tab with one pane running the shell
@@ -209,9 +210,12 @@ pub mod tab {
     pub struct Set {
         #[cfg_attr(feature = "clap", command(flatten))]
         pub tab: TabTarget,
-        /// New name; blank clears it
-        #[cfg_attr(feature = "clap", arg(long))]
-        pub name: Option<String>,
+        /// New name; a bare --name clears it
+        #[cfg_attr(feature = "clap", arg(long, value_name = "NAME"))]
+        pub name: Option<Option<String>>,
+        /// Zoom this pane of the tab to fill it; a bare --zoomed unzooms
+        #[cfg_attr(feature = "clap", arg(long, value_name = "PANE"))]
+        pub zoomed: Option<Option<IdOf<Pane>>>,
     }
 
     #[derive(Clone, Debug, Default, Deserialize)]
@@ -277,8 +281,6 @@ pub mod pane {
         /// Wait for the pane's program status and print the pane as JSON
         #[serde(skip)]
         Wait(Wait),
-        /// Zoom a pane to fill its tab, or unzoom it, and print its tab as JSON
-        Zoom(Zoom),
         /// Exchange a pane with another pane in its tab and print the tab as JSON
         Swap(Swap),
     }
@@ -299,7 +301,7 @@ pub mod pane {
         /// Which side of the anchor to split; right by default
         #[cfg_attr(feature = "clap", arg(long))]
         pub direction: Option<SplitDirection>,
-        /// Pane name; omitted or blank means none
+        /// Pane name; omitted means none
         #[cfg_attr(feature = "clap", arg(long))]
         pub name: Option<String>,
         /// Give right-clicks on contents to a program that tracks the mouse;
@@ -353,9 +355,9 @@ pub mod pane {
     pub struct Set {
         #[cfg_attr(feature = "clap", command(flatten))]
         pub pane: PaneTarget,
-        /// New name; blank clears it
-        #[cfg_attr(feature = "clap", arg(long))]
-        pub name: Option<String>,
+        /// New name; a bare --name clears it
+        #[cfg_attr(feature = "clap", arg(long, value_name = "NAME"))]
+        pub name: Option<Option<String>>,
         /// Give right-clicks on contents to a program that tracks the mouse
         #[cfg_attr(feature = "clap", arg(long, value_name = "true|false|toggle"))]
         pub right_click_passthrough: Option<Switch>,
@@ -396,19 +398,6 @@ pub mod pane {
         #[cfg_attr(feature = "clap", arg(long))]
         #[serde(default)]
         pub to: Option<u16>,
-    }
-
-    #[derive(Clone, Debug, Default, Deserialize)]
-    #[cfg_attr(feature = "clap", derive(Args))]
-    #[serde(default, deny_unknown_fields)]
-    pub struct Zoom {
-        #[cfg_attr(feature = "clap", command(flatten))]
-        pub pane: PaneTarget,
-        /// Absent toggles. Set only by the client's unzoom before it moves
-        /// out of a zoomed pane, so two clients can't zoom the tab back in.
-        #[cfg_attr(feature = "clap", arg(skip))]
-        #[serde(skip)]
-        pub zoomed: Option<bool>,
     }
 
     #[derive(Clone, Debug, Deserialize)]

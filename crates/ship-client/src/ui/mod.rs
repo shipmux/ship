@@ -31,17 +31,18 @@ use futures_util::{Stream, StreamExt};
 use ratatui::layout::Rect;
 use ship_core::{
     command::{
-        Command, Direction, PaneTarget,
+        Command, Direction, PaneTarget, TabTarget,
         pane::{self, PaneCommand},
+        tab::{self, TabCommand},
     },
     geometry::TabGeometry,
     id::{Attachment, IdOf},
     layout::Axis,
-    model::{NodeId, Pane, Tab},
+    model::{NodeId, Pane, Switch, Tab},
     prelude::*,
     protocol::{
-        AttachRequest, ClipboardText, EndReason, Ended, InputFrame, KeyInput, MoveTab, PasteInput,
-        ResizePane, SelectView, SseEvent, ViewInput,
+        AttachRequest, ClipboardText, EndReason, Ended, InputFrame, KeyInput, MoveTab, MoveTabBody,
+        PasteInput, ResizePane, SelectView, SseEvent, ViewInput,
     },
     screen::{Screen, Size},
     tree::{self, Tabs},
@@ -623,7 +624,10 @@ impl Local {
                     self.sidebar.tabs.fold(parent, false);
                 }
                 Turn::Wait(Box::pin(async move {
-                    match client.move_tab(moving.tab, &moving.to).await {
+                    match client
+                        .move_tab(moving.tab, &MoveTabBody { at: moving.to })
+                        .await
+                    {
                         Err(error)
                             if matches!(
                                 error.code(),
@@ -694,16 +698,11 @@ impl Local {
 
     fn act<'a>(&mut self, client: &'a Client, action: Action) -> Turn<'a> {
         let selection = self.observer.record().and_then(|record| record.selection);
-        if matches!(action, Action::Client(ClientAction::Pane(_)))
+        if leaves_zoom(&action)
             && let Some(zoomed) = zoomed_pane(&self.observer, selection)
         {
             return Turn::First(vec![
-                Item::Action(Action::Server(Command::Pane(PaneCommand::Zoom(
-                    pane::Zoom {
-                        pane: PaneTarget { id: Some(zoomed) },
-                        zoomed: Some(false),
-                    },
-                )))),
+                Item::Action(Action::Server(set_zoom(zoomed, None))),
                 Item::Action(action),
             ]);
         }
@@ -771,6 +770,14 @@ impl Local {
                         )))]);
                     }
                     Ok(())
+                }
+                ClientAction::Pane(ClientPane::Zoom { zoomed }) => {
+                    match zoom(&self.observer, selection, zoomed) {
+                        Some(command) => {
+                            return Turn::First(vec![Item::Action(Action::Server(command))]);
+                        }
+                        None => Err(err!(Validation, "no pane selected")),
+                    }
                 }
                 ClientAction::Tab(ClientTab::Select { .. }) => unavailable("tab select"),
                 ClientAction::Tab(action @ (ClientTab::Expand {} | ClientTab::Collapse {})) => {
@@ -853,6 +860,41 @@ fn status<'a>(keys: &'a Keys, message: Option<&'a str>) -> Status<'a> {
 
 fn unavailable(action: &str) -> Result<()> {
     Err(err!(Unavailable, "{} is not available yet", action))
+}
+
+/// Actions that move off the selected pane, so a zoomed tab unzooms first.
+fn leaves_zoom(action: &Action) -> bool {
+    matches!(
+        action,
+        Action::Client(ClientAction::Pane(
+            ClientPane::Next {}
+                | ClientPane::Prev {}
+                | ClientPane::Focus { .. }
+                | ClientPane::Swap { .. }
+        ))
+    )
+}
+
+/// The tab edit for `client.pane.zoom`, against whether the selected pane's
+/// tab is zoomed on it. `None` when no pane is selected.
+fn zoom(observer: &Observer, selection: Option<NodeId>, zoomed: Switch) -> Option<Command> {
+    let Some(NodeId::Pane(pane)) = selection else {
+        return None;
+    };
+    let current = zoomed_pane(observer, selection).is_some();
+    Some(set_zoom(pane, zoomed.apply(current).then_some(pane)))
+}
+
+/// Zoom `pane`'s tab onto `zoomed`, or unzoom it with `None`.
+fn set_zoom(pane: IdOf<Pane>, zoomed: Option<IdOf<Pane>>) -> Command {
+    Command::Tab(TabCommand::Set(tab::Set {
+        tab: TabTarget {
+            id: None,
+            pane: Some(pane),
+        },
+        name: None,
+        zoomed: Some(zoomed),
+    }))
 }
 
 /// The selected pane, when its tab is zoomed onto it.

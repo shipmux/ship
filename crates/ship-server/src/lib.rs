@@ -2,6 +2,7 @@
 
 mod app;
 mod attach;
+mod body;
 mod health;
 mod input;
 mod middleware;
@@ -26,7 +27,9 @@ use std::{
 pub use app::AppState;
 use axum::{
     Router,
+    http::StatusCode,
     middleware::{from_fn, from_fn_with_state},
+    response::{IntoResponse, Response},
     serve::ListenerExt,
 };
 use kameo::{
@@ -37,9 +40,8 @@ use libghostty_vt::log::{Level, Logger, TracingLogger};
 use ship_core::{
     LogChange, LogFilter,
     geometry::{PaneGeometry, TabGeometry},
-    model::OptionalName,
     prelude::*,
-    protocol::{CreateTab, MoveTab, PaneSpec, Replica, Starter, ViewingRecord},
+    protocol::{CreateTab, MoveTab, NewTab, Problem, Replica, Starter, ViewingRecord},
     relay,
 };
 use tokio::{
@@ -72,10 +74,10 @@ pub fn loopback_addr(port: u16) -> Result<SocketAddr> {
 /// Document metadata. Expanding the derive here takes title, version and
 /// description from ship-server's manifest; paths and schemas come from
 /// `routes!`. Schemas reached only through a hand-written `$ref`, such as
-/// `Replica::viewers` or the flattened `PaneSpec` in `CreatePane`, are
-/// registered here.
+/// `Replica::viewers`, or only through untyped error `data`, such as
+/// `Problem`, are registered here.
 #[derive(OpenApi)]
-#[openapi(components(schemas(ViewingRecord, PaneSpec, TabGeometry, PaneGeometry)))]
+#[openapi(components(schemas(ViewingRecord, TabGeometry, PaneGeometry, Problem)))]
 struct ApiDoc;
 
 /// One `.routes(routes!(handler))` per handler. Registrations on the same path
@@ -100,7 +102,6 @@ fn api_router() -> OpenApiRouter<AppState> {
         routes::get_pane,
         routes::set_pane,
         routes::remove_pane,
-        routes::zoom_pane,
         routes::swap_pane,
         routes::resize_pane,
         routes::scroll_pane,
@@ -123,6 +124,7 @@ pub fn openapi() -> OpenApiDoc {
 }
 
 pub fn router(app: AppState) -> Router {
+    body::compile_schemas();
     // The default predicate minus `NotForContentType::SSE`, so attach streams
     // are compressed too.
     let compression = CompressionLayer::new().zstd(true).gzip(true).compress_when(
@@ -134,12 +136,26 @@ pub fn router(app: AppState) -> Router {
         .layer(compression)
         .split_for_parts()
         .0
+        .fallback(no_route)
+        .method_not_allowed_fallback(wrong_method)
         .layer(from_fn(middleware::local_only))
         .layer(from_fn_with_state(app.clone(), app::stamp))
         .layer(from_fn(middleware::trace_request))
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .with_state(app)
+}
+
+/// Unknown paths answer with an `AppError` like every route, not an empty 404.
+async fn no_route() -> AppError {
+    err!(NotFound, "no such route")
+}
+
+/// A known path with the wrong method; axum still adds the `Allow` header.
+async fn wrong_method() -> Response {
+    let mut response = err!(NotFound, "no such route for this method").into_response();
+    *response.status_mut() = StatusCode::METHOD_NOT_ALLOWED;
+    response
 }
 
 /// Binds, restores the saved tabs, spawns the actors, and creates the starter
@@ -212,7 +228,7 @@ pub async fn serve(
     // starter tab exists.
     let starter_tab = CreateTab {
         at: MoveTab::top(),
-        name: OptionalName::default(),
+        tab: NewTab::default(),
         starter: Some(Starter::Shell),
         select: None,
     };
@@ -223,11 +239,7 @@ pub async fn serve(
         stop_actors(&state, &bus).await;
         return Err(AppError::from(error).context("cannot create the starter tab"));
     }
-    let saver = tokio::spawn(
-        saver::Saver::new(save, baseline)
-            .run(replicas.latest())
-            .instrument(tracing::info_span!(parent: None, "saver")),
-    );
+    let saver = tokio::spawn(saver::supervise(save, baseline, replicas.latest()));
     let actors = (state.clone(), bus.clone());
     let stop = CancellationToken::new();
     let app = AppState {
@@ -252,10 +264,12 @@ pub async fn serve(
             };
             result_tx.send_replace(Some(result));
             stop_actors(&state, &bus).await;
-            if let Err(error) = saver.await {
-                result_tx.send_replace(Some(Err(
-                    err!(Internal, "saver task failed", @external: error),
-                )));
+            let saved = saver
+                .await
+                .map_err(|error| err!(Internal, "saver task failed", @external: error))
+                .flatten();
+            if let Err(error) = saved {
+                result_tx.send_replace(Some(Err(error)));
             }
         })
         .into_future();

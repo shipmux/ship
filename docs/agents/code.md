@@ -26,6 +26,22 @@ Combine only what needs the result. An endpoint takes a second effect as a param
 
 Check what's already guaranteed. Before building machinery, find out what the platform and dependencies already handle, verify it, and cover only the gap.
 
+## Entity and request shapes
+
+An entity's `get` output is its one shape. Every input that describes the entity is a subset of it, so a script learns each field once.
+
+- Each entity field has one name, one path and one type in `get` output, PATCH bodies, create bodies and `[server.defaults.*]`. A request field that reuses an entity field's name has that field's type. Config's `shell` is the one exception: it's a path, the default for `command`, an argv.
+- PATCH bodies and create's `pane` and `tab` objects use the entity's own paths.
+- Create bodies put the request's own fields (`at`, `direction`, `starter`, `select`) at the top level and the new entity's fields under `pane` (`NewPane`) or `tab` (`NewTab`). Placing a tab is always `at: MoveTab`, on create and on move.
+- Create bodies and config defaults take plain values. Only PATCH bodies and `server.` and `client.` action arguments may also take `"toggle"`, and only on bools, through `Switch`.
+- PATCH follows JSON Merge Patch: an absent field is left alone and `null` clears it.
+- An input field takes `null` only if the entity field can be `null`. Say it one of two ways in `protocol.rs`:
+  - A field that can be empty, such as `name` or `zoomed`, is `Option<Option<T>>` with `#[serde(default, with = "double_option")]`: absent, `null` and a value are three cases, and the schema shows it nullable.
+  - Any other optional field is `Option<T>` with `#[serde(default, deserialize_with = "present")]` and `#[schema(nullable = false)]`, so serde and the schema both refuse `null`. Absent means the default.
+- Names are stored exactly as sent, including `""` and surrounding spaces. Only `null` clears a name.
+- A CLI flag for a field that can be empty has three cases: absent leaves it alone, a bare flag clears it, and a value, including `""`, sets it. Clap reads `Option<Option<T>>` this way, as on `--name` and `--zoomed`.
+- A `server.` action's request depends only on its arguments and the caller's context: its attachment, its selected tab or pane, and its current directory. An action that reads other shared state to decide what to send, such as whether the tab is zoomed, is a `client.` action, like `client.pane.zoom`.
+
 ## Errors and results
 
 Construct errors with `err!`. Wrap an existing `AppError` with `.context(...)`, which keeps its error code.

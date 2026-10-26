@@ -16,8 +16,8 @@ use ship_core::{
     model::{NodeId, Pane, Tab},
     prelude::*,
     protocol::{
-        CreatePane, CreateTab, MoveTab, PaneAt, PaneInput, PaneSpec, ReadPane, ResizePane,
-        ScrollPane, SetPane, SetTab, SwapPane, ZoomPane,
+        CreatePane, CreateTab, MoveTab, MoveTabBody, NewPane, NewTab, PaneAt, ReadPane, ResizePane,
+        ScrollPane, SetPane, SetTab, SwapPane,
     },
     tree::{self, Tabs},
 };
@@ -91,7 +91,7 @@ impl Client {
                     };
                     let body = CreateTab {
                         at,
-                        name: name.into(),
+                        tab: NewTab { name },
                         starter,
                         select,
                     };
@@ -100,17 +100,9 @@ impl Client {
                 TabCommand::Get(tab::Get { tab }) => {
                     Outcome::Tab(self.get::<Tab>(self.tab_target(tab, scope).await?).await?)
                 }
-                TabCommand::Set(tab::Set { tab, name }) => {
+                TabCommand::Set(tab::Set { tab, name, zoomed }) => {
                     let id = self.tab_target(tab, scope).await?;
-                    Outcome::Tab(
-                        self.set::<Tab>(
-                            id,
-                            &SetTab {
-                                name: name.map(|name| Some(name).into()),
-                            },
-                        )
-                        .await?,
-                    )
+                    Outcome::Tab(self.set::<Tab>(id, &SetTab { name, zoomed }).await?)
                 }
                 TabCommand::Close(tab::Close { tab }) => {
                     self.remove::<Tab>(self.tab_target(tab, scope).await?)
@@ -120,7 +112,7 @@ impl Client {
                 TabCommand::Move(tab::Move { tab, to }) => {
                     let id = self.tab_target(tab, scope).await?;
                     let to = to.resolve()?.unwrap_or_else(MoveTab::top);
-                    Outcome::Tab(self.move_tab(id, &to).await?)
+                    Outcome::Tab(self.move_tab(id, &MoveTabBody { at: to }).await?)
                 }
             },
             Command::Pane(command) => match command {
@@ -150,21 +142,19 @@ impl Client {
                             )
                         })
                         .transpose()?;
-                    let input = PaneInput {
-                        name: name.into(),
+                    let pane = NewPane {
+                        name,
                         right_click_passthrough,
                         exit_behavior,
                         scrollback_bytes,
-                        spec: PaneSpec {
-                            command: Some(command).filter(|command| !command.is_empty()),
-                            cwd: cwd.map(|cwd| cwd.display().to_string()),
-                        },
+                        command: Some(command).filter(|command| !command.is_empty()),
+                        cwd: cwd.map(|cwd| cwd.display().to_string()),
                     };
                     Outcome::Pane(
                         self.create_pane(&CreatePane {
                             at,
                             direction: direction.unwrap_or_default(),
-                            input,
+                            pane,
                             select,
                         })
                         .await?,
@@ -185,7 +175,7 @@ impl Client {
                         self.set::<Pane>(
                             id,
                             &SetPane {
-                                name: name.map(|name| Some(name).into()),
+                                name,
                                 right_click_passthrough,
                                 exit_behavior,
                                 scrollback_bytes,
@@ -270,10 +260,6 @@ impl Client {
                 PaneCommand::Wait(pane::Wait { pane, status }) => {
                     let id = Self::pane_target(pane, scope)?;
                     Outcome::Pane(self.wait(id, Condition::new(status)).await?)
-                }
-                PaneCommand::Zoom(pane::Zoom { pane, zoomed }) => {
-                    let id = Self::pane_target(pane, scope)?;
-                    Outcome::Tab(self.zoom(id, &ZoomPane { zoomed }).await?)
                 }
                 PaneCommand::Swap(pane::Swap { pane, other }) => {
                     let id = Self::pane_target(pane, scope)?;

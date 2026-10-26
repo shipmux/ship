@@ -17,9 +17,8 @@ use ship_core::{
     model::*,
     prelude::*,
     protocol::{
-        AttachRequest, Attached, CreatePane, CreateTab, MoveTab, PaneAt, PaneInput, PaneSpec,
-        Replica, ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput, ViewingRecord,
-        ZoomPane,
+        AttachRequest, Attached, CreatePane, CreateTab, MoveTab, NewPane, PaneAt, Replica,
+        ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput, ViewingRecord,
     },
     screen::Size,
 };
@@ -119,12 +118,13 @@ impl ServerState {
                     None
                 }
             };
-            let input = PaneInput {
+            let input = NewPane {
                 name: saved.name,
                 right_click_passthrough: Some(saved.right_click_passthrough),
                 exit_behavior: Some(saved.exit_behavior),
                 scrollback_bytes: Some(saved.scrollback_bytes),
-                spec: PaneSpec { command: None, cwd },
+                command: None,
+                cwd,
             };
             match self.start_pane(saved.id, Size::FALLBACK, input) {
                 Ok(pane) => *tab.pane_mut(saved.id).expect("saved pane belongs to tab") = pane,
@@ -325,14 +325,14 @@ impl ServerState {
 
     /// Start before insertion; commit cleanup owns failed-edit teardown.
     /// Settings absent from `input` take `[server.defaults.pane]`, read once.
-    fn start_pane(&mut self, id: IdOf<Pane>, size: Size, input: PaneInput) -> Result<Pane> {
-        let cwd = Self::pane_cwd(input.spec.cwd)?;
+    fn start_pane(&mut self, id: IdOf<Pane>, size: Size, input: NewPane) -> Result<Pane> {
+        let cwd = Self::pane_cwd(input.cwd)?;
         let defaults = self.pane_env.settings().defaults.pane;
         let scrollback_bytes = input.scrollback_bytes.unwrap_or(defaults.scrollback_bytes);
         let Spawned { runtime, command } = pane::spawn(
             Launch {
                 pane: id,
-                command: input.spec.command,
+                command: input.command,
                 cwd: cwd.clone(),
                 size,
                 shell: defaults.shell,
@@ -402,10 +402,6 @@ pub struct Attach {
     pub request: AttachRequest,
 }
 pub struct Detach(pub IdOf<Attachment>);
-pub struct Zoom {
-    pub id: IdOf<Pane>,
-    pub zoom: ZoomPane,
-}
 pub struct Swap {
     pub id: IdOf<Pane>,
     pub swap: SwapPane,
@@ -464,14 +460,14 @@ impl Message<CreateTab> for ServerState {
             Some(Layout::Pane(self.start_pane(
                 Id::new(),
                 Size::FALLBACK,
-                PaneInput::default(),
+                NewPane::default(),
             )?))
         } else {
             None
         };
         let tab = Tab {
             id,
-            name: create.name,
+            name: create.tab.name,
             tabs: IndexMap::new(),
             layout,
             geometry: None,
@@ -515,9 +511,18 @@ impl Message<Set<Tab, SetTab>> for ServerState {
         _: &mut Context<Self, Self::Reply>,
     ) -> Self::Reply {
         let tab = tree::tab(&self.tabs, id)?;
-        if let Some(name) = set.name.filter(|name| *name != tab.name) {
+        if let Some(Some(pane)) = set.zoomed
+            && tree::pane_owner(&self.tabs, pane)? != id
+        {
+            return Err(err!(InvalidStructure, "pane {} is not in tab {}", pane, id));
+        }
+        let name = set.name.unwrap_or_else(|| tab.name.clone());
+        let zoomed = set.zoomed.unwrap_or(tab.zoomed);
+        if name != tab.name || zoomed != tab.zoomed {
             self.commit(|tabs, _| {
-                tree::tab_mut(tabs, id)?.name = name;
+                let tab = tree::tab_mut(tabs, id)?;
+                tab.name = name;
+                tab.zoomed = zoomed;
                 Ok(())
             })
             .await?;
@@ -623,9 +628,9 @@ impl Message<CreatePane> for ServerState {
             };
         }
         // Keys send no directory: the anchor's current one, else its starting one.
-        let mut input = create.input;
-        if input.spec.cwd.is_none() {
-            input.spec.cwd = anchor
+        let mut input = create.pane;
+        if input.cwd.is_none() {
+            input.cwd = anchor
                 .and_then(|anchor| tab.pane(anchor))
                 .map(|anchor| anchor.dir.clone().unwrap_or_else(|| anchor.cwd.clone()));
         }
@@ -720,34 +725,6 @@ impl Message<Remove<Pane>> for ServerState {
             Ok(())
         })
         .await
-    }
-}
-
-#[named]
-impl Message<Zoom> for ServerState {
-    type Reply = Result<Tab>;
-
-    /// Absent toggles the pane; `false` unzooms its tab and `true` zooms it.
-    /// A request that changes nothing commits nothing. Answers with the tab.
-    async fn handle(
-        &mut self,
-        Zoom { id, zoom }: Zoom,
-        _: &mut Context<Self, Self::Reply>,
-    ) -> Self::Reply {
-        let owner = tree::pane_owner(&self.tabs, id)?;
-        let current = tree::tab(&self.tabs, owner)?.zoomed;
-        let zoomed = match zoom.zoomed.unwrap_or(current != Some(id)) {
-            true => Some(id),
-            false => None,
-        };
-        if zoomed != current {
-            self.commit(|tabs, _| {
-                tree::tab_mut(tabs, owner)?.zoomed = zoomed;
-                Ok(())
-            })
-            .await?;
-        }
-        self.published_tab(owner)
     }
 }
 

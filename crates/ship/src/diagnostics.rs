@@ -195,7 +195,7 @@ pub fn level_filter(level: Level) -> String {
 fn panic_hook() {
     let previous = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
-        tracing::error!(panic = %info, "process panicked");
+        tracing::error!(panic = %info, "thread panicked");
         previous(info);
     }));
 }
