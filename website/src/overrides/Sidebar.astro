@@ -1,7 +1,8 @@
 ---
 import VersionSelect from "../components/VersionSelect.astro";
 import NavList from "../components/NavList.astro";
+import { isBlogPage } from "../blog";
 ---
 
-<VersionSelect />
+{!isBlogPage(Astro.locals.starlightRoute.id) && <VersionSelect />}
 <NavList />

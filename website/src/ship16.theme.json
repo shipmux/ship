@@ -93,6 +93,40 @@
       "settings": {
         "foreground": "#d4ccb8"
       }
+    },
+    {
+      "name": "rust keywords",
+      "scope": [
+        "source.rust keyword",
+        "source.rust storage.type",
+        "source.rust storage.modifier",
+        "source.rust keyword.operator.borrow",
+        "source.rust variable.language.self"
+      ],
+      "settings": {
+        "foreground": "#ff7a68"
+      }
+    },
+    {
+      "name": "rust types",
+      "scope": ["source.rust entity.name.type", "source.rust support.type", "source.rust entity.name.struct"],
+      "settings": {
+        "foreground": "#ffd462"
+      }
+    },
+    {
+      "name": "rust calls",
+      "scope": ["source.rust entity.name.function", "source.rust support.function"],
+      "settings": {
+        "foreground": "#7fe3ec"
+      }
+    },
+    {
+      "name": "json keys",
+      "scope": ["source.json support.type.property-name", "source.json punctuation.support.type.property-name"],
+      "settings": {
+        "foreground": "#79a4ff"
+      }
     }
   ]
 }

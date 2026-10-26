@@ -1,0 +1,17 @@
+---
+// A post in the blog's post list: starlight-blog's own preview (title, date, the first paragraph) with a
+// "read more" link under it. starlight-blog has no override for this, so astro.config.mjs points the
+// plugin's post list at this file instead of its Preview.astro.
+import Preview from "starlight-blog/ui/Preview.astro";
+
+type Props = Parameters<typeof Preview>[0];
+
+const { post } = Astro.props;
+---
+
+<div class="blog-preview">
+  <Preview post={post} />
+  <a class="read-more" href={post.href}>
+    read more<span class="sr-only">: {post.entry.data.title}</span>
+  </a>
+</div>

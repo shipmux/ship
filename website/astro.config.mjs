@@ -5,7 +5,9 @@
 // scripts/build-versions.mjs runs prepare + build once per git ref and merges the outputs.
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import { readFileSync } from "node:fs";
+import starlightBlog from "starlight-blog";
+import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { satteri } from "@astrojs/markdown-satteri";
 import { alerts } from "./src/markdown/alerts.mjs";
 import { rebaseLinks } from "./src/markdown/links.mjs";
@@ -16,16 +18,36 @@ import { siteEnv } from "./scripts/site-env.mjs";
 const { base, site } = siteEnv(); // SHIP_BASE and SHIP_SITE_URL, see scripts/site-env.mjs
 const meta = JSON.parse(readFileSync(new URL("./.generated/site.json", import.meta.url), "utf8"));
 const ship16 = JSON.parse(readFileSync(new URL("./src/ship16.theme.json", import.meta.url), "utf8"));
+// scripts/prepare-blog.mjs writes posts only in the main build; the other builds leave /blog/ alone
+const hasBlog = existsSync(new URL("./src/content/docs/blog/", import.meta.url));
+// starlight-blog's post list imports its Preview.astro by a relative path and offers no override for it, so
+// this resolves that one import to ours, which wraps the plugin's preview and adds a "read more" link
+const blogPreview = {
+  name: "ship-blog-preview",
+  enforce: /** @type {const} */ ("pre"),
+  /** @param {string} source @param {string | undefined} importer */
+  resolveId(source, importer) {
+    if (
+      source === "./Preview.astro" &&
+      importer?.replaceAll("\\", "/").endsWith("/starlight-blog/components/Posts.astro")
+    )
+      return fileURLToPath(new URL("./src/components/BlogPreview.astro", import.meta.url));
+  },
+};
 const css = (/** @type {string} */ href) => ({
   tag: /** @type {const} */ ("link"),
   attrs: { rel: "stylesheet", href },
 });
 
 export default defineConfig({
-  site, // with site set, Starlight writes a sitemap; in a versioned build the latest docs' build is copied last, so its sitemap is the one kept
+  // the origin only: Astro adds base itself, and starlight-blog's RSS link appends base to site, so a site
+  // with /ship/ in it came out as /ship/ship/. With site set, Starlight writes a sitemap; in a versioned build
+  // the latest docs' build is copied last, so its sitemap is the one kept
+  site: new URL(site).origin,
   base,
   outDir: process.env.DOCS_OUT ?? "./dist",
   trailingSlash: "always",
+  vite: { plugins: [blogPreview] },
   markdown: {
     processor: satteri({
       mdastPlugins: [alerts, rebaseLinks(base.replace(/\/$/, ""))],
@@ -48,6 +70,8 @@ export default defineConfig({
         css(`${base}css/mode.css`), // day and night, last so its night rules win
       ],
       sidebar: meta.sidebar,
+      // navigation none: Ship's own Header and NavList show the blog link, not the plugin's header overrides
+      plugins: hasBlog ? [starlightBlog({ title: "ship blog", navigation: "none" })] : [],
       tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 2 },
       pagination: false,
       expressiveCode: {
@@ -96,7 +120,9 @@ export default defineConfig({
         PageTitle: "./src/overrides/PageTitle.astro",
         SkipLink: "./src/overrides/SkipLink.astro",
         Banner: "./src/overrides/Banner.astro",
-        MarkdownContent: "./src/overrides/MarkdownContent.astro",
+        MarkdownContent: hasBlog
+          ? "./src/overrides/BlogMarkdownContent.astro"
+          : "./src/overrides/MarkdownContent.astro",
         Footer: "./src/overrides/Empty.astro",
         ThemeProvider: "./src/overrides/ThemeProvider.astro",
         MobileMenuToggle: "./src/overrides/Empty.astro",

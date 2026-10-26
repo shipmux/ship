@@ -79,6 +79,7 @@ try {
     };
     console.log(`building ${b.ref} (${b.from}) -> ${b.prefix}/`);
     execFileSync("node", ["scripts/prepare-docs.mjs", docs], { cwd: site, env, stdio: "inherit" });
+    execFileSync("node", ["scripts/prepare-blog.mjs"], { cwd: site, env, stdio: "inherit" }); // main only
     execFileSync("pnpm", ["exec", "astro", "build"], { cwd: site, env, stdio: ["ignore", "ignore", "inherit"] });
     // every build carries the same landing, 404 and assets; its docs, index and agent files are its own
     cpSync(env.DOCS_OUT, out, { recursive: true });
