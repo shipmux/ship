@@ -3,6 +3,8 @@ import { withBase } from "../base";
 import Search from "./Search.astro"; // our override, which is what Starlight's virtual module resolves to
 import { version } from "../version";
 import { modeButton } from "../mode";
+import { hasBlog, isBlogPage } from "../blog";
+const blog = isBlogPage(Astro.locals.starlightRoute.id);
 ---
 
 <div class="bar-in">
@@ -14,10 +16,17 @@ import { modeButton } from "../mode";
   <nav aria-label="main">
     <ul>
       <li>
-        <a href={withBase(`${version.prefix}/`)} aria-current="page">
+        <a href={withBase(`${version.prefix}/`)} aria-current={blog ? undefined : "page"}>
           docs
         </a>
       </li>
+      {hasBlog && (
+        <li>
+          <a href={withBase("/blog/")} aria-current={blog ? "page" : undefined}>
+            blog
+          </a>
+        </li>
+      )}
       <li>
         <a href={withBase("/#install")}>install</a>
       </li>

@@ -3,16 +3,18 @@ import { withBase } from "../base";
 // Replaces Starlight's fixed header + fixed full-height sidebar with the ansi layout:
 // a sticky bar, a full-width banner, then one centred 1328px grid (side, doc, toc), then the footer.
 import VersionBanner from "../components/VersionBanner.astro";
-const { hasSidebar } = Astro.locals.starlightRoute;
+import { isBlogPage } from "../blog";
+const { hasSidebar, id } = Astro.locals.starlightRoute;
+const blog = isBlogPage(id); // the blog is unversioned: no version banner or picker
 ---
 
 <header class="bar">
   <slot name="header" />
 </header>
-<VersionBanner />
+{!blog && <VersionBanner />}
 <div class="docs-grid">
   {hasSidebar && (
-    <nav class="side" aria-label="the docs">
+    <nav class="side" aria-label={blog ? "the blog" : "the docs"}>
       <slot name="sidebar" />
     </nav>
   )}
