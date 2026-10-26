@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["psutil>=7"]
+# ///
 """Compare terminal multiplexers through a PTY the harness owns.
 
 The harness plays the outer terminal: it spawns each multiplexer's client on
@@ -30,16 +34,20 @@ import time
 import urllib.request
 from pathlib import Path
 
+import psutil
+
 from pane import marker
 
 HERE = Path(__file__).resolve().parent
 PANE = HERE / "pane.py"
 PY = sys.executable
 COLS, ROWS = 200, 50
+# Ship is the build in this checkout; the others are whatever PATH finds.
+# <TOOL>_BENCH_BIN overrides any of them.
 SHIP_BIN = os.environ.get("SHIP_BENCH_BIN", str(HERE.parent / "target/release/ship"))
-HERDR_BIN = "/opt/homebrew/bin/herdr"
-ZELLIJ_BIN = "/opt/homebrew/bin/zellij"
-TMUX_BIN = "/opt/homebrew/bin/tmux"
+HERDR_BIN = os.environ.get("HERDR_BENCH_BIN") or shutil.which("herdr")
+ZELLIJ_BIN = os.environ.get("ZELLIJ_BENCH_BIN") or shutil.which("zellij")
+TMUX_BIN = os.environ.get("TMUX_BENCH_BIN") or shutil.which("tmux")
 SHIP_PORT = 43291  # never Ship's default 43179
 ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 ESC_RE = re.compile(rb"\x1b\[[0-9;?<=>!$ ]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1bP[^\x1b]*\x1b\\|\x1b[()][0-9A-Za-z]|\x1b[=>78DEHMc]")
@@ -75,13 +83,6 @@ def text(data):
     return ESC_RE.sub(b" ", data).decode("utf-8", "replace")
 
 
-def cpu_seconds(field):
-    total = 0.0
-    for part in field.split(":"):
-        total = total * 60 + float(part)
-    return total
-
-
 class Env:
     """A private HOME/XDG/TMPDIR tree for one run."""
 
@@ -110,39 +111,47 @@ class Env:
         self.home = self.vars["HOME"]
 
 
-def mux_processes(home, names):
-    """(pid, rss_kib, cpu_s) for every process named in `names` whose
-    environment carries this run's HOME. The live sessions never match."""
-    res = subprocess.run(
-        ["ps", "-x", "-E", "-ww", "-U", str(os.getuid()), "-o", "pid=,rss=,time=,command="],
-        capture_output=True, text=True,
-    )
-    marker = f"HOME={home}"
+def run_processes(home):
+    """Every process, of any name, whose environment carries this run's
+    HOME. The live sessions never match."""
     found = []
-    for line in res.stdout.splitlines():
-        if marker not in line:
+    for proc in psutil.process_iter():
+        try:
+            if proc.environ().get("HOME") == home:
+                found.append(proc)
+        except (psutil.Error, OSError):  # gone, a zombie, or another user's
+            pass
+    return found
+
+
+def mux_processes(home, names):
+    """(pid, rss_kib, cpu_s) for this run's processes named in `names`."""
+    found = []
+    for proc in psutil.process_iter(["name"]):
+        if proc.info["name"] not in names:
             continue
-        pid, rss, cpu, cmd = line.split(None, 3)
-        if os.path.basename(cmd.split()[0]) in names:
-            found.append((int(pid), int(rss), cpu_seconds(cpu)))
+        try:
+            if proc.environ().get("HOME") != home:
+                continue
+            with proc.oneshot():
+                cpu = proc.cpu_times()
+                found.append((proc.pid, proc.memory_info().rss // 1024, cpu.user + cpu.system))
+        except (psutil.Error, OSError):
+            pass
     return found
 
 
 def net_bytes_in(pid):
     """Bytes `pid` has received over the network so far, from nettop. Only
     Ship's client talks to its server over TCP; the others use Unix sockets,
-    which nettop doesn't count."""
+    which nettop doesn't count. macOS only: Linux has no per-process
+    counter for this, so it's None there."""
+    if sys.platform != "darwin":
+        return None
     res = subprocess.run(["nettop", "-P", "-L", "1", "-x", "-p", str(pid), "-J", "bytes_in"],
                          capture_output=True, text=True)
     rows = [l.split(",") for l in res.stdout.splitlines()[1:] if l.strip()]
     return sum(int(r[1]) for r in rows if len(r) > 1 and r[1].isdigit()) if rows else None
-
-
-def run_pids(home):
-    """Every process, of any name, started under this run's HOME."""
-    res = subprocess.run(["ps", "-x", "-E", "-ww", "-U", str(os.getuid()), "-o", "pid=,command="],
-                         capture_output=True, text=True)
-    return [int(l.split(None, 1)[0]) for l in res.stdout.splitlines() if f"HOME={home} " in l + " "]
 
 
 class Session:
@@ -278,19 +287,19 @@ class Session:
 
 
 def sweep(home):
-    """Kill anything still running under this run's HOME; return what was left."""
-    left = run_pids(home)
+    """Kill anything still running under this run's HOME; return the pids left."""
+    left = run_processes(home)
     for sig in (signal.SIGTERM, signal.SIGKILL):
-        for pid in left:
+        for proc in left:
             try:
-                os.kill(pid, sig)
-            except ProcessLookupError:
+                proc.send_signal(sig)
+            except psutil.Error:
                 pass
         time.sleep(0.5)
-        left = run_pids(home)
+        left = run_processes(home)
         if not left:
             break
-    return left
+    return [proc.pid for proc in left]
 
 
 def cli(argv, env, extra=None, timeout=15):
@@ -780,20 +789,48 @@ def capture(*argv):
         return f"{type(e).__name__}: {e}"
 
 
+def read(path):
+    try:
+        return Path(path).read_text().strip()
+    except OSError:
+        return None
+
+
 def machine():
-    """What the machine was doing, so a result can be judged later: power
-    and thermal settings, sleep assertions, Spotlight and Time Machine."""
-    return dict(
+    """What the machine was doing, so a result can be judged later."""
+    facts = dict(
         python=platform.python_version(),
-        hw_model=capture("sysctl", "-n", "hw.model"),
-        os_build=capture("sw_vers"),
-        ncpu=os.cpu_count(),
-        pmset_custom=capture("pmset", "-g", "custom"),
-        pmset_therm=capture("pmset", "-g", "therm"),
-        pmset_assertions=capture("pmset", "-g", "assertions"),
-        spotlight=capture("mdutil", "-s", "/"),
-        time_machine=capture("tmutil", "status"),
+        platform=platform.platform(),
+        cpus_logical=psutil.cpu_count(),
+        cpus_physical=psutil.cpu_count(logical=False),
+        memory_gb=round(psutil.virtual_memory().total / 2**30, 1),
+        on_battery=(b := psutil.sensors_battery()) is not None and not b.power_plugged,
     )
+    if sys.platform == "darwin":
+        # power and thermal settings, sleep assertions, Spotlight and Time Machine
+        facts.update(
+            hw_model=capture("sysctl", "-n", "hw.model"),
+            cpu=capture("sysctl", "-n", "machdep.cpu.brand_string"),
+            os_build=capture("sw_vers"),
+            pmset_custom=capture("pmset", "-g", "custom"),
+            pmset_therm=capture("pmset", "-g", "therm"),
+            pmset_assertions=capture("pmset", "-g", "assertions"),
+            spotlight=capture("mdutil", "-s", "/"),
+            time_machine=capture("tmutil", "status"),
+        )
+    elif sys.platform == "linux":
+        # the CPUs this run may use (taskset narrows them), and frequency scaling
+        cpuinfo = read("/proc/cpuinfo") or ""
+        facts.update(
+            cpu=next((l.split(":", 1)[1].strip() for l in cpuinfo.splitlines() if l.startswith("model name")), None),
+            os_release=read("/etc/os-release"),
+            affinity=sorted(os.sched_getaffinity(0)),
+            governor=read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+            boost=read("/sys/devices/system/cpu/cpufreq/boost"),
+            no_turbo=read("/sys/devices/system/cpu/intel_pstate/no_turbo"),
+            virtualization=capture("systemd-detect-virt"),
+        )
+    return facts
 
 
 def wait_for_load(cfg):
@@ -841,6 +878,12 @@ def main():
         records = [json.loads(l) for l in open(cfg.summarize)]
         print(summarize([r for r in records if r.get("kind") != "meta"]))
         return
+    missing = [m for m, b in (("herdr", HERDR_BIN), ("zellij", ZELLIJ_BIN), ("tmux", TMUX_BIN))
+               if m in cfg.mux and not b]
+    if missing:
+        sys.exit(f"not found on PATH: {', '.join(missing)}; install them, set <TOOL>_BENCH_BIN, or leave them out with --mux")
+    if not Path(SHIP_BIN).exists() and "ship" in cfg.mux:
+        sys.exit(f"{SHIP_BIN} doesn't exist; run cargo build --release from the repo root")
     load, high = wait_for_load(cfg)
     if high:
         sys.exit(f"load average {load:.2f} is above --max-load {cfg.max_load}; quit what's busy and try again")
@@ -853,8 +896,9 @@ def main():
     meta = dict(kind="meta", ship_bin=SHIP_BIN, cols=COLS, rows=ROWS, argv=sys.argv, seed=seed,
                 ship_rev=capture("git", "-C", repo, "rev-parse", "HEAD"),
                 git_status_sha256=hashlib.sha256(capture("git", "-C", repo, "status", "--porcelain").encode()).hexdigest(),
-                versions={m: capture(b, "-V" if m == "tmux" else "--version") for m, b in bins.items()},
-                binary_sha256={m: sha256(b) for m, b in bins.items()},
+                bins=bins,
+                versions={m: capture(b, "-V" if m == "tmux" else "--version") for m, b in bins.items() if b},
+                binary_sha256={m: sha256(b) for m, b in bins.items() if b},
                 machine=machine(), load=os.getloadavg())
     records = []
     with open(path, "w") as f:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Merge one traced typing run into a single timeline for Perfetto.
 
-    python3 bench.py --mux ship --workload type_idle --reps 1 --trace
+    uv run bench.py --mux ship --workload type_idle --reps 1 --trace
     python3 timeline.py /tmp/ship-bench-runs/ship-type_idle-0
 
 Writes <run>/merged.json and prints its path. Open it at

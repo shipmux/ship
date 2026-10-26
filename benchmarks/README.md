@@ -5,12 +5,12 @@ Compares Ship, Herdr, Zellij and tmux on one machine. The harness plays the oute
 ## Running it
 
 ```sh
-cargo build --release              # from the repo root; the harness uses target/release/ship
+cargo build --release           # from the repo root; the harness uses target/release/ship
 cd benchmarks
-python3 bench.py                   # every tool, every workload, 5 reps (about 35 min)
-python3 bench.py --reps 3           # a quicker check (about 20 min)
-python3 bench.py --mux ship --workload type_idle --reps 1
-python3 bench.py --summarize results/results-<stamp>.jsonl
+uv run bench.py                 # every tool, every workload, 5 reps (about 35 min)
+uv run bench.py --reps 3        # a quicker check (about 20 min)
+uv run bench.py --mux ship --workload type_idle --reps 1
+uv run bench.py --summarize results/results-<stamp>.jsonl
 ```
 
 Quit your own Ship, Herdr and Zellij sessions before a run you mean to quote; they add background load.
@@ -20,13 +20,19 @@ Quit your own Ship, Herdr and Zellij sessions before a run you mean to quote; th
 `--trace` sets `SHIP_TRACE` for Ship's server and client, so each run also records their timelines under `<scratch>/<run>/trace/`. Tracing slows Ship and the files are large (about 250 MB for a 10 s `type_flood`), so keep traced runs out of comparisons. For a typing run, `timeline.py` merges the client, server, harness and probe onto one clock:
 
 ```sh
-python3 bench.py --mux ship --workload type_idle --reps 1 --keys 60 --trace
+uv run bench.py --mux ship --workload type_idle --reps 1 --keys 60 --trace
 python3 timeline.py /tmp/ship-bench-runs/ship-type_idle-0   # writes merged.json for https://ui.perfetto.dev
 ```
 
-Needs Python 3 with no extra packages, and `herdr`, `zellij` and `tmux` at `/opt/homebrew/bin`. Set `SHIP_BENCH_BIN` to measure a different Ship binary. `python3 bench.py --help` lists the duration and key-count knobs.
+Runs on macOS and Linux. Needs [uv](https://docs.astral.sh/uv/), which reads the Python version and the one dependency (psutil) from the top of `bench.py`, and `herdr`, `zellij` and `tmux` on `PATH`. Set `SHIP_BENCH_BIN`, `HERDR_BENCH_BIN`, `ZELLIJ_BENCH_BIN` or `TMUX_BENCH_BIN` to measure a different binary, or leave a tool out with `--mux`. `uv run bench.py --help` lists the duration and key-count knobs.
 
-Results go to `results/results-<stamp>.jsonl`: a meta line, then one line per run with its metrics, an `ok` flag, the check that decided it, the load average before and after, and the end of the screen text. The meta line records the tool versions and the sha256 of each binary, the Ship commit and a hash of `git status`, the run-order seed, the Python version, `hw.model`, `sw_vers`, and the output of `pmset -g custom`, `pmset -g therm`, `pmset -g assertions`, `mdutil -s /` and `tmutil status`. Each run's raw outer-terminal bytes are kept as `/tmp/ship-bench-runs/<tool>-<workload>-<rep>/outer.bin` (`--no-keep-raw` turns that off).
+On Linux, `taskset` limits every tool, pane and the harness itself to a set of cores, which stands in for a smaller machine; the CPUs a run was allowed are recorded:
+
+```sh
+taskset -c 0-3 uv run bench.py
+```
+
+Results go to `results/results-<stamp>.jsonl`: a meta line, then one line per run with its metrics, an `ok` flag, the check that decided it, the load average before and after, and the end of the screen text. The meta line records the tool versions and the sha256 of each binary, the Ship commit and a hash of `git status`, the run-order seed, and the machine: Python version, platform, CPU model and count, memory, and whether it ran on battery. On macOS it adds `hw.model`, `sw_vers`, and the output of `pmset -g custom`, `pmset -g therm`, `pmset -g assertions`, `mdutil -s /` and `tmutil status`. On Linux it adds `/etc/os-release`, the CPUs the run was allowed, the frequency governor, turbo or boost state, and `systemd-detect-virt`. Each run's raw outer-terminal bytes are kept as `/tmp/ship-bench-runs/<tool>-<workload>-<rep>/outer.bin` (`--no-keep-raw` turns that off).
 
 ## Isolation
 
@@ -70,7 +76,7 @@ Pane programs live in `pane.py`. Each one is started by typing `exec python3 -I 
 - `cpu_pct`, `cpu_s`: user plus system CPU of every process named `ship`, `herdr`, `zellij` or `tmux` that carries the run's `HOME` (server and client), from `ps` before and after the window. Pane programs and shells are excluded. Floods report CPU seconds; steady workloads report percent of one core.
 - `peak_rss_mb`: highest sum of those processes' RSS, sampled once a second over the whole run.
 - `bytes`, `bytes_s`: bytes the client wrote to the outer terminal during the window, and per second.
-- `wire_bytes`, `wire_bytes_s`: bytes Ship's client received from its server during the window, compressed, from `nettop`. Ship only: the other tools talk over Unix sockets, which `nettop` doesn't count.
+- `wire_bytes`, `wire_bytes_s`: bytes Ship's client received from its server during the window, compressed, from `nettop`. Ship only: the other tools talk over Unix sockets, which `nettop` doesn't count. macOS only: Linux has no per-process counter for it.
 - `bytes_per_key`, `wire_bytes_per_key`: the same, divided by the keys sent in a typing run.
 - `wall_ms`, `mb_s`: from the moment the flood program starts writing until the harness sees the end marker in the client's output, so it includes rendering. `mb_s` is input bytes over that time. `writer_ms` (raw file only) is how long the program's own write took.
 - `painted_fps`: frame labels the client actually painted, divided by the animation's length. Frames a tool coalesces don't count.
@@ -87,7 +93,7 @@ End markers are capitals spelled from a random nonce. The command line never con
 
 ## Limits
 
-- macOS only so far, run on a machine that may be busy. `load1` is recorded per run.
+- Run on macOS so far. Linux is supported but unverified. The machine may be busy; `load1` is recorded per run.
 - One outer-terminal reader in Python. It drains 256 KiB at a time, which kept up in testing, but a real terminal parses and draws where this one only counts.
 - Latency is to the bytes leaving the client, not to pixels.
 - `ps` CPU time has 10 ms resolution, so idle CPU near zero is noise.
