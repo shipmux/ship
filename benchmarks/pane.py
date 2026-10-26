@@ -142,9 +142,12 @@ def agent(seconds, nonce, stamp_path):
     park()
 
 
-def anim(seconds, fps, stamp_path):
+def anim(seconds, fps, stamp_path, noise=False):
     """Full-screen truecolor frames. Every cell gets a new background each
-    frame; the top-left label is a frame token the harness counts."""
+    frame; the top-left label is a frame token the harness counts. The
+    default is a smooth gradient, which repeats within a frame and so
+    compresses well; `noise` gives every cell a random colour, which
+    leaves a compressor little to find within one frame."""
     cols, rows = size()
     out("\x1b[?25l")
     start = time.monotonic()
@@ -153,10 +156,15 @@ def anim(seconds, fps, stamp_path):
     while time.monotonic() - start < seconds:
         t = frame * 0.07
         parts = ["\x1b[H"]
+        rgb = os.urandom(rows * cols * 3) if noise else None
         for r in range(rows):
             parts.append(f"\x1b[{r + 1};1H")
             row = []
             for c in range(cols):
+                if noise:
+                    i = (r * cols + c) * 3
+                    row.append(f"\x1b[48;2;{rgb[i]};{rgb[i + 1]};{rgb[i + 2]}m ")
+                    continue
                 v = (c * 3 + r * 5 + frame * 4) & 255
                 row.append(f"\x1b[48;2;{v};{(v + int(t * 40)) & 255};{(255 - v) & 255}m ")
             parts.append("".join(row))
@@ -192,7 +200,7 @@ def probe(stamp_path):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("kind", choices=["logflood", "uniflood", "floodloop", "agent", "anim", "probe"])
+    p.add_argument("kind", choices=["logflood", "uniflood", "floodloop", "agent", "anim", "noise", "probe"])
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--mib", type=float, default=16)
     p.add_argument("--fps", type=float, default=60)
@@ -205,8 +213,8 @@ def main():
         flood_loop(a.seconds)
     elif a.kind == "agent":
         agent(a.seconds, a.nonce, a.stamp)
-    elif a.kind == "anim":
-        anim(a.seconds, a.fps, a.stamp)
+    elif a.kind in ("anim", "noise"):
+        anim(a.seconds, a.fps, a.stamp, noise=a.kind == "noise")
     else:
         probe(a.stamp)
 

@@ -10,8 +10,10 @@ See README.md for the workloads and metrics.
 
 import argparse
 import fcntl
+import hashlib
 import json
 import os
+import platform
 import pty
 import random
 import re
@@ -126,6 +128,16 @@ def mux_processes(home, names):
     return found
 
 
+def net_bytes_in(pid):
+    """Bytes `pid` has received over the network so far, from nettop. Only
+    Ship's client talks to its server over TCP; the others use Unix sockets,
+    which nettop doesn't count."""
+    res = subprocess.run(["nettop", "-P", "-L", "1", "-x", "-p", str(pid), "-J", "bytes_in"],
+                         capture_output=True, text=True)
+    rows = [l.split(",") for l in res.stdout.splitlines()[1:] if l.strip()]
+    return sum(int(r[1]) for r in rows if len(r) > 1 and r[1].isdigit()) if rows else None
+
+
 def run_pids(home):
     """Every process, of any name, started under this run's HOME."""
     res = subprocess.run(["ps", "-x", "-E", "-ww", "-U", str(os.getuid()), "-o", "pid=,command="],
@@ -163,6 +175,11 @@ class Session:
         procs = mux_processes(self.env.home, self.mux.names)
         self.peak_rss = max(self.peak_rss, sum(p[1] for p in procs))
         return sum(p[2] for p in procs), len(procs)
+
+    def wire(self):
+        """Bytes the client has received from its server, where that can be
+        measured (Ship only); None otherwise."""
+        return net_bytes_in(self.pid) if self.mux.name == "ship" else None
 
     def pump(self, timeout):
         """Read whatever arrives within `timeout`, answering queries."""
@@ -225,7 +242,7 @@ class Session:
             else:
                 if b"RDY-42" in self.out:
                     return time.monotonic() - start
-                if time.monotonic() - last_try > 2.5:
+                if time.monotonic() - last_try > 1.0:
                     last_try = time.monotonic()
                     self.send(b"echo RDY-$((6*7))\r")
         raise RuntimeError("shell never answered: " + text(bytes(self.out[-1500:]))[-600:])
@@ -450,19 +467,30 @@ def read_stamp(path, timeout=5):
     return None
 
 
+def window(sess, w0, b0, dt):
+    """Byte rates for a measured window: what the client wrote to the
+    outer terminal and, for Ship, what it received from its server."""
+    out = len(sess.out) - b0
+    w1 = sess.wire()
+    wire = w1 - w0 if w0 is not None and w1 is not None else None
+    return dict(bytes=out, bytes_s=out / dt, wire_bytes=wire, wire_bytes_s=wire / dt if wire is not None else None)
+
+
 def w_idle(sess, cfg):
+    w0 = sess.wire()
     t0, b0 = time.monotonic(), len(sess.out)
     c0, n = sess.cpu()
     sess.drain(cfg.idle_s)
     c1, _ = sess.cpu()
     dt = time.monotonic() - t0
-    return dict(cpu_pct=100 * (c1 - c0) / dt, bytes=len(sess.out) - b0, procs=n,
+    return dict(cpu_pct=100 * (c1 - c0) / dt, **window(sess, w0, b0, dt), procs=n,
                 ok=True, check="prompt answered RDY-42 before the window")
 
 
 def w_agent(sess, cfg):
     nonce = random.randrange(10**5, 10**6)
     st = sess.env.root / "stamp.json"
+    w0 = sess.wire()
     c0, n = sess.cpu()
     b0 = len(sess.out)
     exec_in_shell(sess, pane_cmd("agent", "--seconds", cfg.agent_s, "--nonce", nonce, "--stamp", st))
@@ -471,7 +499,7 @@ def w_agent(sess, cfg):
     done = sess.wait(marker("agent", nonce).encode(), cfg.agent_s + 15, b0)
     t1 = time.monotonic()
     c1, _ = sess.cpu()
-    return dict(cpu_pct=100 * (c1 - c0) / (t1 - t0), bytes=len(sess.out) - b0, procs=n,
+    return dict(cpu_pct=100 * (c1 - c0) / (t1 - t0), **window(sess, w0, b0, t1 - t0), procs=n,
                 ok=seen_tokens and done, check=f"status line seen={seen_tokens} end marker seen={done}")
 
 
@@ -479,6 +507,7 @@ def flood(kind, mib):
     def run(sess, cfg):
         nonce = random.randrange(10**5, 10**6)
         st = sess.env.root / "stamp.json"
+        w0 = sess.wire()
         c0, n = sess.cpu()
         b0 = len(sess.out)
         exec_in_shell(sess, pane_cmd(kind, "--mib", mib, "--nonce", nonce, "--stamp", st))
@@ -487,31 +516,36 @@ def flood(kind, mib):
         stamp = read_stamp(st)
         sess.drain(1.0)
         c1, _ = sess.cpu()
+        w1 = sess.wire()
         if not (done and stamp):
             return dict(ok=False, check=f"end marker seen={done} stamp={bool(stamp)}", bytes=len(sess.out) - b0)
         wall = (t_seen - stamp["start_ns"]) / 1e9
         return dict(wall_ms=wall * 1e3, mb_s=stamp["bytes"] / 1e6 / wall,
                     writer_ms=(stamp["written_ns"] - stamp["start_ns"]) / 1e6, cpu_s=c1 - c0,
-                    bytes=len(sess.out) - b0, input_bytes=stamp["bytes"], procs=n, ok=True,
+                    bytes=len(sess.out) - b0, wire_bytes=w1 - w0 if w0 is not None and w1 is not None else None,
+                    input_bytes=stamp["bytes"], procs=n, ok=True,
                     check="end marker rendered")
     return run
 
 
-def w_anim(sess, cfg):
-    st = sess.env.root / "stamp.json"
-    c0, n = sess.cpu()
-    b0 = len(sess.out)
-    exec_in_shell(sess, pane_cmd("anim", "--seconds", cfg.anim_s, "--fps", 60, "--stamp", st))
-    t0 = time.monotonic()
-    done = sess.wait(b"ANIMFINISHED", cfg.anim_s + 20, b0)
-    t1 = time.monotonic()
-    c1, _ = sess.cpu()
-    stamp = read_stamp(st) or {}
-    painted = len(TOKEN_RE.findall(bytes(sess.out[b0:])))
-    secs = stamp.get("end_ns", 0) - stamp.get("start_ns", 0)
-    return dict(cpu_pct=100 * (c1 - c0) / (t1 - t0), bytes=len(sess.out) - b0, procs=n,
-                frames_offered=stamp.get("frames"), painted_fps=painted / (secs / 1e9) if secs else None,
-                ok=done and painted > 0, check=f"finished={done} frame labels painted={painted}")
+def animation(kind):
+    def run(sess, cfg):
+        st = sess.env.root / "stamp.json"
+        w0 = sess.wire()
+        c0, n = sess.cpu()
+        b0 = len(sess.out)
+        exec_in_shell(sess, pane_cmd(kind, "--seconds", cfg.anim_s, "--fps", 60, "--stamp", st))
+        t0 = time.monotonic()
+        done = sess.wait(b"ANIMFINISHED", cfg.anim_s + 20, b0)
+        t1 = time.monotonic()
+        c1, _ = sess.cpu()
+        stamp = read_stamp(st) or {}
+        painted = len(TOKEN_RE.findall(bytes(sess.out[b0:])))
+        secs = stamp.get("end_ns", 0) - stamp.get("start_ns", 0)
+        return dict(cpu_pct=100 * (c1 - c0) / (t1 - t0), **window(sess, w0, b0, t1 - t0), procs=n,
+                    frames_offered=stamp.get("frames"), painted_fps=painted / (secs / 1e9) if secs else None,
+                    ok=done and painted > 0, check=f"finished={done} frame labels painted={painted}")
+    return run
 
 
 SIDE_TEXT = {"floodloop": b"status=", "agent": b"tokens"}
@@ -546,6 +580,7 @@ def typing(side=None):
         sess.drain(1.0)
         rng = random.Random(1)
         lat, lost, marks = [], 0, []
+        w0 = sess.wire()
         c0, n = sess.cpu()
         t_start, b1 = time.monotonic(), len(sess.out)
         for i in range(cfg.warmup + cfg.keys):
@@ -580,8 +615,12 @@ def typing(side=None):
         q = statistics.quantiles(lat, n=100, method="inclusive") if len(lat) > 2 else [None] * 99
         split = split_latency(marks, Path(f"{st}.keys"), cfg.warmup)
         (sess.env.root / "keys.json").write_text(json.dumps(marks))
+        rates = window(sess, w0, b1, dt)
+        sent = cfg.warmup + cfg.keys
         return dict(p50_ms=q[49], p95_ms=q[94], p99_ms=q[98], max_ms=max(lat, default=None), echoed=len(lat), **split,
-                    lost=lost, cpu_pct=100 * (c1 - c0) / dt, bytes=len(sess.out) - b1, procs=n, ok=ok,
+                    lost=lost, cpu_pct=100 * (c1 - c0) / dt, **rates, bytes_per_key=rates["bytes"] / sent,
+                    wire_bytes_per_key=rates["wire_bytes"] / sent if rates["wire_bytes"] is not None else None,
+                    lat_ms=[round(x, 4) for x in lat], procs=n, ok=ok,
                     check=f"{len(lat)}/{cfg.keys} keys echoed, {lost} lost, side pane painting={side_seen}")
     return run
 
@@ -591,7 +630,8 @@ WORKLOADS = {
     "agent": w_agent,
     "logflood": flood("logflood", 16),
     "uniflood": flood("uniflood", 8),
-    "anim": w_anim,
+    "anim": animation("anim"),
+    "noise": animation("noise"),
     "type_idle": typing(),
     "type_flood": typing(side=("floodloop", "--seconds", 600)),
     "type_agent": typing(side=("agent", "--seconds", 600)),
@@ -631,37 +671,138 @@ def one(mux_name, workload, rep, cfg, scratch):
     return rec
 
 
+TYPING = ["p50_ms", "in_p50_ms", "program_p50_ms", "out_p50_ms", "p95_ms", "p99_ms", "lost", "cpu_pct",
+          "bytes_per_key", "wire_bytes_per_key"]
+STEADY = ["cpu_pct", "bytes_s", "wire_bytes_s", "peak_rss_mb"]
+FLOOD = ["wall_ms", "mb_s", "cpu_s", "bytes", "wire_bytes", "peak_rss_mb"]
+METRICS = {
+    "idle": STEADY,
+    "agent": STEADY,
+    "logflood": FLOOD,
+    "uniflood": FLOOD,
+    "anim": ["cpu_pct", "painted_fps", "bytes_s", "wire_bytes_s", "peak_rss_mb"],
+    "noise": ["cpu_pct", "painted_fps", "bytes_s", "wire_bytes_s", "peak_rss_mb"],
+    "type_idle": TYPING,
+    "type_flood": TYPING,
+    "type_agent": TYPING,
+}
+POOLED = {"p95_ms": 95, "p99_ms": 99}  # tails from every key of every run, not a median of per-run tails
+
+
+def fmt(v):
+    return f"{v:,.0f}" if abs(v) >= 1000 else f"{v:.3g}" if abs(v) < 10 else f"{v:.1f}"
+
+
+def per_run(records, mux, w, m):
+    return [r[m] for r in records if r["mux"] == mux and r["workload"] == w and r.get(m) is not None]
+
+
+def cell(records, mux, w, m):
+    if m in POOLED:
+        keys = [x for r in records if r["mux"] == mux and r["workload"] == w for x in r.get("lat_ms") or []]
+        if len(keys) > 2:
+            return statistics.quantiles(keys, n=100, method="inclusive")[POOLED[m] - 1]
+    vals = per_run(records, mux, w, m)
+    return statistics.median(vals) if vals else None
+
+
+def bootstrap_diff(a, b, rng, n=2000):
+    """95% interval for median(b) - median(a), resampling whole runs, so the
+    spread between runs counts and not just the spread between keys."""
+    diffs = sorted(statistics.median(rng.choices(b, k=len(b))) - statistics.median(rng.choices(a, k=len(a)))
+                   for _ in range(n))
+    return diffs[int(0.025 * n)], diffs[int(0.975 * n) - 1]
+
+
 def summarize(records):
-    metrics = {
-        "idle": ["cpu_pct", "bytes", "peak_rss_mb"],
-        "agent": ["cpu_pct", "bytes", "peak_rss_mb"],
-        "logflood": ["wall_ms", "mb_s", "cpu_s", "bytes", "peak_rss_mb"],
-        "uniflood": ["wall_ms", "mb_s", "cpu_s", "bytes", "peak_rss_mb"],
-        "anim": ["cpu_pct", "painted_fps", "bytes", "peak_rss_mb"],
-        "type_idle": ["p50_ms", "in_p50_ms", "program_p50_ms", "out_p50_ms", "p95_ms", "p99_ms", "lost", "cpu_pct"],
-        "type_flood": ["p50_ms", "in_p50_ms", "program_p50_ms", "out_p50_ms", "p95_ms", "p99_ms", "lost", "cpu_pct"],
-        "type_agent": ["p50_ms", "in_p50_ms", "program_p50_ms", "out_p50_ms", "p95_ms", "p99_ms", "lost", "cpu_pct"],
-    }
+    flagged = [r for r in records if r.get("ok") and r.get("load_high")]
+    good = [r for r in records if r.get("ok") and not r.get("load_high")]
     muxes = [m for m in MUXES if any(r["mux"] == m for r in records)]
-    lines = ["| workload metric | " + " | ".join(muxes) + " |", "|---|" + "---|" * len(muxes)]
-    for w, ms in metrics.items():
+    head = ["| workload metric | " + " | ".join(muxes) + " |", "|---|" + "---|" * len(muxes)]
+
+    lines = ["Medians of per-run values; p95 and p99 pool every key across runs.", ""] + head
+    for w, ms in METRICS.items():
         for m in ms:
-            cells = []
-            for mux in muxes:
-                vals = [r[m] for r in records if r["mux"] == mux and r["workload"] == w and r.get("ok") and r.get(m) is not None]
-                if not vals:
-                    cells.append("-")
+            cells = [cell(good, mux, w, m) for mux in muxes]
+            if any(c is not None for c in cells):
+                lines.append(f"| {w} {m} | " + " | ".join("-" if c is None else fmt(c) for c in cells) + " |")
+
+    others = [m for m in muxes if m != "ship"]
+    if "ship" in muxes and others:
+        rng = random.Random(0)
+        lines += ["", "Each tool minus Ship: median difference [95% interval, bootstrap over runs].", "",
+                  "| workload metric | " + " | ".join(others) + " |", "|---|" + "---|" * len(others)]
+        for w, ms in METRICS.items():
+            for m in ms:
+                if m in POOLED or m == "lost":
                     continue
-                med = statistics.median(vals)
-                cells.append(f"{med:,.0f}" if abs(med) >= 1000 else f"{med:.3g}" if med < 10 else f"{med:.1f}")
-            if any(c != "-" for c in cells):
-                lines.append(f"| {w} {m} | " + " | ".join(cells) + " |")
+                base = per_run(good, "ship", w, m)
+                cells = []
+                for mux in others:
+                    vals = per_run(good, mux, w, m)
+                    if len(base) < 2 or len(vals) < 2:
+                        cells.append("-")
+                        continue
+                    lo, hi = bootstrap_diff(base, vals, rng)
+                    d = statistics.median(vals) - statistics.median(base)
+                    cells.append(f"{d:+.3g} [{lo:+.3g}, {hi:+.3g}]")
+                if any(c != "-" for c in cells):
+                    lines.append(f"| {w} {m} | " + " | ".join(cells) + " |")
+
+    lines += ["", "Per-run p50 latency (ms), in run order:"]
+    for w in ("type_idle", "type_flood", "type_agent"):
+        for mux in muxes:
+            vals = per_run(good, mux, w, "p50_ms")
+            if vals:
+                lines.append(f"  {w:10s} {mux:6s} " + " ".join(f"{v:.2f}" for v in vals))
+
     fails = [r for r in records if not r.get("ok")]
-    lines.append("")
-    lines.append(f"runs: {len(records)}, failed: {len(fails)}")
+    lines += ["", f"runs: {len(records)}, failed: {len(fails)}, over the load limit: {len(flagged)} (left out)"]
     for r in fails:
         lines.append(f"  FAIL {r['mux']} {r['workload']} rep{r['rep']}: {r.get('error') or r.get('check')}")
+    for r in flagged:
+        lines.append(f"  LOAD {r['mux']} {r['workload']} rep{r['rep']}: load1 {r['load_before']:.2f}")
     return "\n".join(lines)
+
+
+def sha256(path):
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def capture(*argv):
+    try:
+        res = subprocess.run(argv, capture_output=True, text=True, timeout=30)
+        return (res.stdout + res.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"{type(e).__name__}: {e}"
+
+
+def machine():
+    """What the machine was doing, so a result can be judged later: power
+    and thermal settings, sleep assertions, Spotlight and Time Machine."""
+    return dict(
+        python=platform.python_version(),
+        hw_model=capture("sysctl", "-n", "hw.model"),
+        os_build=capture("sw_vers"),
+        ncpu=os.cpu_count(),
+        pmset_custom=capture("pmset", "-g", "custom"),
+        pmset_therm=capture("pmset", "-g", "therm"),
+        pmset_assertions=capture("pmset", "-g", "assertions"),
+        spotlight=capture("mdutil", "-s", "/"),
+        time_machine=capture("tmutil", "status"),
+    )
+
+
+def wait_for_load(cfg):
+    """Wait up to --load-wait for the 1-minute load average to fall to
+    --max-load. Returns the load seen and whether it was still too high."""
+    deadline = time.monotonic() + cfg.load_wait
+    while (load := os.getloadavg()[0]) > cfg.max_load and time.monotonic() < deadline:
+        time.sleep(5)
+    return load, load > cfg.max_load
 
 
 def interrupt(*_):
@@ -672,22 +813,27 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--mux", nargs="+", default=list(MUXES), choices=list(MUXES))
     p.add_argument("--workload", nargs="+", default=list(WORKLOADS), choices=list(WORKLOADS))
-    p.add_argument("--reps", type=int, default=3)
-    p.add_argument("--idle-s", type=float, default=30)
-    p.add_argument("--agent-s", type=float, default=60)
-    p.add_argument("--anim-s", type=float, default=10)
-    p.add_argument("--keys", type=int, default=200)
+    p.add_argument("--reps", type=int, default=5)
+    p.add_argument("--seed", type=int, help="seed for the run order (default: random, recorded in the results)")
+    p.add_argument("--cooldown", type=float, default=1.0, help="seconds between runs")
+    p.add_argument("--max-load", type=float, default=4.0,
+                   help="1-minute load average above which a run waits, and is left out if it stays high")
+    p.add_argument("--load-wait", type=float, default=120, help="seconds to wait for the load to fall")
+    p.add_argument("--idle-s", type=float, default=10)
+    p.add_argument("--agent-s", type=float, default=15)
+    p.add_argument("--anim-s", type=float, default=5)
+    p.add_argument("--keys", type=int, default=100)
     p.add_argument("--warmup", type=int, default=10)
     p.add_argument("--key-timeout", type=float, default=2.0)
     p.add_argument("--flood-timeout", type=float, default=120)
-    p.add_argument("--settle", type=float, default=2.0)
+    p.add_argument("--settle", type=float, default=1.0)
     p.add_argument("--scratch", default="/tmp/ship-bench-runs")
     p.add_argument("--keep-raw", action=argparse.BooleanOptionalAction, default=True,
                    help="save every byte the client wrote as <scratch>/<run>/outer.bin")
     p.add_argument("--trace", action="store_true",
                    help="record Ship timelines to <scratch>/<run>/trace (slows Ship; profiling only)")
     p.add_argument("--out", default=str(HERE / "results"))
-    p.add_argument("--summarize", metavar="JSONL", help="print the medians table for a results file and exit")
+    p.add_argument("--summarize", metavar="JSONL", help="print the summary for a results file and exit")
     cfg = p.parse_args()
     # SIGTERM unwinds like Ctrl-C, so the current run's teardown still runs.
     signal.signal(signal.SIGTERM, interrupt)
@@ -695,29 +841,41 @@ def main():
         records = [json.loads(l) for l in open(cfg.summarize)]
         print(summarize([r for r in records if r.get("kind") != "meta"]))
         return
+    load, high = wait_for_load(cfg)
+    if high:
+        sys.exit(f"load average {load:.2f} is above --max-load {cfg.max_load}; quit what's busy and try again")
+    seed = cfg.seed if cfg.seed is not None else random.randrange(1 << 32)
+    order_rng = random.Random(seed)
     Path(cfg.out).mkdir(exist_ok=True)
     path = Path(cfg.out) / time.strftime("results-%Y%m%d-%H%M%S.jsonl")
-    meta = dict(kind="meta", ship_bin=SHIP_BIN, cols=COLS, rows=ROWS, argv=sys.argv,
-                ship_rev=subprocess.run(["git", "-C", str(HERE.parent), "rev-parse", "--short", "HEAD"],
-                                        capture_output=True, text=True).stdout.strip(),
-                versions={m: subprocess.run([b, flag], capture_output=True, text=True).stdout.strip()
-                          for m, b, flag in (("ship", SHIP_BIN, "--version"), ("herdr", HERDR_BIN, "--version"),
-                                             ("zellij", ZELLIJ_BIN, "--version"), ("tmux", TMUX_BIN, "-V"))},
-                load=os.getloadavg())
+    repo = str(HERE.parent)
+    bins = {"ship": SHIP_BIN, "herdr": HERDR_BIN, "zellij": ZELLIJ_BIN, "tmux": TMUX_BIN}
+    meta = dict(kind="meta", ship_bin=SHIP_BIN, cols=COLS, rows=ROWS, argv=sys.argv, seed=seed,
+                ship_rev=capture("git", "-C", repo, "rev-parse", "HEAD"),
+                git_status_sha256=hashlib.sha256(capture("git", "-C", repo, "status", "--porcelain").encode()).hexdigest(),
+                versions={m: capture(b, "-V" if m == "tmux" else "--version") for m, b in bins.items()},
+                binary_sha256={m: sha256(b) for m, b in bins.items()},
+                machine=machine(), load=os.getloadavg())
     records = []
     with open(path, "w") as f:
         f.write(json.dumps(meta) + "\n")
         for rep in range(cfg.reps):
-            for wi, w in enumerate(cfg.workload):
-                order = cfg.mux[(rep + wi) % len(cfg.mux):] + cfg.mux[:(rep + wi) % len(cfg.mux)]
+            for w in cfg.workload:
+                # A fresh random order in every block, so no tool always runs
+                # right after another one's flood.
+                order = order_rng.sample(cfg.mux, len(cfg.mux))
                 for m in order:
+                    load, high = wait_for_load(cfg)
                     rec = one(m, w, rep, cfg, cfg.scratch)
-                    rec["load1"] = os.getloadavg()[0]
+                    rec.update(load_before=load, load_high=high, load1=os.getloadavg()[0])
                     records.append(rec)
                     f.write(json.dumps(rec) + "\n")
                     f.flush()
                     status = "ok" if rec.get("ok") else "FAIL " + (rec.get("error") or rec.get("check", ""))
+                    if high:
+                        status += f" (load {load:.2f}, left out)"
                     print(f"[{rec['started']}] rep{rep} {w:10s} {m:6s} {status}", flush=True)
+                    time.sleep(cfg.cooldown)
     print(f"\nresults: {path}\n")
     print(summarize(records))
 
