@@ -26,10 +26,14 @@ main {
   align-items: baseline;
   margin: 56px 0 16px;
 }
-.doc .sl-heading-wrapper h2 {
+.doc .sl-heading-wrapper h2,
+.doc .sl-heading-wrapper h3 {
   margin: 0;
   font: 22px/33px var(--pixel);
 }
+.doc .sl-heading-wrapper:has(h3) {
+  margin-top: 33px;
+} /* a section inside a chapter; the docs pages have none, blog posts do */
 .doc .sl-anchor-link {
   font: 22px/33px var(--pixel);
   color: var(--sea);
