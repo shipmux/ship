@@ -14,11 +14,11 @@ The API spells the same thing several ways. A pane's `right_click_passthrough` i
 - **BREAKING: names are stored as sent.** `""` and `"  x "` are names. Only `null` clears one, and on the CLI a bare `--name` clears.
 - **BREAKING: zoom is a tab field.** `PATCH /tabs/{id} {"zoomed": "pane:…"}` zooms and `null` unzooms. `ship tab set --zoomed` replaces `ship pane zoom`. `POST /panes/{id}/zoom` and `server.pane.zoom` are removed.
 - **New `client.pane.zoom` action** with a required `zoomed` argument (`true`, `false` or `"toggle"`), resolved from what the client shows. `alt-f` and the pane menu's `zoom` item pass `"toggle"`.
-- **One validation error.** Every JSON body and query string rejects unknown fields. A bad body gets 400 `validation` listing every problem, each with a JSON Pointer. A bad query string gets the same error with one problem. Input stream lines decode the same way.
+- **One validation error.** Unknown JSON fields and query parameters are ignored; known fields are validated. A bad body gets 400 `validation` listing every problem, each with a JSON Pointer. A bad query string gets the same error with one problem. Input stream lines decode the same way.
 - **A rule for `server.` and `client.` actions.** A `server.` action's request depends only on its arguments and the caller's context. One that reads other shared state is `client.`.
 - **BREAKING: protocol 17.**
 
-Not in this change: listing every problem in a query string, compatibility with protocol 16, the saved tabs file's format, swap/resize/scroll shapes beyond rejecting unknown fields, clearing a name from a keybinding, a `"toggle"` value for the tab's `zoomed`, and an ADR.
+Not in this change: listing every problem in a query string, compatibility with protocol 16, the saved tabs file's format, swap/resize/scroll shapes, clearing a name from a keybinding, a `"toggle"` value for the tab's `zoomed`, and an ADR.
 
 ## Capabilities
 
@@ -38,8 +38,8 @@ None.
 
 ## Impact
 
-- `ship-core`: `protocol.rs` (new `NewPane`, `NewTab`, `MoveTabBody`; `SetTab` gains `zoomed`; `PaneInput`, `PaneSpec`, `ZoomPane` go; `deny_unknown_fields` and `present` across request types; protocol 17), `model.rs` (`OptionalName` goes), `error.rs` (`Problem`), `command.rs` (tri-state `--name`, `--zoomed`, `pane zoom` goes), `defaults.toml`.
-- `ship-server`: new `body.rs` with `Body<T>` and `Query<T>` extractors and the schema explainer; routes, attach, views, input stream and state actor move onto them; `jsonschema` 0.60 (default features off) and `serde_path_to_error` added.
+- `ship-core`: `protocol.rs` (new `NewPane`, `NewTab`, `MoveTabBody`; `SetTab` gains `zoomed`; `PaneInput`, `PaneSpec`, `ZoomPane` go; `present` across request types; protocol 17), `model.rs` (`OptionalName` goes), `error.rs` (`Problem`), `command.rs` (tri-state `--name`, `--zoomed`, `pane zoom` goes), `defaults.toml`.
+- `ship-server`: new `body.rs` with `Body<T>` and `Query<T>` extractors and the schema explainer; routes, attach, views, input stream and state actor move onto them; `boon` 0.6.1 and `serde_path_to_error` added.
 - `ship-client`: `client.pane.zoom` in the keymap and UI, the unzoom-before-moving rule matched by an explicit list, CLI execute and API builders for the new bodies.
 - Docs: `docs/agents/code.md` gains "Entity and request shapes"; `docs/site/panes.md`, `tabs.md` and `configuration.md` drop the old shapes.
 - Breaks every protocol 16 client and script. Saved tabs files still load.

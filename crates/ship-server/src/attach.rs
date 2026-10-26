@@ -23,6 +23,7 @@ use tokio_stream::{StreamMap, wrappers::WatchStream};
 
 use crate::{
     AppState,
+    body::Body,
     pane::{Clipboard, LivePanes},
     state::{Attach, Detach, ServerState, SetView, tree},
 };
@@ -58,13 +59,13 @@ impl Drop for AttachmentGuard {
                 `attached` first, then `state` for each newer replica and `screen` for each \
                 changed screen of a pane in the viewed tab, `clipboard` for text to copy, then \
                 `ended` when the server shuts down or an every-revision stream falls behind. Viewing a tab sends each of its panes' current screens."),
-        (status = 422, description = "Malformed selection or area"),
+        (status = 400, description = "Request validation failed", body = AppError),
         (status = 503, body = AppError),
     ),
 )]
 pub(crate) async fn attach(
     State(app): State<AppState>,
-    Json(request): Json<AttachRequest>,
+    Body(request): Body<AttachRequest>,
 ) -> Result<Response> {
     let guard = AttachmentGuard {
         attachment: Id::new(),
@@ -267,16 +268,15 @@ impl<S: Send + Sync> OptionalFromRequestParts<S> for AttachmentHeader {
     responses(
         (status = 200, description = "The attachment's viewing record as stored. A selection \
             no longer in the tree leaves it unchanged.", body = ViewingRecord),
-        (status = 400, description = "Missing or malformed attachment header", body = AppError),
+        (status = 400, description = "Missing or malformed attachment header, or request validation failed", body = AppError),
         (status = 404, description = "Attachment not found", body = AppError),
-        (status = 422, description = "Malformed selection or area"),
         (status = 503, body = AppError),
     ),
 )]
 pub(crate) async fn view(
     State(app): State<AppState>,
     AttachmentHeader(attachment): AttachmentHeader,
-    Json(view): Json<ViewInput>,
+    Body(view): Body<ViewInput>,
 ) -> Result<Response> {
     let record = app.state.ask(SetView { attachment, view }).await?;
     Ok(Json(record).into_response())

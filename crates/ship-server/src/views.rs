@@ -2,7 +2,7 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::State,
     response::{IntoResponse, Response},
 };
 use ship_core::{
@@ -13,6 +13,7 @@ use ship_core::{
 
 use crate::{
     AppState,
+    body::{Body, Path},
     state::{GetView, ListViews, Select},
 };
 
@@ -37,7 +38,7 @@ pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Response> 
     params(("attachment" = String, Path, description = "Attachment ID from ship view list")),
     responses(
         (status = 200, body = ViewingRecord),
-        (status = 400, description = "Malformed attachment ID"),
+        (status = 400, description = "Malformed attachment ID", body = AppError),
         (status = 404, body = AppError),
         (status = 503, body = AppError),
     ),
@@ -58,16 +59,15 @@ pub(crate) async fn get_view(
     request_body = SelectView,
     responses(
         (status = 200, description = "The stored view; selecting a zoom-hidden pane unzooms its tab", body = ViewingRecord),
-        (status = 400, description = "Malformed attachment ID or JSON"),
+        (status = 400, description = "Malformed attachment ID or request validation failed", body = AppError),
         (status = 404, description = "Attachment or node not found; nothing changed", body = AppError),
-        (status = 422, description = "Malformed selection"),
         (status = 503, body = AppError),
     ),
 )]
 pub(crate) async fn select(
     State(app): State<AppState>,
     Path(attachment): Path<IdOf<Attachment>>,
-    Json(body): Json<SelectView>,
+    Body(body): Body<SelectView>,
 ) -> Result<Response> {
     let value = app
         .state

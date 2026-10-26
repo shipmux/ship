@@ -2,6 +2,22 @@
 
 Status: Locked on 2026-10-25. Built on the locked `product.md`. Cyan picked shape A in chat ("yep i agree. that makes sense to me"), with the deciding outcome that a schema mistake can never reject a valid request. Revised the same day at Cyan's direction ("sounds good to me") so the SC-001 check is a one-off scratch program rather than a permanent test, then approved in Plannotator review ("LGTM"). Revised the same day after the product paper's FR-011 change (`client.pane.zoom` takes a `zoomed` switch), which Cyan approved in chat without a further review ("i don't have to cehck the other papers"). KD-10 revised the same day after program design found its premise wrong; Cyan approved the change in chat ("i agree with oyur deffaults on those questions").
 
+## Superseding decision: unknown request fields
+
+Cyan approved the product revision during slice 2 ("i see. let's drop it then and keep going"). The architecture remains shape A: serde gates, the generated schema explains only refusals. Request types no longer carry `deny_unknown_fields`, including input frames and the text query; config strictness is unchanged. This avoids utoipa's internally tagged enum schema contradiction between a closed payload and its separate tag, without handwritten schemas or frame-specific decoder dispatch. Earlier unknown-field rejection statements below are superseded history. Cyan's approval to drop the restriction and continue applies to this architecture revision and the program revision.
+
+## Superseding decision: schema library
+
+Cyan approved replacing `jsonschema` with `boon` during slice 2 ("Perfect! alright! keep going with boon for this slice then!"). Shape A and the wire contract are unchanged. This supersedes the original library-specific dependency, API and noise-filter details below; those remain as design history.
+
+- Use `boon = "0.6.1"`. Compile the generated components once, lazily, into boon's `Schemas`. A `HashMap<String, SchemaIndex>` maps component names to compiled indices. Together these form the server-local `ValidatorMap`.
+- Register one in-memory schema resource, explicitly select draft 2020-12 and compile the document's existing `#/components/schemas/{name}` references. No handwritten schema or external document fetching is needed.
+- After serde refuses, look up the component index, validate, and traverse the error tree into `Problem` entries. Unwrap groups and references, suppress inapplicable shape alternatives when relevant alternatives remain, and give each missing property its own pointer. Error wording need not match jsonschema.
+- `Body<T>`, `Query<T>`, `decode`, serde-path fallback and NDJSON handling keep their contracts. A schema must never reject a serde-accepted request.
+- The scratch release comparison saved about 2.07 MB with boon and reduced added package entries from 25 to 7. All 69 component schemas compiled and live verification, including 44 null-field cases, passed. Exact measurements and final real-checkout verification are recorded in `tasks.md`.
+
+Cyan's direction approves this architecture revision and the corresponding program revision. No product behavior changes beyond the previously approved unknown-field revision.
+
 ## Context and constraints
 
 - **Wire types live in `ship-core`.** `protocol.rs` holds the request bodies and `model.rs` holds the entities, which are also the `get` output. The server, the CLI and the full-screen client all use these types, and utoipa derives the OpenAPI document from them.

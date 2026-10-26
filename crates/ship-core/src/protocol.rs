@@ -44,10 +44,22 @@ pub struct HealthResponse {
     pub log: String,
 }
 
+/// One problem with a request: each entry of a 400 `validation` error's
+/// `data.errors`.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct Problem {
+    /// JSON Pointer into the body, e.g. `/pane/exit_behavior`; absent when
+    /// the error has no field path, such as malformed JSON.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pointer: Option<String>,
+    pub detail: String,
+}
+
 /// PUT /api/v0/server/log: {"set": "<filter>"} or "reset".
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub enum LogChange {
     Set(String),
     Reset,
@@ -66,7 +78,7 @@ pub struct LogFilter {
 /// `at` defaults to the end of the top level.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct CreateTab {
     #[serde(default = "MoveTab::top")]
     pub at: MoveTab,
@@ -93,7 +105,7 @@ pub enum Starter {
 /// POST /panes body.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct CreatePane {
     pub at: PaneAt,
     #[serde(default)]
@@ -109,7 +121,7 @@ pub struct CreatePane {
 /// Split an explicit pane, or the largest pane of a tab (first pane if empty).
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub enum PaneAt {
     Tab(IdOf<Tab>),
     Pane(IdOf<Pane>),
@@ -127,7 +139,7 @@ pub enum SplitDirection {
 /// The new tab, as a subset of Tab.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct NewTab {
     #[serde(default)]
     pub name: Option<String>,
@@ -137,7 +149,7 @@ pub struct NewTab {
 /// `[server.defaults.pane]`. Also what a restored pane starts from.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct NewPane {
     #[serde(default)]
     pub name: Option<String>,
@@ -164,7 +176,7 @@ pub struct NewPane {
 /// POST /tabs/{id}/move body.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct MoveTabBody {
     pub at: MoveTab,
 }
@@ -172,7 +184,7 @@ pub struct MoveTabBody {
 /// PATCH /tabs/{id}: absent leaves the name, null clears it.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct SetTab {
     #[serde(default, with = "double_option")]
     pub name: Option<Option<String>>,
@@ -181,7 +193,7 @@ pub struct SetTab {
 /// PATCH /panes/{id}: absent leaves an attribute, only name accepts null.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct SetPane {
     #[serde(default, with = "double_option")]
     pub name: Option<Option<String>>,
@@ -207,7 +219,7 @@ fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
 /// and `true` zooms the pane.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct ZoomPane {
     #[serde(default, deserialize_with = "present")]
     #[schema(nullable = false)]
@@ -218,7 +230,7 @@ pub struct ZoomPane {
 /// tab. Adjacency is not required.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct SwapPane {
     pub other: IdOf<Pane>,
 }
@@ -226,7 +238,7 @@ pub struct SwapPane {
 /// POST /panes/{id}/resize body. At most one of `amount` and `to`.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct ResizePane {
     /// Which way the edge moves: the pane's edge on that side, or the
     /// opposite edge when that side is the tab's.
@@ -244,7 +256,7 @@ pub struct ResizePane {
 /// POST /panes/{id}/scroll body.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct ScrollPane {
     pub direction: ScrollDirection,
     #[serde(default, deserialize_with = "present")]
@@ -265,7 +277,7 @@ pub enum ScrollDirection {
 /// GET /panes/{id}/text query.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
-#[serde(default, rename_all = "snake_case", deny_unknown_fields)]
+#[serde(default, rename_all = "snake_case")]
 pub struct ReadPane {
     pub lines: Option<u32>,
     pub unwrap: bool,
@@ -277,7 +289,7 @@ pub struct ReadPane {
 /// `{"after": "tab:…"}`.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub enum MoveTab {
     /// Append under the parent, or to the top level when `null`.
     Parent(Option<IdOf<Tab>>),
@@ -298,7 +310,7 @@ impl MoveTab {
 /// kept if it still exists, else nothing is selected.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct AttachRequest {
     #[serde(default)]
     pub selection: Option<NodeId>,
@@ -324,7 +336,7 @@ pub enum FeedMode {
 /// PUT /attach/view body: the client's area only.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct ViewInput {
     /// Where the client draws the viewed tab, after its own chrome.
     pub area: Size,
@@ -333,7 +345,7 @@ pub struct ViewInput {
 /// PUT /views/{attachment}/selection body; `null` selects nothing.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct SelectView {
     pub selection: Option<NodeId>,
 }
@@ -441,7 +453,7 @@ pub struct Attached {
 /// PUT /attach/view instead.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum InputFrame {
     Key(KeyInput),
     Paste(PasteInput),
@@ -451,7 +463,7 @@ pub enum InputFrame {
 /// A key press, encoded on the server against the pane's live terminal modes.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct KeyInput {
     pub pane: IdOf<Pane>,
     /// crossterm's own serialization, e.g. `{"code": "Enter", "modifiers": "",
@@ -463,7 +475,7 @@ pub struct KeyInput {
 /// A pointer relative to the pane's content; drags may be outside it.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct MouseInput {
     pub pane: IdOf<Pane>,
     #[schema(value_type = Object)]
@@ -477,7 +489,7 @@ pub struct MouseInput {
 /// Text sent as one paste; bracketed when the program asked for it.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(rename_all = "snake_case")]
 pub struct PasteInput {
     pub pane: IdOf<Pane>,
     pub text: String,

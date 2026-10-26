@@ -16,13 +16,35 @@ Verification uses real commands and temporary probes, not permanent authored tes
 
 ## 2. The error path
 
-- [ ] 2.1 Add `jsonschema = { version = "0.60", default-features = false }` to `[workspace.dependencies]`, and it plus `serde_path_to_error.workspace = true` to `crates/ship-server/Cargo.toml`. Record release binary size and `cargo build --release` time before and after. Verify `cargo build --workspace`.
-- [ ] 2.2 Add `Problem` to `crates/ship-core/src/error.rs` and the new `crates/ship-server/src/body.rs` with `Body<T>`, `Query<T>`, `decode`, the `ValidatorMap` built once from the document's components, `explain` and `flatten`. Verify `cargo check --workspace`.
-- [ ] 2.3 Move every JSON body and query in `routes.rs`, `attach.rs` and `views.rs` onto `Body<T>` and `Query<T>`, make `input.rs` decode lines through `body::decode`, add `mod body;`, and list `400 validation` on each route in place of the 422 malformed-body lines. Verify the API description lists 400 for every route with a body or query.
-- [ ] 2.4 Verify against the temporary server: the five-mistake `POST /panes` body gets one 400 listing all five with pointers; `GET /panes/{id}/text?line=50` gets 400 naming `line`; non-JSON gets one entry with serde's syntax message; a body serde refuses but the schema accepts gets one entry with `serde_path_to_error`'s pointer; a body without `Content-Type: application/json` gets 400, not 415.
-- [ ] 2.5 Verify every route with a body or query, sent an unknown field or parameter, answers 400 and leaves the revision header unchanged; every field that can't be cleared, sent `null` in each body that has it, answers 400 with its pointer and changes nothing; every valid request from 1.4 and 1.5 still succeeds.
-- [ ] 2.6 Verify on `POST /attach/input` that a line with an unknown field or bad value ends the stream with 400 and its `data.errors` after earlier lines were delivered, and mouse input without an attachment still answers 422.
-- [ ] 2.7 Run the group's fmt, clippy and test commands, then commit.
+Cyan's approved slice 2 revision supersedes the unknown-field rejection recorded in 1.1 and 1.4: API requests, input lines and queries ignore extras. Config remains strict. The current checks below replace those original acceptance criteria. Cyan subsequently approved replacing jsonschema with boon; the schema-library decisions in `design/architecture.md` and `design/program.md` supersede the original library-specific plan. Slice 2 must remain uncommitted until Cyan asks.
+
+- [x] 2.1 Add `boon = "0.6.1"` to `[workspace.dependencies]`, and `boon.workspace = true` plus `serde_path_to_error.workspace = true` to `crates/ship-server/Cargo.toml`. Record release binary size and `cargo build --release` time before and after. Verify `cargo build --workspace`.
+- [x] 2.2 Add `Problem` to `crates/ship-core/src/error.rs` and the new `crates/ship-server/src/body.rs` with `Body<T>`, `Query<T>`, `decode`, the server-local `ValidatorMap` (boon's `Schemas` plus component-name `SchemaIndex` entries) built once from the document's components, `explain` and `flatten` over boon's error tree. Verify `cargo check --workspace`.
+- [x] 2.3 Move every JSON body and query in `routes.rs`, `attach.rs` and `views.rs` onto `Body<T>` and `Query<T>`, make `input.rs` decode lines through `body::decode`, add `mod body;`, and list `400 validation` on each route in place of the 422 malformed-body lines. Verify the API description lists 400 for every route with a body or query.
+- [x] 2.4 Verify against the temporary server: the four-mistake `POST /panes` body (missing `at`, bad direction, exit behavior and scrollback type, plus an ignored `exitBehavior`) gets one 400 listing all four with pointers; `GET /panes/{id}/text?lines=nope` gets 400 naming `lines`; non-JSON gets one entry with serde's syntax message; a body serde refuses but the schema accepts gets one entry with `serde_path_to_error`'s pointer; a body without `Content-Type: application/json` gets 400, not 415.
+- [x] 2.5 Verify body/query decoding still works with an extra field or parameter and extras do not become stored attributes; a PATCH containing only extras leaves the revision unchanged; every field that can't be cleared, sent `null` in each body that has it, answers 400 with its pointer and changes nothing; every valid nested request from 1.4 and 1.5 still succeeds. Verify the generated frame schema accepts a valid paste and ignores extras but rejects wrong types, missing required fields and unknown tags.
+- [x] 2.6 Verify on `POST /attach/input` that a line with a bad value or malformed JSON ends the stream with 400 and its `data.errors` after earlier lines were delivered; a valid line with an extra field is delivered, and mouse input without an attachment still answers 422.
+- [x] 2.7 Run the group's fmt, clippy and test commands. Leave changes uncommitted until Cyan asks (supersedes the planned commit).
+
+Verification repeated with the real boon implementation for 2.4 to 2.6 on macOS: all 69 generated component schemas compile with boon; all 15 documented body/query operations have JSON 400 responses; 32 non-clearable null fields in HTTP bodies and 12 across the input-frame variants return 400 with field pointers and unchanged state/revision. Real NDJSON delivery checks passed for ignored extras, prior-line delivery, bad values and syntax, and unattached mouse 422. The schema-looser u16 range probe falls back to serde's `/amount` pointer, and a schema-stricter uppercase UUID is accepted and delivered, confirming the schema never gates valid input. Config still rejects unknown keys. Tagged enums retain serde's structural constraints; `LogChange` still takes exactly one tag in its object form.
+
+Release measurements for 2.1 on macOS:
+
+| Build | Executable bytes | Wall time | Cache conditions |
+| --- | ---: | ---: | --- |
+| Original slice 1 baseline | 13,399,232 | 114.706 s | Existing target; populated release cache |
+| Superseded initial jsonschema implementation | 16,758,992 | 100.035 s | Reused release dependencies |
+| Superseded jsonschema after unknown-field revision | 16,742,480 | 98.005 s | Reused release dependencies |
+| Main in `../ship` | 13,415,840 | 117.261 s | Empty target; earlier clean comparison |
+| jsonschema comparison build | 16,742,480 | 141.697 s | Empty target; spike comparison |
+| boon spike build | 14,672,960 | 124.085 s | Separate empty target; built after jsonschema comparison |
+| Final real-checkout boon implementation | 14,672,944 | 84.777 s | Reused release dependencies; `cargo build --release --locked` |
+
+The controlled spike builds used `cargo build --release --locked`, identical release profiles and separate empty target directories. These are single sequential timing observations, not statistically controlled benchmarks. The final real implementation saves 2,069,536 bytes versus jsonschema and is 1,257,104 bytes (9.37%) above the clean main binary. Cached build times must not be compared as clean-build costs.
+
+The final lockfile has 497 package entries versus 490 on slice 1/main and 515 with jsonschema: 7 additions rather than 25. It contains boon 0.6.1 and no jsonschema package.
+
+Final real-checkout `cargo check --workspace`, `cargo build --workspace`, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `openspec validate entity-shapes --type change --strict` and `git diff --check` passed. The real API/CLI/NDJSON probes passed with boon, including schema-looser fallback and schema-stricter serde acceptance. Temporary server stopped and port 43331 verified closed. Linux remains unverified. No permanent tests or frame-specific handling added; no commit created.
 
 ## 3. Zoom
 

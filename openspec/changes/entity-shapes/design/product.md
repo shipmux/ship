@@ -2,6 +2,10 @@
 
 Status: Locked on 2026-10-25. Written from a design conversation with Cyan on 2026-10-25, which settled scope (one change with request validation), compatibility (a clean break), null handling, names, the CLI flags and the zoom move. Revised the same day at Cyan's direction ("sounds good to me") so query strings share the body error shape and reject unknown parameters, then approved in Plannotator review ("LGTM"). Revised again the same day at Cyan's direction ("i think i like this the best, give that a go") so `client.pane.zoom` takes a `zoomed` switch that states its toggle, approved in chat without a further review.
 
+## Superseding decision: unknown request fields
+
+Cyan approved dropping `deny_unknown_fields` during slice 2 ("i see. let's drop it then and keep going"). API request structs, input stream payloads and query structs now use serde's default behavior of ignoring unknown fields or parameters; config validation stays strict. Tagged enums still require their normal tag structure (for example the single-entry object for `LogChange::Set`). Known fields still reject wrong types, invalid values, missing required values and disallowed nulls. This supersedes P2's typo examples, FR-015, FR-018's unknown-parameter rule and SC-002. The earlier unknown-field requirements below are superseded history, not acceptance criteria. FR-016 still applies to decode failures, listing the problems in known fields.
+
 ## Goal
 
 The API spells the same thing several ways. A pane's `right_click_passthrough` is a bool when you `get` it, a bool or `"toggle"` when you set it, and a field mixed in with `at` and `direction` when you create one. Zoom is a pane ID on the tab but a `true`/`false` on a pane route. A blank name clears in one place, and `null` is ignored in another. Scripts and agents learn each route on its own, and typos in create bodies are silently dropped (#75).

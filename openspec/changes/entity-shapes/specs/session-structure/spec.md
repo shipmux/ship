@@ -74,11 +74,11 @@ Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"? }` and `PA
 - **THEN** the setting flips
 
 ### Requirement: HTTP set results
-Both HTTP set routes SHALL return the entity, and an unknown field SHALL be rejected with 400 `validation` without changing anything.
+Both HTTP set routes SHALL return the entity. Unknown fields SHALL be ignored; a PATCH with only unknown fields SHALL change nothing and leave the revision unchanged.
 
 #### Scenario: HTTP set response
 - **WHEN** a caller patches a tab or pane
-- **THEN** the route returns the entity, and an unknown field is rejected with 400 `validation` without changing anything
+- **THEN** the route returns the entity, applies known fields and ignores unknown fields
 
 ## ADDED Requirements
 
@@ -98,7 +98,7 @@ Every field of a tab or pane SHALL have one name, one path and one type in `get`
 
 #### Scenario: Entity field at the top level
 - **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"tab": "<t>"}, "cwd": "/tmp"}`
-- **THEN** it receives 400 `validation` naming `cwd` as unknown, and no pane is created
+- **THEN** the top-level `cwd` is ignored and the pane is created using the normal directory default; only `pane.cwd` sets its starting directory
 
 #### Scenario: Create a named tab
 - **WHEN** a caller sends `POST /api/v0/tabs` with `{"tab": {"name": "notes"}}`
@@ -156,12 +156,23 @@ Every CLI flag for an attribute that can be empty SHALL distinguish three cases:
 - **WHEN** a script runs `ship pane set --pane <id> --name`, then `ship pane set --pane <id> --name ""`
 - **THEN** `ship pane get` shows `"name": null`, then `"name": ""`
 
-### Requirement: Request body validation
-Every JSON request body SHALL reject unknown fields. A body that doesn't decode SHALL get 400 `validation`, with `data.errors` listing every problem found, each with `detail` and, where it has a location, a JSON Pointer `pointer`. A request that fails validation SHALL change nothing. A body sent without `Content-Type: application/json` SHALL get 400 `validation` with one entry.
+### Requirement: Unknown request fields
+JSON request structs SHALL ignore unknown fields. Tagged enums SHALL retain serde's tag structure. Known fields SHALL still use their declared types, required values and nullability.
 
-#### Scenario: Three mistakes at once
+#### Scenario: Extra field in a request struct
+- **WHEN** a caller sends `PATCH /api/v0/panes/{id}` with only an extra `colour` field
+- **THEN** the field is ignored, the pane is unchanged and the revision stays the same
+
+#### Scenario: Externally tagged enum structure
+- **WHEN** a caller sends `PUT /api/v0/server/log` with `{"set": "info", "extra": true}`
+- **THEN** it receives 400 `validation`, because an externally tagged enum's object must have exactly one entry
+
+### Requirement: Request body validation
+A body that doesn't decode SHALL get 400 `validation`, with `data.errors` listing every problem found, each with `detail` and, where it has a location, a JSON Pointer `pointer`. A request that fails validation SHALL change nothing. A body sent without `Content-Type: application/json` SHALL get 400 `validation` with one entry.
+
+#### Scenario: Four mistakes at once
 - **WHEN** a caller sends `POST /api/v0/panes` with `{"direction": "up", "pane": {"exit_behavior": "linger", "scrollback_bytes": "lots", "exitBehavior": "keep"}}`
-- **THEN** one 400 `validation` response lists the missing `at`, the bad `direction`, `linger`, `lots` and the unknown `exitBehavior`, each with its pointer, and no pane is created
+- **THEN** one 400 `validation` response lists the missing `at`, the bad `direction`, `linger` and `lots`, each with its pointer, ignoring `exitBehavior`, and no pane is created
 
 #### Scenario: Not JSON
 - **WHEN** a caller sends a body that isn't valid JSON
@@ -172,11 +183,19 @@ Every JSON request body SHALL reject unknown fields. A body that doesn't decode 
 - **THEN** it receives 400 `validation` with one entry, not 415, and the pane is unchanged
 
 ### Requirement: Query string validation
-A query string SHALL reject unknown parameters. One that doesn't decode SHALL get 400 `validation` in the same error shape as a body, and MAY list only the first problem. A request that fails validation SHALL return nothing else.
+A query string SHALL ignore unknown parameters. One that doesn't decode SHALL get 400 `validation` in the same error shape as a body, and MAY list only the first problem. A malformed path ID SHALL get 400 `validation` in the same shape, with one entry. A request that fails validation SHALL return nothing else.
 
 #### Scenario: Unknown parameter
 - **WHEN** a caller sends `GET /api/v0/panes/{id}/text?line=50`
-- **THEN** it receives 400 `validation` with one entry naming `line`, instead of the whole screen
+- **THEN** `line` is ignored and the normal default text result is returned
+
+#### Scenario: Invalid known parameter
+- **WHEN** a caller sends `GET /api/v0/panes/{id}/text?lines=nope`
+- **THEN** it receives 400 `validation` with one entry naming `lines`
+
+#### Scenario: Malformed path ID
+- **WHEN** a caller sends `GET /api/v0/tabs/notes`
+- **THEN** it receives 400 `validation` with one entry, as JSON rather than plain text
 
 ### Requirement: Described request bodies
 The API description SHALL describe each request body as the server accepts it, including which fields accept `null`. Field descriptions SHALL state the real defaults, such as an absent `cwd` on a split taking the split pane's current directory.

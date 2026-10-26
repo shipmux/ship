@@ -4,7 +4,6 @@
 use std::io;
 
 use axum::{
-    Json,
     body::Body,
     extract::State,
     http::StatusCode,
@@ -25,6 +24,7 @@ use tokio_util::{
 use crate::{
     AppState,
     attach::AttachmentHeader,
+    body,
     pane::{LivePanes, PaneCommand, PaneMouse},
     state::CheckAttachment,
 };
@@ -41,9 +41,10 @@ use crate::{
             Removed panes ignore frames; exited panes still accept mouse input."),
     responses(
         (status = 204, description = "The body ended, or the attachment or server did"),
-        (status = 400, description = "Malformed attachment header", body = AppError),
+        (status = 400, description = "Malformed attachment header, and nothing was read; or a \
+            line failed validation, and reading stopped there", body = AppError),
         (status = 404, description = "Attachment not found; nothing was read", body = AppError),
-        (status = 422, description = "Malformed or oversized line, or a mouse frame without \
+        (status = 422, description = "Oversized or unreadable line, or a mouse frame without \
             an attachment; reading stopped there", body = AppError),
         (status = 503, body = AppError),
     ),
@@ -51,7 +52,7 @@ use crate::{
 pub(crate) async fn input(
     State(app): State<AppState>,
     attachment: Option<AttachmentHeader>,
-    body: Body,
+    stream: Body,
 ) -> Result<Response> {
     let attachment = attachment.map(|AttachmentHeader(id)| id);
     let revision = match attachment {
@@ -59,27 +60,31 @@ pub(crate) async fn input(
         None => 0,
     };
     let mut replicas = app.replicas.latest();
-    let body = StreamReader::new(body.into_data_stream().map_err(io::Error::other));
-    let mut lines = FramedRead::new(body, LinesCodec::new_with_max_length(INPUT_LINE_MAX));
+    let stream = StreamReader::new(stream.into_data_stream().map_err(io::Error::other));
+    let mut lines = FramedRead::new(stream, LinesCodec::new_with_max_length(INPUT_LINE_MAX));
     loop {
         tokio::select! {
             line = lines.next() => {
                 let Some(line) = line else { break };
-                match line
-                    .map_err(|error| err!(Validation, "unreadable input line", @external: error))
-                    .and_then(|line| frame(&line))
-                    .and_then(|frame| match frame {
-                        Some(frame) => route(&app.live.borrow(), frame, attachment),
-                        None => Ok(()),
-                    })
-                {
-                    Ok(()) => {}
-                    Err(error) => {
-                        // Never the line itself: a paste can hold secrets.
-                        tracing::warn!(?attachment, %error, "input stream stopped at a bad line");
-                        return Ok((StatusCode::UNPROCESSABLE_ENTITY, Json(error)).into_response());
-                    }
-                }
+                // A line that doesn't decode answers 400 like any body; the
+                // stream's other stops keep 422.
+                let (status, error) = match line.map(|line| frame(&line)) {
+                    Ok(Ok(None)) => continue,
+                    Ok(Ok(Some(frame))) => match route(&app.live.borrow(), frame, attachment) {
+                        Ok(()) => continue,
+                        Err(error) => (StatusCode::UNPROCESSABLE_ENTITY, error),
+                    },
+                    Ok(Err(error)) => (StatusCode::BAD_REQUEST, error),
+                    Err(error) => (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        err!(Validation, "unreadable input line", @external: error),
+                    ),
+                };
+                // Never the line itself: a paste can hold secrets.
+                tracing::warn!(?attachment, %error, "input stream stopped at a bad line");
+                let mut response = error.into_response();
+                *response.status_mut() = status;
+                return Ok(response);
             }
             // Replicas older than the check may still be on their way and
             // lack the attachment, so only newer ones can end the stream.
@@ -104,9 +109,7 @@ fn frame(line: &str) -> Result<Option<InputFrame>> {
     if line.trim().is_empty() {
         return Ok(None);
     }
-    Json::<InputFrame>::from_bytes(line.as_bytes())
-        .map(|Json(frame)| Some(frame))
-        .map_err(|error| err!(Validation, "malformed input frame", @external: error))
+    body::decode(line.as_bytes()).map(Some)
 }
 
 #[traced(fields(attachment = ?from))]

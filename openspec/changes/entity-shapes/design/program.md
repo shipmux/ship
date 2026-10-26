@@ -2,6 +2,38 @@
 
 Status: Locked on 2026-10-25. Built on the locked `product.md` and `architecture.md`, both revised the same day for the `client.pane.zoom` switch and KD-10. Cyan settled Q1 to Q3 and the `leaves_zoom` list in chat ("i agree with oyur deffaults on those questions"), then approved in Plannotator review ("LGTM").
 
+## Superseding decision: unknown request fields
+
+Cyan approved dropping `deny_unknown_fields` and continuing slice 2 ("i see. let's drop it then and keep going"), superseding the product, architecture and program requirements for unknown-field rejection. Remove it from request types in `protocol.rs` and from request-nested `Size`, keeping config strictness. No frame-specific schema dispatch is added. The earlier skeleton attributes, unknown-field checks and flattened-create refusal below are superseded history. Current checks are in `tasks.md`: known-field errors still get 400, unknown fields are ignored, and known valid inputs keep working. Commit remains on hold at Cyan's instruction.
+
+## Superseding decision: schema library
+
+Cyan approved boon for slice 2 ("Perfect! alright! keep going with boon for this slice then!"). This supersedes the original jsonschema dependency, library `ValidatorMap`, `build_map` call and error-filter implementation details below. The public decoder signatures, serde gate, error envelope and lazy initialization contract remain unchanged.
+
+The current `body.rs` skeleton is:
+
+```rust
+use std::{collections::HashMap, sync::LazyLock};
+use boon::{Compiler, Draft, ErrorKind, SchemaIndex, Schemas, ValidationError};
+
+struct ValidatorMap {
+    schemas: Schemas,
+    indices: HashMap<String, SchemaIndex>,
+}
+
+// Compile generated components once in an in-memory resource, explicitly
+// using Draft::V2020_12, at #/components/schemas/{component_name}.
+static SCHEMAS: LazyLock<ValidatorMap>;
+
+fn explain(schema: &str, body: &Value) -> Vec<Problem>;
+fn shape_error_at(error: &ValidationError<'_, '_>, here: &str) -> bool;
+fn flatten(error: &ValidationError<'_, '_>, out: &mut Vec<Problem>);
+```
+
+`explain` looks up the component index and calls `Schemas::validate`. `flatten` walks boon's causes, suppresses alternatives that fail on the enclosing shape when relevant alternatives remain, unwraps groups/references and splits required-property errors into field pointers. There is no request-specific dispatch.
+
+Use `boon = "0.6.1"` in workspace dependencies and `boon.workspace = true` in ship-server; retain `serde_path_to_error.workspace = true`. Cargo regenerates the lockfile. Record the clean comparison and final checks in `tasks.md`. Commit remains on hold at Cyan's instruction.
+
 ## Rationale
 
 This is a document-only plan. The skeleton below names real paths and shows types and signatures, but no file has been created and nothing here has been compiled. Snippets show declarations, not bodies, and need not compile on their own.
@@ -384,6 +416,18 @@ Each slice is a commit in one pull request (no tiny PRs). Checks use an owned te
 - `openspec validate entity-shapes --type change --strict` passes.
 
 ## Deviation log
+
+- Slice 2 replaces jsonschema 0.60.1 with boon 0.6.1 at Cyan's direction above, after the scratch compatibility, release-size and build-time comparison. The server-local `ValidatorMap` holds boon's `Schemas` and component-name indices; `flatten` follows structured causes. The request path and wire contract are unchanged.
+
+- Slice 2 switches release builds from `panic = "abort"` to unwind with Cyan's approval: a panic in a request or the saver no longer takes every pane with it. Actor panics still shut the server down through `actor_stopped`. The saver now restarts on a panic through `backon`, with exponential backoff from 1 to 60 seconds and a warning each time; a restart writes the whole tree and keeps the run's first `.json.prev` backup. The router compiles the explanation schemas when it is built, so a broken schema fails at startup rather than on the first refused request. The panic hook's message reads "thread panicked", since the process now survives.
+
+- Slice 2 gives the router JSON fallbacks with Cyan's approval: an unknown path answers 404 and a wrong method 405 with an `AppError` (`not_found`) instead of axum's empty bodies. axum still sends `Allow` on the 405.
+
+- Slice 2 adds a `Path<T>` extractor to `body.rs` with Cyan's approval, and every route takes path IDs through it. A malformed ID now gets 400 `validation` with one `data.errors` entry instead of axum's plain text, so each route's single 400 response truthfully carries `AppError`. This changes the GET and DELETE routes too.
+
+- Slice 2 puts `Problem` in `crates/ship-core/src/protocol.rs` instead of `error.rs`. It is a wire shape, and nothing in `error.rs` uses it: `AppError::data` stays an untyped `Value` so error codes need no shared payload enum. `ApiDoc` registers it as a component, since no route reaches it otherwise.
+
+- Slice 2 removes request `deny_unknown_fields` from `protocol.rs` and `Size` with Cyan's approval above. It supersedes the unknown-field checks from slice 1 and the original slice 2 plan. API schemas and serde tolerate extras; config stays strict. No input-frame special case or schema copy is needed.
 
 - Slice 1 also updates `crates/ship-client/src/ui/mod.rs`: sidebar drag moves call `Client::move_tab` directly and need the new `MoveTabBody` wrapper.
 - Slice 1 adds `deny_unknown_fields` to `Size` in `crates/ship-core/src/screen.rs`, since it is nested in attachment request bodies.

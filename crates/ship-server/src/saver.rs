@@ -5,18 +5,23 @@ use std::{
     future::pending,
     io::{self, ErrorKind, Write},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 
+use backon::{ExponentialBuilder, Retryable};
 use serde::{Deserialize, Serialize};
 use ship_core::{model::PaneStatus, prelude::*, protocol::Replica, tree::Tabs};
 use ship_macros::traced;
 use tokio::{
     sync::watch,
-    task::spawn_blocking,
+    task::{JoinError, spawn_blocking},
     time::{Instant, sleep_until},
 };
+use tracing::Instrument;
 
 const DEADLINE: Duration = Duration::from_secs(5);
 const RETRY: Duration = Duration::from_secs(5);
@@ -87,23 +92,53 @@ fn blank(tabs: &mut Tabs) {
     }
 }
 
-/// Owns the last written projection and the first-save backup for this run.
-pub(crate) struct Saver {
+/// Saves until the replicas end. A panic restarts the saver with backoff
+/// rather than stopping the server: the panes matter more than the file.
+pub(crate) async fn supervise(
+    path: PathBuf,
+    baseline: Saved,
+    replicas: watch::Receiver<Arc<Replica>>,
+) -> Result<()> {
+    // A restart writes the whole tree, since a change pending at the panic
+    // may be unsaved, but keeps this run's first backup.
+    let mut baseline = Some(baseline);
+    let kept_prev = Arc::new(AtomicBool::new(false));
+    let attempt = || {
+        let saver = Saver {
+            path: path.clone(),
+            written: baseline.take().unwrap_or_default(),
+            kept_prev: Arc::clone(&kept_prev),
+        };
+        tokio::spawn(
+            saver
+                .run(replicas.clone())
+                .instrument(tracing::info_span!(parent: None, "saver")),
+        )
+    };
+    attempt
+        .retry(
+            ExponentialBuilder::default()
+                .with_min_delay(Duration::from_secs(1))
+                .with_max_delay(Duration::from_secs(60))
+                .with_max_times(usize::MAX)
+                .with_jitter(),
+        )
+        .when(JoinError::is_panic)
+        .notify(|error, delay| tracing::warn!(%error, ?delay, "saver panicked, restarting"))
+        .await
+        .map_err(|error| err!(Internal, "saver task failed", @external: error))
+}
+
+/// Owns the last written projection; the first-save backup flag outlives
+/// restarts.
+struct Saver {
     path: PathBuf,
     written: Saved,
-    kept_prev: bool,
+    kept_prev: Arc<AtomicBool>,
 }
 
 impl Saver {
-    pub(crate) fn new(path: PathBuf, baseline: Saved) -> Self {
-        Self {
-            path,
-            written: baseline,
-            kept_prev: false,
-        }
-    }
-
-    pub(crate) async fn run(mut self, mut replicas: watch::Receiver<Arc<Replica>>) {
+    async fn run(mut self, mut replicas: watch::Receiver<Arc<Replica>>) {
         let mut deadline = None;
         loop {
             let tabs = project(&replicas.borrow_and_update().tabs);
@@ -154,7 +189,7 @@ impl Saver {
         let bytes = serde_json::to_vec_pretty(&tabs)
             .map_err(|error| err!(Internal, "cannot serialize saved tabs", @external: error))?;
         let path = self.path.clone();
-        let kept_prev = self.kept_prev;
+        let kept_prev = self.kept_prev.load(Ordering::Relaxed);
         let size = bytes.len();
         spawn_blocking(move || {
             if !kept_prev {
@@ -172,7 +207,7 @@ impl Saver {
         .map_err(|error| err!(Internal, "save task failed", @external: error))??;
         tracing::debug!(path = %self.path.display(), bytes = size, "tabs saved");
         self.written = tabs;
-        self.kept_prev = true;
+        self.kept_prev.store(true, Ordering::Relaxed);
         Ok(())
     }
 }
