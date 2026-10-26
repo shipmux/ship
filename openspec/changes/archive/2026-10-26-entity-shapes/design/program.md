@@ -417,6 +417,8 @@ Each slice is a commit in one pull request (no tiny PRs). Checks use an owned te
 
 ## Deviation log
 
+- The archive also modifies session-structure's JSON names requirement, which 4.4 missed: it still said Ship rejects camel case keys. Following the slice 2 decision to ignore unknown fields, a camel case key is now an unknown field and is ignored, and the PATCH scenario expects the pane and revision unchanged.
+
 - Slice 2 replaces jsonschema 0.60.1 with boon 0.6.1 at Cyan's direction above, after the scratch compatibility, release-size and build-time comparison. The server-local `ValidatorMap` holds boon's `Schemas` and component-name indices; `flatten` follows structured causes. The request path and wire contract are unchanged.
 
 - Slice 2 switches release builds from `panic = "abort"` to unwind with Cyan's approval: a panic in a request or the saver no longer takes every pane with it. Actor panics still shut the server down through `actor_stopped`. The saver now restarts on a panic through `backon`, with exponential backoff from 1 to 60 seconds and a warning each time; a restart writes the whole tree and keeps the run's first `.json.prev` backup. The router compiles the explanation schemas when it is built, so a broken schema fails at startup rather than on the first refused request. The panic hook's message reads "thread panicked", since the process now survives.

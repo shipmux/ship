@@ -80,6 +80,21 @@ Both HTTP set routes SHALL return the entity. Unknown fields SHALL be ignored; a
 - **WHEN** a caller patches a tab or pane
 - **THEN** the route returns the entity, applies known fields and ignores unknown fields
 
+### Requirement: JSON names
+Every JSON object key and string value Ship reads or writes SHALL be snake case: HTTP request and response bodies, attach stream messages, CLI stdout, error lines and the saved tabs file. A name that the config file or a key-binding action shares with JSON SHALL be spelled the same in both. CLI flags SHALL spell the same words in kebab case. Ship SHALL NOT read camel case keys: one is an unknown field, ignored as Unknown request fields describes.
+
+#### Scenario: One spelling for a setting
+- **WHEN** the config sets `[server.defaults.pane] right_click_passthrough = true` and a script runs `ship pane create` and then `ship pane get`
+- **THEN** the pane JSON has `right_click_passthrough: true`, and the matching flag is `--right-click-passthrough`
+
+#### Scenario: Camel case key over HTTP
+- **WHEN** a caller sends `PATCH /api/v0/panes/{id}` with `{ "exitBehavior": "keep" }`
+- **THEN** the key is ignored, the pane keeps its exit behavior and the revision stays the same
+
+#### Scenario: Multi-word values
+- **WHEN** a server shuts down while a client is attached, and a pane shows struck-through text
+- **THEN** the stream ends with `"reason": "server_shutdown"`, and the text's run lists `crossed_out` in `attrs`
+
 ## ADDED Requirements
 
 ### Requirement: One shape per entity

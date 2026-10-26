@@ -116,11 +116,11 @@ Outside normal mode the status line SHALL show the active mode's name and key hi
 - **THEN** the status line appears showing `resize` with `h left  j down  k up  l right  shift-h sidebar left  shift-l sidebar right  esc normal`, and disappears after `esc`
 
 #### Scenario: Custom binding hint
-- **WHEN** the file binds `"f" = { action = { server.pane.zoom = {} } }` in `resize` mode and the user enters it
+- **WHEN** the file binds `"f" = { action = { client.pane.zoom = { zoomed = "toggle" } } }` in `resize` mode and the user enters it
 - **THEN** the hints include `f zoom`
 
 #### Scenario: Set label
-- **WHEN** the file binds `"f" = { action = { server.pane.zoom = {} }, label = "fill" }` in `resize` mode and the user enters it
+- **WHEN** the file binds `"f" = { action = { client.pane.zoom = { zoomed = "toggle" } }, label = "fill" }` in `resize` mode and the user enters it
 - **THEN** the hints include `f fill` and not `f zoom`
 
 ### Requirement: Status line messages
@@ -138,8 +138,12 @@ An unnamed pane's label SHALL be its program's current title, else its command. 
 - **THEN** the pane's label changes to Neovim's title, and changes again when Neovim exits and resets it
 
 #### Scenario: Clear a tab name
-- **WHEN** a user clears a named tab's name with `ship tab set --tab <id> --name ""`
+- **WHEN** a user clears a named tab's name with `ship tab set --tab <id> --name`, with no value
 - **THEN** the tab's label becomes its first own pane's current directory's last component, else that pane's label
+
+#### Scenario: Empty name
+- **WHEN** a user runs `ship tab set --tab <id> --name ""`
+- **THEN** the tab's sidebar row shows an empty label, not a derived one
 
 #### Scenario: Tab label follows the directory
 - **WHEN** an unnamed tab's first pane runs a shell that reports its directory and the user runs `cd ~/Documents/projects/ship`
