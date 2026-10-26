@@ -41,24 +41,11 @@ fn run(cli: Cli, source: Option<ValueSource>) -> Result<ExitCode> {
         detach()?;
     }
     let diagnostics = diagnostics::init(role(&cli))?;
-    // `block_on` runs on this thread, so it gets the same QoS as the workers.
-    interactive();
     let runtime = Builder::new_multi_thread()
-        .on_thread_start(interactive)
         .enable_all()
         .build()
         .map_err(|error| err!(Internal, "cannot create runtime", @external: error))?;
     runtime.block_on(dispatch(cli, source, &diagnostics))
-}
-
-/// Marks the calling thread latency-sensitive, so macOS wakes it promptly
-/// and prefers a performance core for it.
-fn interactive() {
-    #[cfg(target_os = "macos")]
-    // SAFETY: sets only the calling thread's QoS class.
-    unsafe {
-        libc::pthread_set_qos_class_self_np(libc::qos_class_t::QOS_CLASS_USER_INTERACTIVE, 0);
-    }
 }
 
 fn role(cli: &Cli) -> diagnostics::Role {
