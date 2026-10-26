@@ -6,6 +6,7 @@ use std::{
     path::PathBuf,
     process,
     sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use ship_core::{LogChange, LogFilter, prelude::*};
@@ -137,6 +138,14 @@ pub fn init(role: Role) -> Result<Diagnostics> {
         .with(timeline)
         .try_init()
         .map_err(|error| err!(Internal, "cannot initialize diagnostics", @external: error))?;
+    if guard.is_some() {
+        // A timeline's clock starts at zero; this wall time lets one be
+        // lined up with another process's timeline.
+        let unix_us = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |since| since.as_micros());
+        tracing::info!(unix_us, "timeline anchor");
+    }
     panic_hook();
     Ok(Diagnostics {
         log,
