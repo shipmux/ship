@@ -25,7 +25,7 @@ Outside normal mode the status line SHALL show the active mode's name and key hi
 ## ADDED Requirements
 
 ### Requirement: Hint layout
-When the mode's name, the messages and every hint fit on one row, the status line SHALL be that row. Otherwise its first row SHALL hold the mode's name and the messages, and the hints SHALL follow below in aligned columns as wide as the widest hint, as many as fit, filled left to right in config order. The overlay SHALL grow upward to fit them. Hints that don't fit in the pane area's height SHALL be cut whole from the end.
+The status line SHALL use one row when the mode's name, messages and all hints fit. Otherwise its last row SHALL hold the mode's name and messages, with hints above it in aligned columns as wide as the widest hint, as many as fit, filled left to right in config order. Hints wider than the pane area SHALL be omitted whole before layout. The overlay SHALL grow upward. When the pane area is too short, hints SHALL be cut whole from the end, and the last row SHALL stay.
 
 #### Scenario: One row when it fits
 - **WHEN** the pane area is wide enough for `resize` and all its hints on one row and the user presses `alt-r`
@@ -33,8 +33,12 @@ When the mode's name, the messages and every hint fit on one row, the status lin
 
 #### Scenario: Columns when it doesn't
 - **WHEN** a 120-column client with the default 26-column sidebar enters `tabs` mode
-- **THEN** the first row shows `TABS`, the rows below show every hint whole with chords aligned in columns, and `esc normal` is visible
+- **THEN** the last row shows `TABS`, the rows above it show every hint whole with chords aligned in columns, and `esc normal` is visible
+
+#### Scenario: Hint wider than the pane area
+- **WHEN** a hint's display width exceeds the pane area's width
+- **THEN** that hint is omitted whole, and the remaining hints use aligned columns sized to their widest hint and stay in config order
 
 #### Scenario: Short pane area
 - **WHEN** the pane area is 3 rows tall and the hints need more
-- **THEN** the status line takes 3 rows, and the hints that don't fit are left off whole from the end
+- **THEN** the status line takes 3 rows, its last row still shows the mode's name, and the hints that don't fit are left off whole from the end

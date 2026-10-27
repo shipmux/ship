@@ -1,6 +1,6 @@
 # Proposal
 
-Status: Locked. Cyan asked for this change and approved it in conversation on 2026-10-27 ("go for that then!"), with hints in aligned columns. It is small enough to need no design papers; this proposal and the deltas under `specs/` are the contract.
+Status: Locked. Cyan asked for this change and approved it in conversation on 2026-10-27 ("go for that then!"), with hints in aligned columns. It is small enough to need no design papers; this proposal and the deltas under `specs/` are the contract. During implementation Cyan approved omitting hints wider than the pane area whole, while showing the remaining hints in config order.
 
 ## Why
 
@@ -9,8 +9,8 @@ The status line is one row, and hints that don't fit are cut from the end. ratat
 ## What Changes
 
 - When everything fits on one row, the status line looks as it does today.
-- When it doesn't, the first row keeps the mode's name and any messages, and the hints go below it in aligned columns, like Neovim's which-key. Each column is as wide as the widest hint, as many columns fit as the pane area allows, and hints fill left to right in config order. The overlay grows upward to fit.
-- A hint is never split across rows or cut in the middle. Only when the pane area is too short for every row are hints cut from the end, whole.
+- When it doesn't, the bottom row keeps the mode's name and any messages, and the hints go above it in aligned columns, like Neovim's which-key. Each column is as wide as the widest hint, as many columns fit as the pane area allows, and hints fill left to right in config order. The overlay grows upward to fit, so the mode's name stays on the pane area's bottom row whether or not the hints fit beside it.
+- A hint is never split across rows or cut in the middle. Hints wider than the pane area are omitted whole; the others stay in config order. When the pane area is too short for every row, hints are cut from the end, whole.
 - The overlay still covers only the pane area, never the sidebar, and still changes no pane's size.
 - The "Active mode" scenario now lists resize mode's `shift-j split down` and `shift-k split up`, which the defaults already bind.
 
