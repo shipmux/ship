@@ -23,4 +23,6 @@ Slice 2 verification: on macOS, build, formatting, workspace Clippy with warning
 
 ## 3. Docs
 
-- [ ] 3.1 Following `docs/agents/docs.md`, update the `alt-g` row in `docs/site/tabs.md` and the tabs mode sentence in `docs/site/keys.md` with the move keys and the `h`/`l` fallbacks.
+- [x] 3.1 Following `docs/agents/docs.md`, update the `alt-g` row in `docs/site/tabs.md` and the tabs mode sentence in `docs/site/keys.md` with the move keys and the `h`/`l` fallbacks.
+
+Slice 3 verification: on macOS, `pnpm --dir website build`, strict OpenSpec validation and `git diff --check` passed. Checked both built HTML pages and their raw Markdown copies for the four move keys and `h`/`l` fallbacks, checked the keys page's link to the tabs page, and compared the documented keys with `defaults.toml`. Both page scopes are unchanged. The site build emitted warnings about the blog's `MarkdownContent` override and the missing or empty `i18n` collection. No Rust changed, so Rust checks were not rerun. Linux is unverified.
