@@ -72,7 +72,7 @@ Completion evidence:
 - Pi, Neovim, ordinary shells and running tests work side by side.
 - Repeated splitting and resizing preserve usable rendering and input.
 - Alternate-screen applications enter and exit correctly.
-- Selection, copying, pasting and search work in representative sessions. Until built-in search lands, `ship pane read --lines N` piped into `grep` or an editor stands in for the search evidence, as approved in the scrollback change's 2026-10-11 amendment. Copy mode and edit-scrollback are also deferred.
+- Selection, copying, pasting and search work in representative sessions. Until built-in search lands, `ship pane read --lines N` piped into `grep` or an editor stands in for the search evidence, as approved in the scrollback change's 2026-10-11 amendment. Edit-scrollback in milestone 5 replaces built-in search and copy mode.
 - These behaviors are exercised on Linux and macOS, with known limitations recorded.
 
 ### 2. Leave and come back
@@ -147,32 +147,57 @@ Completion evidence:
 
 ## Later roadmap
 
-### 5. Remote attachment
+Milestones 5 to 7 came out of a 2026-10-26 review of open issues, Herdr and Zellij. Each item is an issue; its Details hold the research and the open decisions. Milestone 5 is the minimum for the first release ([#42](https://github.com/shipmux/ship/issues/42)). Milestone 6 only adds behavior, so it can join that release if it is ready. Estimates are implementation Rust lines, against about 11,700 today.
 
-Design remote semantics before selecting a transport. Add attachment to a remote server, connection-loss handling and reconnect behavior. Preserve the local domain/control boundary rather than creating a parallel remote implementation.
+### 5. Ready to share
 
-Completion evidence: a dropped connection does not stop remote work, and reconnection restores a coherent view without silently duplicating commands or losing track of their outcomes. Exact delivery/retry guarantees remain a design question.
+Finish what a first-time user would notice missing. About 320 to 680 lines.
 
-### 6. Multiple clients and machines
+- Keyboard tab work in tabs mode: tree-aware `h`/`l` and reordering with `client.tab.move` ([#83](https://github.com/shipmux/ship/issues/83)).
+- Rename a tab or pane from the UI ([#84](https://github.com/shipmux/ship/issues/84)).
+- Edit a pane's history in the user's editor, in place of built-in search and copy mode ([#85](https://github.com/shipmux/ship/issues/85)).
+- Fix keys reaching the server after a later binding ([#20](https://github.com/shipmux/ship/issues/20)). Done in [#90](https://github.com/shipmux/ship/pull/90).
 
-Add independent client views, saved machine connections and a combined local/remote workspace interface. Shared session state and per-client view state must remain distinct.
+Completion evidence: tabs can be navigated, reordered, nested and renamed without a mouse, and a pane's history can be searched and copied from in an editor.
 
-Completion evidence: clients do not fight over their local focus or corrupt shared session state; one unavailable machine does not make unrelated local work unusable.
+### 6. Scripts as extensions
+
+Let scripts outside Ship do what plugins would, through `ship` commands, panes and labels. About 900 to 1,700 lines.
+
+- `server.run` from a key binding ([#22](https://github.com/shipmux/ship/issues/22)).
+- Floating panes, one layer per tab, for prompts, pickers and quick shells ([#86](https://github.com/shipmux/ship/issues/86)).
+- Metadata tokens: short labels scripts put on panes and tabs, display-only ([#87](https://github.com/shipmux/ship/issues/87)). Git branches and PR status come from scripts reporting tokens, not from built-in Git support.
+- Plugin packaging later, as a thin layer over these once their surface has settled. A GitHub topic, as Herdr uses, is enough of a marketplace.
+
+Completion evidence: a script can show a branch or PR status in the sidebar, and a key binding can open a picker in a floating pane, with no Ship change.
+
+### 7. Remote
+
+Show several servers in one client. This merges the earlier remote attachment and multiple-machines milestones. Most of the work is client-side: connection state held once becomes one entry per server. About 800 to 1,660 lines including restart and update.
+
+- Saved servers reached over SSH, shown together in the sidebar with per-server status ([#88](https://github.com/shipmux/ship/issues/88)). SSH settings come from `~/.ssh/config`; no remote install or named remote sessions.
+- Restart the server from a client ([#89](https://github.com/shipmux/ship/issues/89)), and self-update ([#36](https://github.com/shipmux/ship/issues/36)), so a remote server can be updated without a shell on it.
+
+Completion evidence: a dropped connection does not stop remote work or make local work unusable, and reconnection restores a coherent view without silently duplicating commands. Exact delivery/retry guarantees remain a design question.
 
 ## Deferred supporting features
 
 | Capability | Initial position |
 | --- | --- |
 | Configuration system | Defer past the first terminal slice; fixed defaults and minimal operational bindings first. Storage, key matching, reload and shared/per-client scope remain open for a customization slice. |
-| Plugin framework and marketplace | Defer until a concrete extension need exists; no first-slice runtime, manifests or registry. Herdr/Zellij ownership research is context, not an adopted plugin model. |
+| Plugin framework and marketplace | Packaging follows milestone 6, once `server.run`, floating panes and metadata tokens define what a plugin can use. No plugin runtime or embedded language. |
 | Built-in worktree management | Use Git or Worktrunk in ordinary panes. |
-| Self-update and release channels | Use normal installation/distribution tooling initially. |
+| Self-update and release channels | Milestone 7 ([#36](https://github.com/shipmux/ship/issues/36)); normal installation/distribution tooling until then. |
+| Browser client | After remote. Try `ttyd ship`, the native client in a web terminal, first, as Zellij's web client does with xterm.js. A wasm client only if that feels slow: crossterm does not build for wasm, so it needs Ship-owned key types, a Ratatui web backend such as Ratzilla, and an authenticated `--host` mode. |
+| Agent conversation resume | Last, if ever. OS-specific shutdown behavior and per-agent session hooks that would need ongoing upkeep. |
 | Agent hooks and screen-based detection | Only for an agent Cyan uses that never adopts OSC 7501, reporting into the same status records. |
 | Advanced terminal graphics and inline images | Separate compatibility work; not an initial requirement. |
 | Exact saved-screen replay | Follow basic persistence if useful. |
 | Live server upgrades and process handoff | Defer; distinguish ordinary restart/restore from process survival. |
 | Elaborate themes and notification rules | Start with a small configuration surface. |
 | Full Windows/platform parity | Best effort outside Linux and macOS. |
+
+Not planned: built-in Git status and worktrees (scripts report them as metadata tokens instead), screen-based agent detection beyond the row above, swap layouts, and themes beyond the small configuration surface.
 
 ## Decisions still open
 
@@ -185,7 +210,8 @@ Resolve these during slice design and dependency experiments, not by silently tr
 - Detailed shared-state fields and per-client view state. Focus is client-local but reportable as presence; concurrent terminal input is allowed. Tab geometry follows the minimum available width and height among clients currently viewing that tab; behavior with no viewers remains to be specified.
 - Saved-state format evolution, recovery policy and agent resume descriptions.
 - Minimal fixed interaction/exit bindings for the first slice. Configuration format, storage, configurable key matching/reload and plugin ownership are deferred to later slices; see [ownership research](research/config-plugin-ownership.md).
-- Remote authentication, command delivery/retry behavior and transport, before remote implementation.
+- Remote authentication, command delivery/retry behavior and transport, before remote implementation. Milestone 7 is SSH-only. Direct HTTP would need a `--host` mode that drops the loopback and `Origin` checks and requires a token header (not a cookie) on every request, over an encrypted network such as Tailscale.
+- Milestone 6 semantics: whether programs can set metadata tokens with an escape sequence, and whether a tab's floating layer is shown per client or for everyone ([#86](https://github.com/shipmux/ship/issues/86), [#87](https://github.com/shipmux/ship/issues/87)).
 - Repository location, project license and package/distribution identifiers.
 
 ## Reference and scope of evidence
