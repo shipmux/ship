@@ -6,9 +6,11 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 1. `h` and `l` hop between parent and children
 
-- [ ] 1.1 Add `Tabs::folded` in `crates/ship-client/src/ui/sidebar/tabs.rs`, and `Hop`, `collapse` and `expand` in `crates/ship-client/src/ui/mod.rs`. Replace the shared `Expand`/`Collapse` arm in `act` with one arm per key that folds through `sidebar.tabs.fold` or selects through `select` and `Memory::landing`.
+- [x] 1.1 Add `Tabs::folded` in `crates/ship-client/src/ui/sidebar/tabs.rs`, and `Hop`, `collapse` and `expand` in `crates/ship-client/src/ui/mod.rs`. Replace the shared `Expand`/`Collapse` arm in `act` with one arm per key that folds through `sidebar.tabs.fold` or selects through `select` and `Memory::landing`.
 - [x] 1.2 Write `specs/session-observation/spec.md`: MODIFIED "Local folding and selected-row visibility" so only folding keeps the selection, and ADDED "Parent and child hops" with the P3 cases.
-- [ ] 1.3 Verify in a running client on the product paper's example tree: every P3 case, and folding and unfolding an open or folded row as before (SC-003).
+- [x] 1.3 Verify in a running client on the product paper's example tree: every P3 case, and folding and unfolding an open or folded row as before (SC-003).
+
+Slice 1 verification: on macOS, build, formatting, workspace Clippy with warnings denied, workspace tests (80 passed, 1 ignored) and strict OpenSpec validation passed. An owned temporary server on port 43331 and two clients in an isolated tmux server passed 27 live checks, including every P3 case, unchanged folding/unfolding, selected-pane hops, default/remembered/zoomed landing against `j`, and independent client folds. The temporary server and clients were stopped afterward. Linux is unverified. Captured frames and selections: `/var/folders/n8/y68yxhhn3tl_0zh1r9kscs3w0000gn/T/ship-tab-keys-slice1-pgaiufex/evidence.json`.
 
 ## 2. `client.tab.move` and its bindings
 
