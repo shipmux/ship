@@ -126,6 +126,11 @@ impl Tabs {
         rows
     }
 
+    /// Whether this client folded `tab`'s row.
+    pub fn folded(&self, tab: IdOf<Tab>) -> bool {
+        self.collapsed.contains(&tab)
+    }
+
     pub fn fold(&mut self, tab: IdOf<Tab>, collapsed: bool) {
         if collapsed {
             self.collapsed.insert(tab);

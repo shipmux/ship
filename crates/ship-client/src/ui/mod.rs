@@ -56,7 +56,7 @@ use self::{
     attention::Attention,
     draw::Status,
     keys::{Handled, Keys},
-    lane::{Item, Lane, Turn},
+    lane::{Item, Lane, TabMove, Turn},
     memory::Memory,
     menu::{Menu, Picked},
     mouse::{Clicked, Mouse},
@@ -69,7 +69,7 @@ use crate::{
     Client, KeyScope, Scope,
     keymap::{
         Action, AgentSettings, ClientAction, ClientAgents, ClientPane, ClientSettings, ClientTab,
-        ConfigAction, Menus, Sidebar as SidebarAction,
+        ConfigAction, Menus, Sidebar as SidebarAction, TabDirection,
     },
     sound::Speaker,
     watch,
@@ -95,6 +95,14 @@ enum Step {
     Pane { forward: bool },
     /// To the selected pane's neighbor on that side.
     Focus(Direction),
+}
+
+/// What `client.tab.collapse` or `client.tab.expand` does on a tab's row.
+enum Hop {
+    /// Fold or unfold the row, keeping the selection.
+    Fold { collapsed: bool },
+    /// Select this tab where `Memory::landing` puts it.
+    Select(IdOf<Tab>),
 }
 
 /// Why the client stopped.
@@ -809,15 +817,48 @@ impl<'a> Local<'a> {
                         None => Err(err!(Validation, "no pane selected")),
                     }
                 }
+                ClientAction::Tab(ClientTab::Move { direction }) => {
+                    if let Some(replica) = &self.observer.replica
+                        && let Some(tab) =
+                            selection.and_then(|node| tree::viewed_tab(&replica.tabs, node))
+                        && let Some(to) = shift(&replica.tabs, tab, direction)
+                    {
+                        return Turn::First(vec![Item::Move(TabMove { tab, to })]);
+                    }
+                    Ok(())
+                }
                 ClientAction::Tab(ClientTab::Select { .. }) => unavailable("tab select"),
-                ClientAction::Tab(action @ (ClientTab::Expand {} | ClientTab::Collapse {})) => {
+                ClientAction::Tab(ClientTab::Collapse {}) => {
                     if let Some(replica) = &self.observer.replica
                         && let Some(tab) =
                             selection.and_then(|node| tree::viewed_tab(&replica.tabs, node))
                     {
-                        self.sidebar
-                            .tabs
-                            .fold(tab, matches!(action, ClientTab::Collapse {}));
+                        match collapse(&replica.tabs, &self.sidebar, tab) {
+                            Some(Hop::Fold { collapsed }) => self.sidebar.tabs.fold(tab, collapsed),
+                            Some(Hop::Select(to)) => {
+                                if let Ok(tab) = tree::tab(&replica.tabs, to) {
+                                    return self.select(client, self.memory.landing(tab));
+                                }
+                            }
+                            None => {}
+                        }
+                    }
+                    Ok(())
+                }
+                ClientAction::Tab(ClientTab::Expand {}) => {
+                    if let Some(replica) = &self.observer.replica
+                        && let Some(tab) =
+                            selection.and_then(|node| tree::viewed_tab(&replica.tabs, node))
+                    {
+                        match expand(&replica.tabs, &self.sidebar, tab) {
+                            Some(Hop::Fold { collapsed }) => self.sidebar.tabs.fold(tab, collapsed),
+                            Some(Hop::Select(to)) => {
+                                if let Ok(tab) = tree::tab(&replica.tabs, to) {
+                                    return self.select(client, self.memory.landing(tab));
+                                }
+                            }
+                            None => {}
+                        }
                     }
                     Ok(())
                 }
@@ -935,6 +976,50 @@ fn zoomed_pane(observer: &Observer, selection: Option<NodeId>) -> Option<IdOf<Pa
     let tabs = &observer.replica.as_ref()?.tabs;
     let tab = tree::tab(tabs, tree::pane_owner(tabs, pane).ok()?).ok()?;
     (tab.zoomed == Some(pane)).then_some(pane)
+}
+
+/// Fold an open row with children, else select its parent.
+/// Nothing on a top-level tab that's folded or has no children.
+fn collapse(tabs: &Tabs, sidebar: &Sidebar, tab: IdOf<Tab>) -> Option<Hop> {
+    let row = tree::tab(tabs, tab).ok()?;
+    if !row.tabs.is_empty() && !sidebar.tabs.folded(tab) {
+        return Some(Hop::Fold { collapsed: true });
+    }
+    let path = tree::path(tabs, NodeId::Tab(tab))?;
+    let NodeId::Tab(parent) = *path.iter().rev().nth(1)? else {
+        return None;
+    };
+    Some(Hop::Select(parent))
+}
+
+/// Unfold a folded row, else select its first child. Nothing on a leaf.
+fn expand(tabs: &Tabs, sidebar: &Sidebar, tab: IdOf<Tab>) -> Option<Hop> {
+    let row = tree::tab(tabs, tab).ok()?;
+    let (child, _) = row.tabs.first()?;
+    if sidebar.tabs.folded(tab) {
+        Some(Hop::Fold { collapsed: false })
+    } else {
+        Some(Hop::Select(*child))
+    }
+}
+
+/// One step among siblings or levels, counting folded siblings too.
+/// Nothing at an edge.
+fn shift(tabs: &Tabs, tab: IdOf<Tab>, direction: TabDirection) -> Option<MoveTab> {
+    let siblings = tree::siblings(tabs, tab)?;
+    let index = siblings.get_index_of(&tab)?;
+    Some(match direction {
+        TabDirection::Up => MoveTab::Before(*siblings.get_index(index.checked_sub(1)?)?.0),
+        TabDirection::Down => MoveTab::After(*siblings.get_index(index.checked_add(1)?)?.0),
+        TabDirection::In => MoveTab::Parent(Some(*siblings.get_index(index.checked_sub(1)?)?.0)),
+        TabDirection::Out => {
+            let path = tree::path(tabs, NodeId::Tab(tab))?;
+            let NodeId::Tab(parent) = *path.iter().rev().nth(1)? else {
+                return None;
+            };
+            MoveTab::After(parent)
+        }
+    })
 }
 
 /// Where `step` moves the selection `from`. Visible tab rows cycle in order and

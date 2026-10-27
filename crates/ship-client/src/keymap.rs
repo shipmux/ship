@@ -293,9 +293,32 @@ pub enum ClientAction {
 pub enum ClientTab {
     Next {},
     Prev {},
-    Select { row: u16 },
+    Select {
+        row: u16,
+    },
+    /// Unfold a folded row. On an open row, select its first child.
     Expand {},
+    /// Fold an open row. On a folded row or a leaf, select the parent.
     Collapse {},
+    /// One step among siblings or levels, through `server.tab.move`, resolved
+    /// at its turn like a drop. Nothing at an edge.
+    Move {
+        direction: TabDirection,
+    },
+}
+
+/// Where `client.tab.move` takes the selected tab.
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TabDirection {
+    /// Just before the previous sibling.
+    Up,
+    /// Just after the next sibling.
+    Down,
+    /// Last child of the previous sibling.
+    In,
+    /// Just after the parent.
+    Out,
 }
 
 #[derive(Clone, Debug, Deserialize, strum::IntoStaticStr)]

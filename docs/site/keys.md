@@ -28,7 +28,7 @@ All of Ship's default keys are Alt chords. Any other key goes to the program in 
 
 ## Resize and tabs modes
 
-In resize mode, `h` / `j` / `k` / `l` move the pane's edge, `shift-h` / `shift-l` resize the sidebar and `shift-j` / `shift-k` move the line between tabs and agents. In tabs mode, `j` / `k` move between tabs and `h` / `l` fold and unfold. `esc` leaves either mode.
+In resize mode, `h` / `j` / `k` / `l` move the pane's edge, `shift-h` / `shift-l` resize the sidebar and `shift-j` / `shift-k` move the line between tabs and agents. In tabs mode, `j` / `k` select tabs, `h` folds an open row or selects its parent, and `l` unfolds a folded row or selects its first child. `shift-k` / `shift-j` move a tab up / down among its siblings, while `shift-l` / `shift-h` move it [in / out](tabs.md). `esc` leaves either mode.
 
 ## The mouse
 

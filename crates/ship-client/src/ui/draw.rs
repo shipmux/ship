@@ -60,7 +60,7 @@ pub(super) fn tab_area(cols: u16, rows: u16, sidebar_width: u16) -> Size {
 
 /// The selected tab's panes beside the sidebar, or a hint when it has none
 /// or nothing is selected. The status line, when it has something to say,
-/// over the pane area's last row.
+/// over the pane area's bottom rows.
 pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
     let (sidebar_area, main) = split(frame.area(), local.sidebar.width());
     if local.sidebar.shown {
@@ -96,16 +96,22 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
             },
         ),
     }
-    if let Some(line) = status_line(selected.as_ref(), observer.connected, &status) {
-        let row = Rect {
-            y: main.bottom().saturating_sub(1),
-            height: main.height.min(1),
+    if let Some(mut lines) = status_line(selected.as_ref(), observer.connected, &status, main.width)
+    {
+        // The mode's row is last, so a short pane area loses hint rows above it.
+        let height = lines.len().min(usize::from(main.height));
+        if let Some(kept) = height.checked_sub(1) {
+            lines.drain(kept..lines.len() - 1);
+        }
+        let overlay = Rect {
+            y: main.bottom().saturating_sub(height as u16),
+            height: height as u16,
             ..main
         };
-        frame.render_widget(Clear, row);
-        frame.render_widget(line, row);
+        frame.render_widget(Clear, overlay);
+        frame.render_widget(Paragraph::new(lines).bg(Color::Black), overlay);
         // A cursor under the overlay would sit on top of it.
-        cursor = cursor.filter(|(at, _)| !row.contains(*at));
+        cursor = cursor.filter(|(at, _)| !overlay.contains(*at));
     }
     if let Some(menu) = &mut local.menu {
         menu.draw(frame);
@@ -132,13 +138,15 @@ fn hint(observer: &Observer, selected: Option<&Selected>) -> String {
 }
 
 /// Herdr's mode bar: the mode's name as a pill, then the selected pane's exit
-/// status, the connection and the last message, then the hints, which are cut
-/// first when the row is full. `None` when there is nothing to say.
+/// status, the connection and the last message. Hints share that row when
+/// they fit, else sit above it in columns, so the pill stays on the bottom row
+/// either way. `None` when there is nothing to say.
 fn status_line<'a>(
     selected: Option<&Selected>,
     connected: bool,
     status: &Status<'a>,
-) -> Option<Line<'a>> {
+    width: u16,
+) -> Option<Vec<Line<'a>>> {
     let pill = |text: String, color| Span::styled(text, Style::new().black().bg(color).bold());
     let mut spans = Vec::new();
     if let Some(mode) = status.mode {
@@ -158,13 +166,41 @@ fn status_line<'a>(
     if let Some(message) = status.message.and_then(|message| message.lines().next()) {
         spans.push(Span::from(format!(" {message}")).red());
     }
-    for hint in &status.hints {
-        let (chord, label) = hint.split_once(' ').unwrap_or((hint, ""));
-        spans.push(Span::from(format!("  {chord}")).cyan().bold());
-        spans.push(Span::from(format!(" {label}")).gray());
-    }
     // Herdr's panel background, a step up from the terminal's.
-    (!spans.is_empty()).then(|| Line::from(spans).bg(Color::Black))
+    let mut bar = Line::from(spans).bg(Color::Black);
+    let mut hints: Vec<_> = status
+        .hints
+        .iter()
+        .map(|hint| {
+            let (chord, label) = hint.split_once(' ').unwrap_or((hint, ""));
+            Line::from(vec![
+                Span::from(format!("  {chord}")).cyan().bold(),
+                Span::from(format!(" {label}")).gray(),
+            ])
+        })
+        .collect();
+    let width = usize::from(width);
+    if bar.width() + hints.iter().map(Line::width).sum::<usize>() <= width {
+        bar.spans
+            .extend(hints.into_iter().flat_map(|hint| hint.spans));
+        return (!bar.spans.is_empty()).then_some(vec![bar]);
+    }
+    // Over-wide hints are omitted whole, without hiding the hints after them.
+    hints.retain(|hint| hint.width() <= width);
+    let cell_width = hints.iter().map(Line::width).max().unwrap_or(1);
+    let columns = (width / cell_width).max(1);
+    let mut rows = Vec::new();
+    for chunk in hints.chunks_mut(columns) {
+        let mut spans = Vec::new();
+        for hint in chunk {
+            let padding = cell_width - hint.width();
+            spans.append(&mut hint.spans);
+            spans.push(Span::raw(" ".repeat(padding)));
+        }
+        rows.push(Line::from(spans).bg(Color::Black));
+    }
+    rows.push(bar);
+    Some(rows)
 }
 
 /// The pane's name, else its program's title, else its command's file name.

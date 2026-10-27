@@ -98,7 +98,7 @@ There are two kinds of actions:
 
 A `oneshot` mode takes one key and returns to normal. A `sticky` mode stays until a binding leaves it. `clear_defaults = true` starts a mode with none of Ship's bindings. Add `label = "..."` to a binding to change how it's shown in the hints.
 
-When you're in a mode other than normal, a one-line hint bar shows at the bottom with that mode's keys. The same bar shows errors and when a pane's program has exited.
+When you're in a mode other than normal, a hint bar shows at the bottom with that mode's keys, wrapping into aligned columns when they don't fit on one line. The same bar shows errors and when a pane's program has exited.
 
 The default keys are in [`defaults.toml`](../../crates/ship-core/src/defaults.toml). Key names like `ctrl-alt-x` and `shift-tab` follow [crokey](https://docs.rs/crokey).
 
