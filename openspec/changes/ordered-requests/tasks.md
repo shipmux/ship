@@ -25,14 +25,14 @@ Verification uses real commands and temporary probes, not permanent authored tes
 
 ## 2. Ordered full-screen client
 
-- [ ] 2.1 Add the ordering slot to `Client` (`order`, `next_order`, `last_order`), with `build` adding `x-ship-order` while it's set and `Client::input` taking an explicit number (design decision 1). Fill it on `Attached` and clear it on a lost connection in `ui/mod.rs`. Verify from the debug log that a TUI session's requests after attaching carry consecutive numbers, the attach POST carries none, and `ship tab list` from another shell carries none.
-- [ ] 2.2 Add `ui/outbox.rs` (design decision 5) and replace `Local::input`, the `sending` future and the detach drain with it. Move the lost-connection arm into one function and call it on an `out_of_order` error from the lane or the outbox. Show other input errors on the status line (design decision 6). Verify:
+- [x] 2.1 Add the ordering slot to `Client` (`order`, `next_order`, `last_order`), with `build` adding `x-ship-order` while it's set and `Client::input` taking an explicit number (design decision 1). Fill it on `Attached` and clear it on a lost connection in `ui/mod.rs`. Verify from the debug log that a TUI session's requests after attaching carry consecutive numbers, the attach POST carries none, and `ship tab list` from another shell carries none.
+- [x] 2.2 Add `ui/outbox.rs` (design decision 5) and replace `Local::input`, the `sending` future and the detach drain with it. Move the lost-connection arm into one function and call it on an `out_of_order` error from the lane or the outbox. Show other input errors on the status line (design decision 6). Verify:
   - idle typing into a shell sends each key in its own request and feels no slower;
   - writing 2000 keys into the client's terminal at once, without bracketed paste, delivers all 2000 in order in fewer than 2000 requests, with never more than 4 input requests in flight in the debug log;
   - a 3 MB paste shows the server's refusal on the status line, and typing afterwards still arrives;
   - a temporary change that skips one number makes the client log a warning and reattach, and typing after the reattach arrives (remove the change afterwards).
-- [ ] 2.3 Write a throwaway TCP latency proxy in `experiments/latency-proxy/` that delays each chunk 500 ms each way. Verify through it, ten runs each: `alt-n` then `echo hi` and Enter lands in the new tab; `alt-|` then `alt-f` zooms the new pane; typing `ls` then `alt-shift-x` routes both keys before the removal with no "input for a removed pane dropped" line in the debug log; cutting the proxy mid-burst after `alt-n` drops the waiting keys and doesn't resend the create; `touch done`, Enter and `alt-q` leaves `done` behind after detaching.
-- [ ] 2.4 Verify the slice with fmt, clippy, tests and `openspec validate` as in 1.4, and remove `experiments/latency-proxy/` unless slice 3 still needs it.
+- [x] 2.3 Write a throwaway TCP latency proxy in `experiments/latency-proxy/` that delays each chunk 500 ms each way. Verify through it, ten runs each: `alt-n` then `echo hi` and Enter lands in the new tab; `alt-|` then `alt-f` zooms the new pane; typing `ls` then `alt-shift-x` routes both keys before the removal with no "input for a removed pane dropped" line in the debug log; cutting the proxy mid-burst after `alt-n` drops the waiting keys and doesn't resend the create; `touch done`, Enter and `alt-q` leaves `done` behind after detaching.
+- [x] 2.4 Verify the slice with fmt, clippy, tests and `openspec validate` as in 1.4, and remove `experiments/latency-proxy/` unless slice 3 still needs it.
 
 ## 3. HTTP/2
 

@@ -11,6 +11,7 @@ mod watch;
 
 use std::{error::Error, io, iter, time::Duration};
 
+use api::Order;
 pub use api::{Client, Resource};
 pub use execute::{KeyScope, Outcome, Scope, current_dir};
 use reqwest::{Error as HttpError, Method, RequestBuilder, Response, StatusCode};
@@ -18,7 +19,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use ship_core::{
     id::{Attachment, IdOf},
     prelude::*,
-    protocol::{ATTACHMENT_HEADER, REVISION_HEADER},
+    protocol::{ATTACHMENT_HEADER, ORDER_HEADER, REVISION_HEADER},
 };
 use tokio::time::timeout;
 use url::Url;
@@ -39,7 +40,28 @@ impl Client {
         attachment: Option<IdOf<Attachment>>,
         expected_status: StatusCode,
     ) -> Result<T> {
-        let (request, safe) = self.build(method, path, body, attachment);
+        self.numbered(
+            method,
+            path,
+            body,
+            attachment,
+            self.next_order(),
+            expected_status,
+        )
+        .await
+    }
+
+    /// `request`, carrying `order` when there is one.
+    async fn numbered<B: Serialize + ?Sized, T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&B>,
+        attachment: Option<IdOf<Attachment>>,
+        order: Option<Order>,
+        expected_status: StatusCode,
+    ) -> Result<T> {
+        let (request, safe) = self.build(method, path, body, attachment, order);
         let exchange = async {
             let response = open(request, expected_status).await?;
             if let Some(revision) = response
@@ -69,7 +91,7 @@ impl Client {
         path: &str,
         body: Option<&B>,
     ) -> Result<Response> {
-        let (request, safe) = self.build(method, path, body, None);
+        let (request, safe) = self.build(method, path, body, None, self.next_order());
         timeout(TIMEOUT, open(request, StatusCode::OK))
             .await
             .unwrap_or_else(|_| Err(err!(Network, "HTTP request timed out")))
@@ -77,12 +99,15 @@ impl Client {
     }
 
     /// The request, and its URL without credentials for error messages.
+    /// Callers take `order` when first polled, so numbers follow the order
+    /// requests start.
     fn build<B: Serialize + ?Sized>(
         &self,
         method: Method,
         path: &str,
         body: Option<&B>,
         attachment: Option<IdOf<Attachment>>,
+        order: Option<Order>,
     ) -> (RequestBuilder, Url) {
         let mut url = self.url.clone();
         url.set_path(path);
@@ -98,6 +123,9 @@ impl Client {
         }
         if let Some(attachment) = attachment {
             request = request.header(ATTACHMENT_HEADER, attachment.to_string());
+        }
+        if let Some(order) = order {
+            request = request.header(ORDER_HEADER, order.to_string());
         }
         (request, safe)
     }

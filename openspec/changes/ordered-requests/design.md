@@ -32,14 +32,18 @@ The client numbers requests itself, so call sites don't change. `Client` gains a
 
 ```rust
 // crates/ship-client/src/lib.rs
-struct Sequence { attachment: IdOf<Attachment>, last: u64 }
+// crates/ship-client/src/api.rs
+struct Order { attachment: IdOf<Attachment>, n: u64 }           // Display: "{attachment}/{n}"
 
 impl Client {
-    pub fn order(&self, attachment: Option<IdOf<Attachment>>);   // set on Attached, None on lost
-    fn next_order(&self) -> Option<(IdOf<Attachment>, u64)>;     // called by build()
-    pub(crate) fn last_order(&self) -> Option<u64>;              // for the input queue (decision 5)
+    pub fn order(&self, attachment: Option<IdOf<Attachment>>);   // set on Attached
+    pub fn forget(&self);                                        // on lost: also stops numbering
+    pub(crate) fn next_order(&self) -> Option<Order>;
+    pub(crate) fn last_order(&self) -> Option<Order>;            // for the input queue (decision 5)
 }
 ```
+
+`request`, `read` and `stream` take `next_order()` in their bodies, which run when first polled, and `build` stamps the `Order` it's given. `next_order` is `pub(crate)` because the outbox takes a batch's number before its request is built.
 
 `build` already runs when a request is first polled. This keeps number order equal to lane order:
 
@@ -136,10 +140,10 @@ The back batch stays open only while nothing else has taken a number. An action 
 A batch's request is built with its own number. `Client::input` therefore takes the number from the batch rather than from `next_order`:
 
 ```rust
-pub async fn input(&self, attachment: Option<IdOf<Attachment>>, order: Option<u64>, frames: &[InputFrame]) -> Result<()>;
+pub(crate) async fn input(&self, attachment: Option<IdOf<Attachment>>, order: Option<Order>, frames: &[InputFrame]) -> Result<()>;
 ```
 
-Detaching waits for the outbox to empty, then returns. Losing the connection drops the outbox.
+Detaching waits for the outbox to empty, then returns. An input error while it drains logs a warning and doesn't stop the detach, since there's no status line left to show it on. The outbox lives as long as the client and sends each batch with its `Order`'s attachment. Losing the connection clears it.
 
 Rejected:
 - **A request per frame with no cap.** The probe's 80 ms bursts, and about 1800 connections over HTTP/1.1.
@@ -147,7 +151,7 @@ Rejected:
 
 ### 6. Refusals reattach
 
-`ErrorCode::OutOfOrder` (409, kind `out_of_order`). In the select loop, an `out_of_order` error from `lane.finished()` or from the outbox goes through the same path as a lost event stream. That path moves from the inline match arm into one function so both can call it.
+`ErrorCode::OutOfOrder` (409, kind `out_of_order`). In the select loop, an `out_of_order` error from `lane.finished()` or from the outbox goes through the same path as a lost event stream. The arms set a `cut` flag, and one block after the select resets the connection when it's set: it drops the event stream and pending view PUT, clears the lane, calls `Client::forget`, and calls `Local::cut`, which clears the outbox, mouse and menu and returns the request to reattach with. A function for the whole reset was the first plan, but it needed about nine of the loop's locals as parameters.
 
 Other input errors show on the status line. Today an input stream failure only logs a warning and leaves the client without input until it reattaches.
 

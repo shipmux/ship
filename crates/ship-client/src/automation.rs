@@ -84,7 +84,7 @@ impl Client {
 
     /// The response revision separates before and after the queued input.
     async fn write(&self, frames: Vec<InputFrame>) -> Result<u64> {
-        self.input(None, &frames).await?;
+        self.input(None, None, &frames).await?;
         Ok(self.written())
     }
 
