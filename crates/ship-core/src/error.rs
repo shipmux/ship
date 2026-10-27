@@ -31,6 +31,9 @@ pub enum ErrorCode {
     OutOfOrder,
     Configuration,
     Network,
+    /// The client gave up waiting: no connection within a second, or no
+    /// response within its request timeout.
+    Timeout,
     ConnectionRefused,
     RateLimited,
     UpstreamHttpStatus(u16),
@@ -61,6 +64,7 @@ impl ErrorCode {
             Self::Forbidden => 403,
             Self::InvalidStructure => 422,
             Self::Unavailable => 503,
+            Self::Timeout => 504,
         }
     }
 }

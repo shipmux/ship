@@ -36,11 +36,11 @@ Verification uses real commands and temporary probes, not permanent authored tes
 
 ## 3. HTTP/2
 
-- [ ] 3.1 Add reqwest's `http2` feature. Make `client()` in `crates/ship/src/main.rs` use `http2_prior_knowledge()`, and make `connect` retry an explicit target's failed health over `http1_only()` once, for errors other than a refused connection or a timeout, logging a warning on success (design decision 7). Verify:
+- [x] 3.1 Add reqwest's `http2` feature. Make `client()` in `crates/ship/src/main.rs` use `http2_prior_knowledge()`, and make `connect` retry an explicit target's failed health over `http1_only()` once, for errors other than a refused connection or a timeout, logging a warning on success (design decision 7). Verify:
   - the server's debug log shows `HTTP/2.0` on a local `ship` session's requests and on `ship tab list`;
   - `ship server status --server-url http://127.0.0.1:43336` with nothing listening reports the refused connection once, with no HTTP/1.1 retry in the client log;
   - through a throwaway HTTP/1.1-only reverse proxy in front of the temporary server, `ship --server-url` logs the fallback warning, attaches, and typing and actions work, with the server log showing `HTTP/1.1`.
-- [ ] 3.2 Verify the change with fmt, clippy, tests and `openspec validate` as in 1.4, remove any throwaway proxies, and report implementation and test line counts against the proposal's estimate.
+- [x] 3.2 Verify the change with fmt, clippy, tests and `openspec validate` as in 1.4, remove any throwaway proxies, and report implementation and test line counts against the proposal's estimate.
 
 ## Workflow follow-up
 

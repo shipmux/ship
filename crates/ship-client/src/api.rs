@@ -233,7 +233,7 @@ impl Client {
         };
         timeout(crate::TIMEOUT, exchange)
             .await
-            .unwrap_or_else(|_| Err(err!(Network, "HTTP request timed out")))
+            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
             .context(format!("request to {safe} failed"))
     }
 

@@ -100,20 +100,18 @@ async fn dispatch(
             command: Some(cli::ServerCommand::Stop),
             ..
         })) => {
-            let client = client(&cli.server_url)?;
-            health(&client).await?;
+            let (client, _) = checked(&cli.server_url, explicit_target).await?;
             commands::stop_server(&client).await
         }
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Status),
             ..
-        })) => commands::print(&health(&client(&cli.server_url)?).await?),
+        })) => commands::print(&checked(&cli.server_url, explicit_target).await?.1),
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Log(args)),
             ..
         })) => {
-            let client = client(&cli.server_url)?;
-            health(&client).await?;
+            let (client, _) = checked(&cli.server_url, explicit_target).await?;
             commands::server_log(&client, args).await
         }
         Some(Command::Server(_)) if source == Some(ValueSource::CommandLine) => Err(err!(
@@ -165,15 +163,15 @@ async fn dispatch(
             commands::view(&client, command).await
         }
         None => {
-            let client = client(&cli.server_url)?;
             // A full-screen client must not misread another protocol. Only a
             // server this call launched opens on its first tab, restored or
             // the starter.
-            let open_first = if explicit_target {
-                health(&client).await?;
-                false
+            let (client, open_first) = if explicit_target {
+                (checked(&cli.server_url, true).await?.0, false)
             } else {
-                local::default_health(&client, &cli.config_path()?).await?
+                let client = client(&cli.server_url, true)?;
+                let launched = local::default_health(&client, &cli.config_path()?).await?;
+                (client, launched)
             };
             ui::run(&client, open_first, &cli.config_path()?)
                 .await
@@ -187,16 +185,36 @@ async fn dispatch(
 /// Validate an explicit target without starting it; otherwise reuse or start
 /// the default local server.
 async fn connect(cli: &Cli, explicit_target: bool) -> Result<Client> {
-    let client = client(&cli.server_url)?;
     if explicit_target {
-        health(&client).await?;
-    } else {
-        local::default_health(&client, &cli.config_path()?).await?;
+        return Ok(checked(&cli.server_url, true).await?.0);
     }
+    let client = client(&cli.server_url, true)?;
+    local::default_health(&client, &cli.config_path()?).await?;
     Ok(client)
 }
 
-fn client(server_url: &str) -> Result<Client> {
+/// A client whose health check passed. An explicit target that fails over
+/// HTTP/2 for any reason but an absent or silent server, such as a proxy that
+/// speaks only HTTP/1.1, gets one more check over HTTP/1.1. Ship's own server
+/// always speaks HTTP/2, so the local default target never needs it.
+async fn checked(server_url: &str, explicit_target: bool) -> Result<(Client, HealthResponse)> {
+    let http2 = client(server_url, true)?;
+    match health(&http2).await {
+        Err(error) if explicit_target && *error.code() == ErrorCode::Network => {
+            tracing::debug!(%error, "HTTP/2 health check failed; retrying over HTTP/1.1");
+            let http1 = client(server_url, false)?;
+            let response = health(&http1).await?;
+            tracing::warn!(
+                server = %http1.url.origin().ascii_serialization(),
+                "server answers only over HTTP/1.1"
+            );
+            Ok((http1, response))
+        }
+        result => Ok((http2, result?)),
+    }
+}
+
+fn client(server_url: &str, http2: bool) -> Result<Client> {
     // Never include the input: even a malformed URL can contain credentials.
     let url = Url::parse(server_url)
         .map_err(|error| err!(Configuration, "invalid server URL", @external: error))?;
@@ -206,9 +224,15 @@ fn client(server_url: &str) -> Result<Client> {
             "server URL requires absolute HTTP/HTTPS and a host"
         ));
     }
-    let http = reqwest::Client::builder()
+    let builder = reqwest::Client::builder()
         .redirect(Policy::none())
-        .connect_timeout(Duration::from_secs(1))
+        .connect_timeout(Duration::from_secs(1));
+    let builder = if http2 {
+        builder.http2_prior_knowledge()
+    } else {
+        builder.http1_only()
+    };
+    let http = builder
         .build()
         .map_err(|error| err!(Configuration, "cannot initialize HTTP client", @external: error.without_url()))?;
     Ok(Client::new(http, url))

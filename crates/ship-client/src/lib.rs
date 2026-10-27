@@ -79,7 +79,7 @@ impl Client {
         };
         timeout(TIMEOUT, exchange)
             .await
-            .unwrap_or_else(|_| Err(err!(Network, "HTTP request timed out")))
+            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
             .context(format!("request to {safe} failed"))
     }
 
@@ -94,7 +94,7 @@ impl Client {
         let (request, safe) = self.build(method, path, body, None, self.next_order());
         timeout(TIMEOUT, open(request, StatusCode::OK))
             .await
-            .unwrap_or_else(|_| Err(err!(Network, "HTTP request timed out")))
+            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
             .context(format!("request to {safe} failed"))
     }
 
@@ -170,7 +170,9 @@ fn http_error(error: HttpError) -> AppError {
     if connection_refused {
         return err!(ConnectionRefused, "no server running");
     }
-    let code = if error.is_decode() {
+    let code = if error.is_timeout() {
+        ErrorCode::Timeout
+    } else if error.is_decode() {
         ErrorCode::Serialization
     } else {
         ErrorCode::Network

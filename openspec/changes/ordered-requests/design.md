@@ -159,7 +159,9 @@ Other input errors show on the status line. Today an input stream failure only l
 
 In `crates/ship/src/main.rs`, `client()` builds reqwest with `http2_prior_knowledge()`. reqwest gains the `http2` feature.
 
-When `connect` gets an explicit target and its health check fails with a network error that isn't a refused connection or a timeout, it rebuilds the client with `http1_only()` and retries health once. On success it logs a warning. The local default target skips the fallback, because Ship's own server always speaks HTTP/2.
+Every health check of an explicit target goes through `checked` in `main.rs`: the full-screen client, `connect` for actions and views, and `ship server stop`, `status` and `log`. When the check fails with `ErrorCode::Network`, it rebuilds the client with `http1_only()` and retries health once. On success it logs a warning naming the target's origin. The local default target skips the fallback, because Ship's own server always speaks HTTP/2.
+
+A refused connection already has its own kind. A timeout needed one, because the client's request timeout and reqwest's connect timeout both surfaced as `network`, the same kind as an HTTP/2 failure. `ErrorCode::Timeout` (504, kind `timeout`) now covers both, so a silent target fails after one attempt instead of two.
 
 On HTTP/1.1 nothing else changes. A stale pooled connection that loses a request shows up as a gap, which becomes a refusal and a reattach.
 
