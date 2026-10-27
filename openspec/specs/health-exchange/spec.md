@@ -7,7 +7,7 @@ Let users exercise Ship through a real, observable health request with predictab
 ## Requirements
 
 ### Requirement: Health contract and result
-A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing `service` equal to `ship`, `protocol_version` equal to 17, informational string `version`, and `log`, the path of the log part the server is writing. Health response JSON field names SHALL use snake case. `ship server status` SHALL print one health JSON line on stdout only on success, and SHALL never start a server.
+A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing `service` equal to `ship`, `protocol_version` equal to 18, informational string `version`, and `log`, the path of the log part the server is writing. Health response JSON field names SHALL use snake case. `ship server status` SHALL print one health JSON line on stdout only on success, and SHALL never start a server.
 
 #### Scenario: Compatible health
 - **WHEN** `ship server status` contacts a compatible server
@@ -29,7 +29,7 @@ The current client SHALL validate service/protocol compatibility before any othe
 - **THEN** the client reports contextual failure, emits no success result and exits 1
 
 #### Scenario: Client from an earlier protocol
-- **WHEN** a client built for protocol version 1 to 16 validates health from a server reporting protocol version 17
+- **WHEN** a client built for protocol version 1 to 17 validates health from a server reporting protocol version 18
 - **THEN** the client reports the incompatible protocol version and exits 1 without attaching
 
 #### Scenario: Already-built protocol-7 explicit ordinary command
@@ -232,3 +232,18 @@ The server SHALL answer a request only when its host, from the HTTP/2 authority 
 #### Scenario: SSH tunnel
 - **WHEN** a client on another machine reaches the server through `ssh -L 43180:127.0.0.1:43179` with `--server-url http://127.0.0.1:43180`
 - **THEN** its requests carry a loopback host and succeed
+
+### Requirement: HTTP/2 transport
+The client SHALL speak HTTP/2 to the server without upgrade negotiation, and the server SHALL accept both that and HTTP/1.1 on its one listener. When the health check of an explicit target fails over HTTP/2 for a reason other than a refused connection or a timeout, the client SHALL retry it once over HTTP/1.1. If that succeeds, the client SHALL log a warning naming the target and use HTTP/1.1 for the rest of the run. A local server, launched or found, SHALL always use HTTP/2.
+
+#### Scenario: Local server
+- **WHEN** a user runs `ship` against the local server
+- **THEN** the server's debug log shows the client's requests arriving over HTTP/2
+
+#### Scenario: HTTP/1.1-only proxy
+- **WHEN** a user runs `ship --server-url` pointing at a proxy that speaks only HTTP/1.1 in front of a server
+- **THEN** the client logs a warning that it fell back to HTTP/1.1, attaches and works
+
+#### Scenario: Nothing listening
+- **WHEN** a user runs `ship server status --server-url` at a port where nothing listens
+- **THEN** it reports the refused connection once, without trying HTTP/1.1
