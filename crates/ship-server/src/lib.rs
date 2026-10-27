@@ -6,6 +6,7 @@ mod body;
 mod health;
 mod input;
 mod middleware;
+mod order;
 mod pane;
 mod records;
 mod replicas;
@@ -138,6 +139,7 @@ pub fn router(app: AppState) -> Router {
         .0
         .fallback(no_route)
         .method_not_allowed_fallback(wrong_method)
+        .layer(from_fn_with_state(app.clone(), order::order))
         .layer(from_fn(middleware::local_only))
         .layer(from_fn_with_state(app.clone(), app::stamp))
         .layer(from_fn(middleware::trace_request))
@@ -250,6 +252,7 @@ pub async fn serve(
         stop: stop.clone(),
         revision,
         log: Arc::new(log),
+        lanes: Default::default(),
     };
     let serving = axum::serve(listener, router(app))
         .with_graceful_shutdown(async move {

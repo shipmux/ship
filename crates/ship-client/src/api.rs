@@ -13,8 +13,8 @@ use ship_core::{
     model::{Pane, Tab},
     prelude::*,
     protocol::{
-        AttachRequest, CreatePane, CreateTab, InputFrame, MoveTabBody, REVISION_HEADER, ReadPane,
-        ResizePane, ScrollPane, SelectView, SseEvent, SwapPane, ViewInput, ViewingRecord,
+        AttachRequest, CreatePane, CreateTab, InputBody, InputFrame, MoveTabBody, REVISION_HEADER,
+        ReadPane, ResizePane, ScrollPane, SelectView, SseEvent, SwapPane, ViewInput, ViewingRecord,
     },
     tree::Tabs,
 };
@@ -241,17 +241,20 @@ impl Client {
             }))
     }
 
-    /// Stream `frames` to panes in one POST, until `frames` ends or the server
-    /// answers. Mouse frames need `attachment`. Only the connect timeout applies.
+    /// Send `frames` to their panes in one request; nothing is routed if the
+    /// server refuses any of them. Mouse frames need `attachment`.
     pub async fn input(
         &self,
         attachment: Option<IdOf<Attachment>>,
-        frames: impl Stream<Item = InputFrame> + Send + 'static,
+        frames: &[InputFrame],
     ) -> Result<()> {
-        self.send_stream(
+        self.request(
+            Method::POST,
             "/api/v0/attach/input",
+            Some(&InputBody {
+                frames: frames.to_vec(),
+            }),
             attachment,
-            frames,
             StatusCode::NO_CONTENT,
         )
         .await

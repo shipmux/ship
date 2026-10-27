@@ -52,7 +52,6 @@ use tokio::{
     sync::mpsc,
     time::{self, MissedTickBehavior},
 };
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::{Instrument, field};
 
 use self::{
@@ -231,7 +230,7 @@ async fn drive(
                         tracing::info!("attached");
                         let (frames, received) = mpsc::unbounded_channel();
                         local.input = Some(frames);
-                        sending = Some(Box::pin(client.input(Some(attached.attachment), UnboundedReceiverStream::new(received))));
+                        sending = Some(Box::pin(forward(client, attached.attachment, received)));
                         backoff = FIRST_BACKOFF;
                     }
                     let screen = matches!(event, SseEvent::Screen(_));
@@ -995,6 +994,21 @@ async fn until(due: Option<Instant>) {
 }
 
 /// The pending request's result, or never while none is pending.
+/// One input request at a time, carrying whatever queued while the last was
+/// in flight. Ends once the sender is dropped and the queue is sent.
+async fn forward(
+    client: &Client,
+    attachment: IdOf<Attachment>,
+    mut received: mpsc::UnboundedReceiver<InputFrame>,
+) -> Result<()> {
+    let mut frames = Vec::new();
+    while received.recv_many(&mut frames, usize::MAX).await > 0 {
+        client.input(Some(attachment), &frames).await?;
+        frames.clear();
+    }
+    Ok(())
+}
+
 async fn finish<F: Future + Unpin>(request: &mut Option<F>) -> F::Output {
     match request {
         Some(request) => request.await,

@@ -26,6 +26,9 @@ pub enum ErrorCode {
     Validation,
     NotFound,
     Conflict,
+    /// A numbered request whose number already ran, or whose predecessor
+    /// never arrived. The full-screen client reattaches.
+    OutOfOrder,
     Configuration,
     Network,
     ConnectionRefused,
@@ -50,7 +53,7 @@ impl ErrorCode {
         match self {
             Self::Validation => 400,
             Self::NotFound => 404,
-            Self::Conflict => 409,
+            Self::Conflict | Self::OutOfOrder => 409,
             Self::Configuration | Self::Internal | Self::Serialization | Self::Io => 500,
             Self::Network | Self::ConnectionRefused | Self::UpstreamHttpStatus(_) => 502,
             Self::RateLimited => 429,
