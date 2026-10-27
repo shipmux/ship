@@ -86,11 +86,15 @@ global = [
 kind = "sticky"
 
 [client.modes.tabs.keys]
-"j"   = { action = { client.tab.next = {} } }
-"k"   = { action = { client.tab.prev = {} } }
-"h"   = { action = { client.tab.collapse = {} } }
-"l"   = { action = { client.tab.expand = {} } }
-"esc" = { action = { client.mode = "normal" } }
+"j"       = { action = { client.tab.next = {} } }
+"k"       = { action = { client.tab.prev = {} } }
+"h"       = { action = { client.tab.collapse = {} } }
+"l"       = { action = { client.tab.expand = {} } }
+"shift-k" = { action = { client.tab.move.direction = "up" }, label = "move up" }
+"shift-j" = { action = { client.tab.move.direction = "down" }, label = "move down" }
+"shift-l" = { action = { client.tab.move.direction = "in" }, label = "move in" }
+"shift-h" = { action = { client.tab.move.direction = "out" }, label = "move out" }
+"esc"     = { action = { client.mode = "normal" } }
 
 [client.modes.resize]
 kind = "sticky"

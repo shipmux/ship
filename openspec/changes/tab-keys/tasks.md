@@ -14,10 +14,12 @@ Slice 1 verification: on macOS, build, formatting, workspace Clippy with warning
 
 ## 2. `client.tab.move` and its bindings
 
-- [ ] 2.1 Add `ClientTab::Move { direction }` and `TabDirection` in `crates/ship-client/src/keymap.rs`, `shift` and the `Move` arm returning `Turn::First(vec![Item::Move(..)])` in `crates/ship-client/src/ui/mod.rs`, and the four labeled bindings in `crates/ship-core/src/defaults.toml`.
+- [x] 2.1 Add `ClientTab::Move { direction }` and `TabDirection` in `crates/ship-client/src/keymap.rs`, `shift` and the `Move` arm returning `Turn::First(vec![Item::Move(..)])` in `crates/ship-client/src/ui/mod.rs`, and the four labeled bindings in `crates/ship-core/src/defaults.toml`.
 - [x] 2.2 Write `specs/keymap/spec.md`: MODIFIED "Client actions" to list `client.tab.move`, and ADDED "Relative tab moves", "Tab moves at their turn" and "Default tabs keys" with the P1 and P2 scenarios.
-- [ ] 2.3 Verify with `ship tab list`: every P1 case gives the stated tree with the selection kept (FR-010); every P2 case leaves the output byte-for-byte unchanged with no status message (SC-002); three quick `shift-k` presses move three places (FR-008); the status line shows the four labels in tabs mode.
-- [ ] 2.4 Walk SC-001 once with keys only. For one `in` and one `out`, compare against the same move made by mouse drop (SC-004).
+- [x] 2.3 Verify with `ship tab list`: every P1 case gives the stated tree with the selection kept (FR-010); every P2 case leaves the output byte-for-byte unchanged with no status message (SC-002); three quick `shift-k` presses move three places (FR-008); the status line shows the four labels in tabs mode.
+- [x] 2.4 Walk SC-001 once with keys only. For one `in` and one `out`, compare against the same move made by mouse drop (SC-004).
+
+Slice 2 verification: on macOS, build, formatting, workspace Clippy with warnings denied, workspace tests (80 passed, 1 ignored) and strict OpenSpec validation passed. An owned temporary server on port 43331 and a client in an isolated tmux server passed 31 live checks: every P1/P2 case, no-selection and nested edges, labels, pane/subtree preservation, zoom preservation, rapid up/down repeats, the keys-only SC-001 workflow, and byte-for-byte keyboard/mouse `in` and `out` equivalence. Server request logs confirmed edges sent no move and valid presses sent one each. All 27 slice-1 live checks also passed again. Temporary servers and clients were stopped afterward. Linux is unverified. Frames, selections, trees and request counts: `/var/folders/n8/y68yxhhn3tl_0zh1r9kscs3w0000gn/T/ship-tab-keys-slice2-yxhsy9g8/evidence.json`; regression evidence: `/var/folders/n8/y68yxhhn3tl_0zh1r9kscs3w0000gn/T/ship-tab-keys-slice1-mvydh551/evidence.json`.
 
 ## 3. Docs
 

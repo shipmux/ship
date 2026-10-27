@@ -56,7 +56,7 @@ use self::{
     attention::Attention,
     draw::Status,
     keys::{Handled, Keys},
-    lane::{Item, Lane, Turn},
+    lane::{Item, Lane, TabMove, Turn},
     memory::Memory,
     menu::{Menu, Picked},
     mouse::{Clicked, Mouse},
@@ -69,7 +69,7 @@ use crate::{
     Client, KeyScope, Scope,
     keymap::{
         Action, AgentSettings, ClientAction, ClientAgents, ClientPane, ClientSettings, ClientTab,
-        ConfigAction, Menus, Sidebar as SidebarAction,
+        ConfigAction, Menus, Sidebar as SidebarAction, TabDirection,
     },
     sound::Speaker,
     watch,
@@ -817,6 +817,16 @@ impl<'a> Local<'a> {
                         None => Err(err!(Validation, "no pane selected")),
                     }
                 }
+                ClientAction::Tab(ClientTab::Move { direction }) => {
+                    if let Some(replica) = &self.observer.replica
+                        && let Some(tab) =
+                            selection.and_then(|node| tree::viewed_tab(&replica.tabs, node))
+                        && let Some(to) = shift(&replica.tabs, tab, direction)
+                    {
+                        return Turn::First(vec![Item::Move(TabMove { tab, to })]);
+                    }
+                    Ok(())
+                }
                 ClientAction::Tab(ClientTab::Select { .. }) => unavailable("tab select"),
                 ClientAction::Tab(ClientTab::Collapse {}) => {
                     if let Some(replica) = &self.observer.replica
@@ -991,6 +1001,25 @@ fn expand(tabs: &Tabs, sidebar: &Sidebar, tab: IdOf<Tab>) -> Option<Hop> {
     } else {
         Some(Hop::Select(*child))
     }
+}
+
+/// One step among siblings or levels, counting folded siblings too.
+/// Nothing at an edge.
+fn shift(tabs: &Tabs, tab: IdOf<Tab>, direction: TabDirection) -> Option<MoveTab> {
+    let siblings = tree::siblings(tabs, tab)?;
+    let index = siblings.get_index_of(&tab)?;
+    Some(match direction {
+        TabDirection::Up => MoveTab::Before(*siblings.get_index(index.checked_sub(1)?)?.0),
+        TabDirection::Down => MoveTab::After(*siblings.get_index(index.checked_add(1)?)?.0),
+        TabDirection::In => MoveTab::Parent(Some(*siblings.get_index(index.checked_sub(1)?)?.0)),
+        TabDirection::Out => {
+            let path = tree::path(tabs, NodeId::Tab(tab))?;
+            let NodeId::Tab(parent) = *path.iter().rev().nth(1)? else {
+                return None;
+            };
+            MoveTab::After(parent)
+        }
+    })
 }
 
 /// Where `step` moves the selection `from`. Visible tab rows cycle in order and
