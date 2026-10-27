@@ -24,20 +24,27 @@ use tokio_stream::{StreamMap, wrappers::WatchStream};
 use crate::{
     AppState,
     body::Body,
+    order::Lanes,
     pane::{Clipboard, LivePanes},
     state::{Attach, Detach, ServerState, SetView, tree},
 };
 
 /// Created before asking the state actor, so cancellation at any point still
-/// detaches the right ID. Drop only initiates the detach; the actor finishes
-/// it asynchronously, and a send failure after the actor has stopped is ignored.
+/// detaches the right ID and drops its ordering lane. Drop only initiates the
+/// detach; the actor finishes it asynchronously, and a send failure after the
+/// actor has stopped is ignored.
 struct AttachmentGuard {
     attachment: IdOf<Attachment>,
     state: ActorRef<ServerState>,
+    lanes: Lanes,
 }
 
 impl Drop for AttachmentGuard {
     fn drop(&mut self) {
+        self.lanes
+            .lock()
+            .expect("lanes lock")
+            .remove(&self.attachment);
         if Handle::try_current().is_err() {
             return;
         }
@@ -70,6 +77,7 @@ pub(crate) async fn attach(
     let guard = AttachmentGuard {
         attachment: Id::new(),
         state: app.state.clone(),
+        lanes: Arc::clone(&app.lanes),
     };
     let attachment = guard.attachment;
     let replicas = match request.feed {

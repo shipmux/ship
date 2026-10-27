@@ -10,7 +10,7 @@ use std::{
 
 use crokey::KeyCombination;
 use crossterm::event::KeyEvent;
-use futures_util::{Stream, StreamExt, stream};
+use futures_util::{Stream, StreamExt};
 use ship_core::{
     command::pane::WaitState,
     id::IdOf,
@@ -84,7 +84,7 @@ impl Client {
 
     /// The response revision separates before and after the queued input.
     async fn write(&self, frames: Vec<InputFrame>) -> Result<u64> {
-        self.input(None, stream::iter(frames)).await?;
+        self.input(None, None, &frames).await?;
         Ok(self.written())
     }
 

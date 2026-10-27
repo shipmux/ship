@@ -9,16 +9,18 @@ mod memory;
 mod menu;
 mod mouse;
 mod observer;
+mod outbox;
 mod panes;
 mod sidebar;
 mod terminal;
 
 use std::{
+    cell::RefCell,
     collections::HashMap,
-    future::{Future, pending},
+    future::{Future, pending, poll_fn},
     mem,
     path::Path,
-    pin::Pin,
+    pin::{Pin, pin},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -48,12 +50,7 @@ use ship_core::{
     tree::{self, Tabs},
 };
 use ship_macros::traced;
-use tokio::{
-    sync::mpsc,
-    time::{self, MissedTickBehavior},
-};
-use tokio_stream::wrappers::UnboundedReceiverStream;
-use tracing::{Instrument, field};
+use tokio::time::{self, MissedTickBehavior};
 
 use self::{
     attention::Attention,
@@ -64,6 +61,7 @@ use self::{
     menu::{Menu, Picked},
     mouse::{Clicked, Mouse},
     observer::Observer,
+    outbox::Outbox,
     sidebar::{Sidebar, movable},
     terminal::TerminalGuard,
 };
@@ -110,14 +108,15 @@ enum Exit {
 /// Bare `ship`. Opens the attach stream at the terminal's tab area, then takes
 /// over the terminal. Nothing is selected unless `open_first` says this `ship`
 /// launched the server: then the attach asks for the first tab's pane. On
-/// every `Attached` it starts the input POST for that attachment. Keys go
+/// every `Attached` it numbers its requests for that attachment. Keys go
 /// through the keymap loaded from `config`, or the defaults with the error on
 /// the status line, and reloaded when the file is saved; a bad save keeps the
 /// running keymap and shows the error. Bound keys queue their actions, which
 /// run one at a time.
 /// Keys, clicks and actions share one ordered lane. Server requests wait for
-/// their reply and the replica before the next turn. The frame tick sends
-/// area only. A cut connection keeps the last screen, drops the lane and
+/// their reply and the replica before the next turn; input goes out through
+/// the outbox. The frame tick sends area only. A cut connection or a refused
+/// number keeps the last screen, drops the lane and the outbox, and
 /// reconnects with backoff (250 ms doubling to 5 s).
 ///
 /// Returns Ok after detach or `Ended(ServerShutdown)`, printing why after
@@ -152,12 +151,23 @@ pub async fn run(client: &Client, open_first: bool, config: &Path) -> Result<()>
     // Fail on an unreachable server before taking the terminal.
     let events = attach_after(client, request.clone(), Duration::ZERO).await?;
     let exit = {
-        let mut guard = TerminalGuard::enter()?;
-        drive(
-            client, &mut guard, request, events, signaled, config, loaded,
-        )
-        // Every client line names its connection; each attach records it.
-        .instrument(tracing::info_span!("client", attachment = field::Empty))
+        // Every client line names its connection. Each attach swaps in a new
+        // span, which every poll enters, as `.instrument` does with a fixed one.
+        let connection = RefCell::new(tracing::info_span!("client"));
+        let mut drive = pin!(drive(
+            client,
+            request,
+            events,
+            signaled,
+            config,
+            loaded,
+            &connection,
+        ));
+        poll_fn(|cx| {
+            let span = connection.borrow().clone();
+            let _entered = span.enter();
+            drive.as_mut().poll(cx)
+        })
         .await
     }?;
     tracing::info!(?exit, "client exiting");
@@ -171,13 +181,14 @@ pub async fn run(client: &Client, open_first: bool, config: &Path) -> Result<()>
 
 async fn drive(
     client: &Client,
-    guard: &mut TerminalGuard,
     mut request: AttachRequest,
     events: Events,
     signaled: impl Future<Output = ()>,
     config: &Path,
     loaded: (ClientSettings, Option<String>),
+    connection: &RefCell<tracing::Span>,
 ) -> Result<Exit> {
+    let guard = &mut TerminalGuard::enter()?;
     tokio::pin!(signaled);
     let mut events = Some(events);
     let mut reconnect: Option<Request<Events>> = None;
@@ -191,7 +202,7 @@ async fn drive(
         keys: Keys::new(settings.keymap),
         mouse: Mouse::default(),
         menu: None,
-        input: None,
+        outbox: Outbox::new(client),
         message,
         attention: Attention::default(),
         speaker: Speaker::start(),
@@ -207,13 +218,14 @@ async fn drive(
     };
     let mut lane = Lane::default();
     let mut terminal_events = EventStream::new();
-    let mut sending: Option<Request> = None;
     let mut terminal = terminal_size()?;
     guard.resize(terminal)?;
     let mut putting: Option<Request> = None;
     let mut tick = time::interval(FRAME);
     tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
     redraw(guard, &mut local)?;
+    // Set when this connection's work must be abandoned.
+    let mut cut = false;
     loop {
         let mut visible = tokio::select! {
             event = next(&mut events) => match event {
@@ -226,12 +238,14 @@ async fn drive(
                 }
                 Some(Ok(event)) if !matches!(event, SseEvent::Ended(_)) => {
                     if let SseEvent::Attached(attached) = &event {
-                        tracing::Span::current()
-                            .record("attachment", field::display(attached.attachment));
-                        tracing::info!("attached");
-                        let (frames, received) = mpsc::unbounded_channel();
-                        local.input = Some(frames);
-                        sending = Some(Box::pin(client.input(Some(attached.attachment), UnboundedReceiverStream::new(received))));
+                        let span = tracing::info_span!(
+                            parent: None,
+                            "client",
+                            attachment = %attached.attachment
+                        );
+                        span.in_scope(|| tracing::info!("attached"));
+                        connection.replace(span);
+                        client.order(Some(attached.attachment));
                         backoff = FIRST_BACKOFF;
                     }
                     let screen = matches!(event, SseEvent::Screen(_));
@@ -252,7 +266,6 @@ async fn drive(
                     }
                     visible
                 }
-                // Keep the screens, but abandon all work from this connection.
                 lost => {
                     match lost {
                         Some(Err(error)) => tracing::warn!(%error, "disconnected; reconnecting"),
@@ -261,20 +274,8 @@ async fn drive(
                         }
                         _ => tracing::warn!("event stream ended without notice; reconnecting"),
                     }
-                    events = None;
-                    local.input = None;
-                    sending = None;
-                    putting = None;
-                    lane.clear();
-                    local.mouse = Mouse::default();
-                    local.menu = None;
-                    client.forget();
-                    local.observer.connected = false;
-                    if let Some(remembered) = local.observer.remembered(view_area(terminal, &local.sidebar)) {
-                        request = remembered;
-                    }
-                    reconnect = Some(Box::pin(attach_after(client, request.clone(), backoff)));
-                    true
+                    cut = true;
+                    false
                 }
             },
             result = finish(&mut reconnect) => match result {
@@ -291,17 +292,26 @@ async fn drive(
                     false
                 }
             },
-            result = finish(&mut sending) => {
-                if let Err(error) = result {
-                    tracing::warn!(%error, "input stream failed");
+            result = local.outbox.next() => match result {
+                Err(error) if refused(&error) => {
+                    tracing::warn!(%error, "input refused; reattaching");
+                    cut = true;
+                    false
                 }
-                sending = None;
-                local.input = None;
-                false
-            }
-            result = lane.finished() => {
-                if let Err(error) = result {
+                Err(error) => {
                     local.message = Some(error.to_string());
+                    true
+                }
+                Ok(()) => false,
+            },
+            result = lane.finished() => {
+                match result {
+                    Err(error) if refused(&error) => {
+                        tracing::warn!(%error, "request refused; reattaching");
+                        cut = true;
+                    }
+                    Err(error) => local.message = Some(error.to_string()),
+                    Ok(()) => {}
                 }
                 true
             }
@@ -442,6 +452,17 @@ async fn drive(
             }
             () = &mut signaled => return Ok(Exit::Signaled),
         };
+        // Keep the screens, but abandon all work from this connection.
+        if mem::take(&mut cut) {
+            (events, putting) = (None, None);
+            lane.clear();
+            client.forget();
+            if let Some(remembered) = local.cut(view_area(terminal, &local.sidebar)) {
+                request = remembered;
+            }
+            reconnect = Some(Box::pin(attach_after(client, request.clone(), backoff)));
+            visible = true;
+        }
         while let Some(item) = lane.next(&local.observer, client.written()) {
             // Input frames change only the server's screen; redraw on its
             // publication, not on each keystroke or mouse frame.
@@ -454,12 +475,13 @@ async fn drive(
                 Turn::Wait(request) => lane.wait(request),
                 Turn::First(items) => lane.first(items),
                 Turn::Detach => {
-                    // End the body and let the existing input POST drain before
-                    // dropping the attachment, otherwise queued frames are lost.
-                    local.input = None;
-                    if let Some(sending) = sending {
+                    // Queued input must reach the server before the attachment
+                    // ends, otherwise it is lost.
+                    while !local.outbox.is_empty() {
                         tokio::select! {
-                            result = sending => result?,
+                            result = local.outbox.next() => if let Err(error) = result {
+                                tracing::warn!(%error, "input before detaching failed");
+                            },
                             () = &mut signaled => return Ok(Exit::Signaled),
                         }
                     }
@@ -478,14 +500,14 @@ async fn drive(
 }
 
 /// Client-local state used to resolve each input at its turn.
-struct Local {
+struct Local<'a> {
     observer: Observer,
     memory: Memory,
     sidebar: Sidebar,
     keys: Keys,
     mouse: Mouse,
     menu: Option<Menu>,
-    input: Option<mpsc::UnboundedSender<InputFrame>>,
+    outbox: Outbox<'a>,
     message: Option<String>,
     attention: Attention,
     speaker: Speaker,
@@ -505,7 +527,7 @@ struct Scene<'a> {
     menus: &'a Menus,
 }
 
-impl Local {
+impl<'a> Local<'a> {
     fn scene(&self, screen: Rect) -> Scene<'_> {
         let selected = self.observer.selected();
         let tab = selected.as_ref().map(|selected| selected.tab);
@@ -565,7 +587,7 @@ impl Local {
     }
 
     #[traced]
-    fn turn<'a>(&mut self, client: &'a Client, item: Item) -> Turn<'a> {
+    fn turn(&mut self, client: &'a Client, item: Item) -> Turn<'a> {
         match item {
             Item::Action(action) => self.act(client, action),
             Item::Key(key) => {
@@ -671,12 +693,20 @@ impl Local {
 
     #[traced]
     fn send(&mut self, frame: InputFrame) {
-        if let Some(input) = &self.input {
-            input.send(frame).ok();
-        }
+        self.outbox.push(frame);
     }
 
-    fn select<'a>(&mut self, client: &'a Client, node: NodeId) -> Turn<'a> {
+    /// Abandon the connection's input and gestures, keeping the screens.
+    /// Returns the request to reattach with, when there's a record to keep.
+    fn cut(&mut self, area: Size) -> Option<AttachRequest> {
+        self.outbox.clear();
+        self.mouse = Mouse::default();
+        self.menu = None;
+        self.observer.connected = false;
+        self.observer.remembered(area)
+    }
+
+    fn select(&mut self, client: &'a Client, node: NodeId) -> Turn<'a> {
         let Some(attachment) = self.observer.attachment else {
             return Turn::Done;
         };
@@ -696,7 +726,7 @@ impl Local {
         }))
     }
 
-    fn act<'a>(&mut self, client: &'a Client, action: Action) -> Turn<'a> {
+    fn act(&mut self, client: &'a Client, action: Action) -> Turn<'a> {
         let selection = self.observer.record().and_then(|record| record.selection);
         if leaves_zoom(&action)
             && let Some(zoomed) = zoomed_pane(&self.observer, selection)
@@ -1000,6 +1030,11 @@ async fn finish<F: Future + Unpin>(request: &mut Option<F>) -> F::Output {
         Some(request) => request.await,
         None => pending().await,
     }
+}
+
+/// The server refused a number: this connection's sequence is broken.
+fn refused(error: &AppError) -> bool {
+    matches!(error.code(), ErrorCode::OutOfOrder)
 }
 
 fn terminal_size() -> Result<(u16, u16)> {

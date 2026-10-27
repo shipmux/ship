@@ -23,15 +23,16 @@ pub const DEFAULT_SERVER_URL: &str = "http://127.0.0.1:43179";
 pub const HEALTH_PATH: &str = "/health";
 /// What a Ship server reports as `service` from `/health`.
 pub const SERVICE: &str = "ship";
-pub const PROTOCOL_VERSION: u32 = 17;
+pub const PROTOCOL_VERSION: u32 = 18;
 /// Names the attachment a view or input request controls.
 pub const ATTACHMENT_HEADER: &str = "x-ship-attachment-id";
 /// On every response: the server's revision once the request was handled,
 /// at least that of any commit it made. A client that waits for a replica of
 /// this revision sees its own changes.
 pub const REVISION_HEADER: &str = "x-ship-revision";
-/// Longest line of the input stream, in bytes without the newline.
-pub const INPUT_LINE_MAX: usize = 64 * 1024;
+/// `{attachment}/{n}`: run this request after the attachment's request
+/// `n - 1` has finished. Only the full-screen client sends it.
+pub const ORDER_HEADER: &str = "x-ship-order";
 
 /// Server identity and protocol compatibility, not an authentication boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -440,9 +441,15 @@ pub struct Attached {
     pub replica: Arc<Replica>,
 }
 
-/// One NDJSON line of POST /attach/input, e.g.
-/// `{"type": "paste", "pane": "pane:...", "text": "ls"}`. View changes use
-/// PUT /attach/view instead.
+/// POST /attach/input: frames in the order they should reach their panes.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct InputBody {
+    pub frames: Vec<InputFrame>,
+}
+
+/// One input frame, e.g. `{"type": "paste", "pane": "pane:...", "text":
+/// "ls"}`. View changes use PUT /attach/view instead.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]

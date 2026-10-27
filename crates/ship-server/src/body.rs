@@ -73,8 +73,8 @@ where
 
 const BODY: &str = "invalid request body";
 
-/// Decode one complete JSON document. Also used for input stream lines.
-pub(crate) fn decode<T: DeserializeOwned + ToSchema>(bytes: &[u8]) -> Result<T> {
+/// Decode one complete JSON document.
+fn decode<T: DeserializeOwned + ToSchema>(bytes: &[u8]) -> Result<T> {
     let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     let refusal = match serde_path_to_error::deserialize(&mut deserializer) {
         Ok(value) => {

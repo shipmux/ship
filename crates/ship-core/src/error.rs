@@ -26,8 +26,14 @@ pub enum ErrorCode {
     Validation,
     NotFound,
     Conflict,
+    /// A numbered request whose number already ran, or whose predecessor
+    /// never arrived. The full-screen client reattaches.
+    OutOfOrder,
     Configuration,
     Network,
+    /// The client gave up waiting: no connection within a second, or no
+    /// response within its request timeout.
+    Timeout,
     ConnectionRefused,
     RateLimited,
     UpstreamHttpStatus(u16),
@@ -50,7 +56,7 @@ impl ErrorCode {
         match self {
             Self::Validation => 400,
             Self::NotFound => 404,
-            Self::Conflict => 409,
+            Self::Conflict | Self::OutOfOrder => 409,
             Self::Configuration | Self::Internal | Self::Serialization | Self::Io => 500,
             Self::Network | Self::ConnectionRefused | Self::UpstreamHttpStatus(_) => 502,
             Self::RateLimited => 429,
@@ -58,6 +64,7 @@ impl ErrorCode {
             Self::Forbidden => 403,
             Self::InvalidStructure => 422,
             Self::Unavailable => 503,
+            Self::Timeout => 504,
         }
     }
 }

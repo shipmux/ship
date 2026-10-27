@@ -1,6 +1,10 @@
 use std::{
+    fmt,
     future::ready,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use futures_util::{Stream, StreamExt, TryStreamExt};
@@ -13,8 +17,8 @@ use ship_core::{
     model::{Pane, Tab},
     prelude::*,
     protocol::{
-        AttachRequest, CreatePane, CreateTab, InputFrame, MoveTabBody, REVISION_HEADER, ReadPane,
-        ResizePane, ScrollPane, SelectView, SseEvent, SwapPane, ViewInput, ViewingRecord,
+        AttachRequest, CreatePane, CreateTab, InputBody, InputFrame, MoveTabBody, REVISION_HEADER,
+        ReadPane, ResizePane, ScrollPane, SelectView, SseEvent, SwapPane, ViewInput, ViewingRecord,
     },
     tree::Tabs,
 };
@@ -29,6 +33,21 @@ pub struct Client {
     pub url: Url,
     /// Highest `x-ship-revision` a response carried; 0 before any.
     written: AtomicU64,
+    /// The last number taken, while the full-screen client is attached.
+    sequence: Mutex<Option<Order>>,
+}
+
+/// A request's place in its attachment's sequence, sent as `x-ship-order`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Order {
+    pub attachment: IdOf<Attachment>,
+    pub n: u64,
+}
+
+impl fmt::Display for Order {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.attachment, self.n)
+    }
 }
 
 /// Collection path for the generic entity methods.
@@ -50,6 +69,7 @@ impl Client {
             http,
             url,
             written: AtomicU64::new(0),
+            sequence: Mutex::new(None),
         }
     }
 
@@ -64,9 +84,31 @@ impl Client {
         self.written.fetch_max(revision, Ordering::AcqRel);
     }
 
-    /// Back to 0, for a server that may have restarted and counts afresh.
+    /// End a connection: `written` goes back to 0, for a server that may
+    /// have restarted and counts afresh, and numbering stops.
     pub fn forget(&self) {
         self.written.store(0, Ordering::Release);
+        self.order(None);
+    }
+
+    /// Number this client's requests for `attachment` from 1, or stop
+    /// numbering with `None`.
+    pub fn order(&self, attachment: Option<IdOf<Attachment>>) {
+        *self.sequence.lock().expect("sequence lock") =
+            attachment.map(|attachment| Order { attachment, n: 0 });
+    }
+
+    /// Take the next number, while numbering.
+    pub(crate) fn next_order(&self) -> Option<Order> {
+        let mut sequence = self.sequence.lock().expect("sequence lock");
+        let order = sequence.as_mut()?;
+        order.n += 1;
+        Some(*order)
+    }
+
+    /// The last number taken, while numbering.
+    pub(crate) fn last_order(&self) -> Option<Order> {
+        *self.sequence.lock().expect("sequence lock")
     }
 
     pub async fn health(&self) -> Result<HealthResponse> {
@@ -177,7 +219,7 @@ impl Client {
     /// Read terminal text without changing the shared viewport.
     pub async fn read(&self, pane: IdOf<Pane>, query: &ReadPane) -> Result<String> {
         let path = format!("{}/{pane}/text", Pane::COLLECTION);
-        let (request, safe) = self.build(Method::GET, &path, NO_BODY, None);
+        let (request, safe) = self.build(Method::GET, &path, NO_BODY, None, self.next_order());
         let exchange = async {
             let response = crate::open(request.query(query), StatusCode::OK).await?;
             if let Some(revision) = response
@@ -191,7 +233,7 @@ impl Client {
         };
         timeout(crate::TIMEOUT, exchange)
             .await
-            .unwrap_or_else(|_| Err(err!(Network, "HTTP request timed out")))
+            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
             .context(format!("request to {safe} failed"))
     }
 
@@ -241,17 +283,25 @@ impl Client {
             }))
     }
 
-    /// Stream `frames` to panes in one POST, until `frames` ends or the server
-    /// answers. Mouse frames need `attachment`. Only the connect timeout applies.
-    pub async fn input(
+    /// Send `frames` to their panes in one request; nothing is routed if the
+    /// server refuses any of them. Mouse frames need `attachment`.
+    /// `order` is a number taken earlier; without one, the request takes
+    /// the next number like any other.
+    pub(crate) async fn input(
         &self,
         attachment: Option<IdOf<Attachment>>,
-        frames: impl Stream<Item = InputFrame> + Send + 'static,
+        order: Option<Order>,
+        frames: &[InputFrame],
     ) -> Result<()> {
-        self.send_stream(
+        let order = order.or_else(|| self.next_order());
+        self.numbered(
+            Method::POST,
             "/api/v0/attach/input",
+            Some(&InputBody {
+                frames: frames.to_vec(),
+            }),
             attachment,
-            frames,
+            order,
             StatusCode::NO_CONTENT,
         )
         .await

@@ -15,7 +15,7 @@ use axum::{
 use ship_core::{
     AppError, err,
     id::{Attachment, IdOf},
-    protocol::{ATTACHMENT_HEADER, REVISION_HEADER},
+    protocol::{ATTACHMENT_HEADER, ORDER_HEADER, REVISION_HEADER},
 };
 use tower_http::request_id::RequestId;
 use tracing::Instrument;
@@ -73,10 +73,16 @@ pub(crate) async fn trace_request(request: Request, next: Next) -> Response {
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.parse::<IdOf<Attachment>>().ok())
         .map(|id| id.to_string());
+    let order = request
+        .headers()
+        .get(ORDER_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(ToOwned::to_owned);
+    let version = request.version();
     let method = request.method().clone();
     // Only allowlisted, parsed metadata; never dump headers, queries or bodies.
     let path = request.uri().path().to_owned();
-    let span = tracing::debug_span!("request", request_id = %id, attachment_id = attachment.as_deref(), %method, %path);
+    let span = tracing::debug_span!("request", request_id = %id, attachment_id = attachment.as_deref(), order = order.as_deref(), ?version, %method, %path);
     let start = Instant::now();
     let response = next.run(request).instrument(span).await;
     let revision = response
@@ -92,9 +98,9 @@ pub(crate) async fn trace_request(request: Request, next: Next) -> Response {
         .map(ToString::to_string);
     // Include context on the event itself: the debug span may be disabled.
     if response.status().is_server_error() {
-        tracing::warn!(request_id = %id, attachment_id = attachment.as_deref(), revision, %method, %path, status, duration_ms, error = error.as_deref(), "request completed");
+        tracing::warn!(request_id = %id, attachment_id = attachment.as_deref(), order = order.as_deref(), ?version, revision, %method, %path, status, duration_ms, error = error.as_deref(), "request completed");
     } else {
-        tracing::debug!(request_id = %id, attachment_id = attachment.as_deref(), revision, %method, %path, status, duration_ms, error = error.as_deref(), "request completed");
+        tracing::debug!(request_id = %id, attachment_id = attachment.as_deref(), order = order.as_deref(), ?version, revision, %method, %path, status, duration_ms, error = error.as_deref(), "request completed");
     }
     response
 }

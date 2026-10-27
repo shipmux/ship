@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 
 use ship_core::relay::RelayBus;
 
-use crate::{pane::LivePanes, replicas::Replicas, state::ServerState};
+use crate::{order::Lanes, pane::LivePanes, replicas::Replicas, state::ServerState};
 
 /// The one Axum state. Every handler extracts this; each actor ref is cheap to clone.
 #[derive(Clone)]
@@ -31,6 +31,8 @@ pub struct AppState {
     pub(crate) log: crate::ServerLog,
     /// The state actor's revision, set by each commit before it replies.
     pub(crate) revision: Arc<AtomicU64>,
+    /// Numbered requests' lanes; only the ordering middleware reads them.
+    pub(crate) lanes: Lanes,
 }
 
 /// Stamps `x-ship-revision` on every response. Read after the handler, so it

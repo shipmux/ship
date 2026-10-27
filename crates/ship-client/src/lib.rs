@@ -11,15 +11,15 @@ mod watch;
 
 use std::{error::Error, io, iter, time::Duration};
 
+use api::Order;
 pub use api::{Client, Resource};
 pub use execute::{KeyScope, Outcome, Scope, current_dir};
-use futures_util::{Stream, StreamExt};
-use reqwest::{Body, Error as HttpError, Method, RequestBuilder, Response, StatusCode, header};
+use reqwest::{Error as HttpError, Method, RequestBuilder, Response, StatusCode};
 use serde::{Serialize, de::DeserializeOwned};
 use ship_core::{
     id::{Attachment, IdOf},
     prelude::*,
-    protocol::{ATTACHMENT_HEADER, REVISION_HEADER},
+    protocol::{ATTACHMENT_HEADER, ORDER_HEADER, REVISION_HEADER},
 };
 use tokio::time::timeout;
 use url::Url;
@@ -40,7 +40,28 @@ impl Client {
         attachment: Option<IdOf<Attachment>>,
         expected_status: StatusCode,
     ) -> Result<T> {
-        let (request, safe) = self.build(method, path, body, attachment);
+        self.numbered(
+            method,
+            path,
+            body,
+            attachment,
+            self.next_order(),
+            expected_status,
+        )
+        .await
+    }
+
+    /// `request`, carrying `order` when there is one.
+    async fn numbered<B: Serialize + ?Sized, T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&B>,
+        attachment: Option<IdOf<Attachment>>,
+        order: Option<Order>,
+        expected_status: StatusCode,
+    ) -> Result<T> {
+        let (request, safe) = self.build(method, path, body, attachment, order);
         let exchange = async {
             let response = open(request, expected_status).await?;
             if let Some(revision) = response
@@ -58,7 +79,7 @@ impl Client {
         };
         timeout(TIMEOUT, exchange)
             .await
-            .unwrap_or_else(|_| Err(err!(Network, "HTTP request timed out")))
+            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
             .context(format!("request to {safe} failed"))
     }
 
@@ -70,53 +91,23 @@ impl Client {
         path: &str,
         body: Option<&B>,
     ) -> Result<Response> {
-        let (request, safe) = self.build(method, path, body, None);
+        let (request, safe) = self.build(method, path, body, None, self.next_order());
         timeout(TIMEOUT, open(request, StatusCode::OK))
             .await
-            .unwrap_or_else(|_| Err(err!(Network, "HTTP request timed out")))
+            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
             .context(format!("request to {safe} failed"))
     }
 
-    /// POST `items` as an NDJSON body, one line each as they arrive, and wait
-    /// for `expected_status`, recording the response's revision. No timeout:
-    /// the body lasts as long as `items`.
-    async fn send_stream<T: Serialize + Send + 'static>(
-        &self,
-        path: &str,
-        attachment: Option<IdOf<Attachment>>,
-        items: impl Stream<Item = T> + Send + 'static,
-        expected_status: StatusCode,
-    ) -> Result<()> {
-        let (request, safe) = self.build(Method::POST, path, NO_BODY, attachment);
-        let lines = items.map(|item| {
-            serde_json::to_vec(&item).map(|mut line| {
-                line.push(b'\n');
-                line
-            })
-        });
-        let request = request
-            .header(header::CONTENT_TYPE, "application/x-ndjson")
-            .body(Body::wrap_stream(lines));
-        let response = open(request, expected_status)
-            .await
-            .context(format!("request to {safe} failed"))?;
-        if let Some(revision) = response
-            .headers()
-            .get(REVISION_HEADER)
-            .and_then(|value| value.to_str().ok()?.parse().ok())
-        {
-            self.wrote(revision);
-        }
-        Ok(())
-    }
-
     /// The request, and its URL without credentials for error messages.
+    /// Callers take `order` when first polled, so numbers follow the order
+    /// requests start.
     fn build<B: Serialize + ?Sized>(
         &self,
         method: Method,
         path: &str,
         body: Option<&B>,
         attachment: Option<IdOf<Attachment>>,
+        order: Option<Order>,
     ) -> (RequestBuilder, Url) {
         let mut url = self.url.clone();
         url.set_path(path);
@@ -132,6 +123,9 @@ impl Client {
         }
         if let Some(attachment) = attachment {
             request = request.header(ATTACHMENT_HEADER, attachment.to_string());
+        }
+        if let Some(order) = order {
+            request = request.header(ORDER_HEADER, order.to_string());
         }
         (request, safe)
     }
@@ -176,7 +170,9 @@ fn http_error(error: HttpError) -> AppError {
     if connection_refused {
         return err!(ConnectionRefused, "no server running");
     }
-    let code = if error.is_decode() {
+    let code = if error.is_timeout() {
+        ErrorCode::Timeout
+    } else if error.is_decode() {
         ErrorCode::Serialization
     } else {
         ErrorCode::Network
