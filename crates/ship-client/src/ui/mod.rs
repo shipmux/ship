@@ -15,11 +15,12 @@ mod sidebar;
 mod terminal;
 
 use std::{
+    cell::RefCell,
     collections::HashMap,
-    future::{Future, pending},
+    future::{Future, pending, poll_fn},
     mem,
     path::Path,
-    pin::Pin,
+    pin::{Pin, pin},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -50,7 +51,6 @@ use ship_core::{
 };
 use ship_macros::traced;
 use tokio::time::{self, MissedTickBehavior};
-use tracing::{Instrument, field};
 
 use self::{
     attention::Attention,
@@ -151,12 +151,23 @@ pub async fn run(client: &Client, open_first: bool, config: &Path) -> Result<()>
     // Fail on an unreachable server before taking the terminal.
     let events = attach_after(client, request.clone(), Duration::ZERO).await?;
     let exit = {
-        let mut guard = TerminalGuard::enter()?;
-        drive(
-            client, &mut guard, request, events, signaled, config, loaded,
-        )
-        // Every client line names its connection; each attach records it.
-        .instrument(tracing::info_span!("client", attachment = field::Empty))
+        // Every client line names its connection. Each attach swaps in a new
+        // span, which every poll enters, as `.instrument` does with a fixed one.
+        let connection = RefCell::new(tracing::info_span!("client"));
+        let mut drive = pin!(drive(
+            client,
+            request,
+            events,
+            signaled,
+            config,
+            loaded,
+            &connection,
+        ));
+        poll_fn(|cx| {
+            let span = connection.borrow().clone();
+            let _entered = span.enter();
+            drive.as_mut().poll(cx)
+        })
         .await
     }?;
     tracing::info!(?exit, "client exiting");
@@ -170,13 +181,14 @@ pub async fn run(client: &Client, open_first: bool, config: &Path) -> Result<()>
 
 async fn drive(
     client: &Client,
-    guard: &mut TerminalGuard,
     mut request: AttachRequest,
     events: Events,
     signaled: impl Future<Output = ()>,
     config: &Path,
     loaded: (ClientSettings, Option<String>),
+    connection: &RefCell<tracing::Span>,
 ) -> Result<Exit> {
+    let guard = &mut TerminalGuard::enter()?;
     tokio::pin!(signaled);
     let mut events = Some(events);
     let mut reconnect: Option<Request<Events>> = None;
@@ -226,9 +238,13 @@ async fn drive(
                 }
                 Some(Ok(event)) if !matches!(event, SseEvent::Ended(_)) => {
                     if let SseEvent::Attached(attached) = &event {
-                        tracing::Span::current()
-                            .record("attachment", field::display(attached.attachment));
-                        tracing::info!("attached");
+                        let span = tracing::info_span!(
+                            parent: None,
+                            "client",
+                            attachment = %attached.attachment
+                        );
+                        span.in_scope(|| tracing::info!("attached"));
+                        connection.replace(span);
                         client.order(Some(attached.attachment));
                         backoff = FIRST_BACKOFF;
                     }
