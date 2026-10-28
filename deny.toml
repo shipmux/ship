@@ -8,6 +8,7 @@ ignore = []
 # Every license here is compatible with Ship's GPL-3.0-or-later. Add a new one
 # only after checking that it is.
 allow = [
+    "0BSD",
     "Apache-2.0",
     "BSD-3-Clause",
     "CC0-1.0",

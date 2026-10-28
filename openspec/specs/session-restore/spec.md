@@ -24,13 +24,6 @@ The saved tabs SHALL NOT hold a pane's program or arguments, its title, its exit
 - **WHEN** a pane's program has reported `working` and the saved tabs are written
 - **THEN** the saved file has no `program` field, and after a restart the restored pane has no records
 
-### Requirement: Saved file location
-Each server port SHALL have its own saved file at `$XDG_STATE_HOME/ship/tabs/<port>.json`, defaulting to `~/.local/state/ship/tabs/<port>.json` on Linux and macOS; other platforms' location is best effort. A server SHALL NOT read or write another port's file, and a second server on the same port SHALL fail to bind before it reads the file.
-
-#### Scenario: Two ports
-- **WHEN** servers run on ports 43179 and 43180 with different tabs and both restart
-- **THEN** each restores its own saved tabs from its own file
-
 ### Requirement: Saved file permissions
 The saved file SHALL be readable and writable only by the server's user, mode `0600` on Unix, in a `tabs` directory of mode `0700` on Unix.
 
@@ -42,7 +35,7 @@ The saved file SHALL be readable and writable only by the server's user, mode `0
 The saved file SHALL hold pretty-printed JSON in the shape `ship tab list` prints, with each pane's `cwd` set to its saved directory, `command` empty, `status` running, and `dir`, `title` and tab `geometry` absent. Loading SHALL ignore `command`, `status`, `dir`, `title` and `geometry`, so `ship tab list` output is a valid saved file.
 
 #### Scenario: Hand-written file
-- **WHEN** a user saves `ship tab list` output as the port's saved file and starts the server
+- **WHEN** a user saves `ship tab list` output as the server name's saved file and starts the server
 - **THEN** the server restores those tabs, each pane running a shell in that pane's `cwd`
 
 ### Requirement: Saving changes
@@ -93,15 +86,15 @@ When the server stops through `ship server stop`, SIGTERM or SIGINT, it SHALL sa
 - **THEN** the saved file is not written
 
 ### Requirement: Kept previous copy
-Before a server's first save replaces an existing saved file, the server SHALL copy that file's contents, readable or not, to `<port>.json.prev` beside it, replacing any older copy. Later saves in the same server run SHALL NOT change the copy. The server SHALL NOT restore from the copy on its own.
+Before a server's first save replaces an existing saved file, the server SHALL copy that file's contents, readable or not, to `<name>.json.prev` beside it, replacing any older copy. Later saves in the same server run SHALL NOT change the copy. The server SHALL NOT restore from the copy on its own.
 
 #### Scenario: Recover after starting fresh
-- **WHEN** a user runs `ship server --no-restore`, makes an edit, stops the server, moves `<port>.json.prev` over `<port>.json` and starts the server
+- **WHEN** a user runs `ship server --no-restore`, makes an edit, stops the server, moves `<name>.json.prev` over `<name>.json` and starts the server
 - **THEN** the server restores the tabs from before `--no-restore`
 
 #### Scenario: Later saves leave the copy alone
 - **WHEN** a server saves three times in one run
-- **THEN** `<port>.json.prev` holds the file as it was before the first of those saves
+- **THEN** `<name>.json.prev` holds the file as it was before the first of those saves
 
 ### Requirement: Restore on startup
 On startup, before it accepts any connection, the server SHALL rebuild the saved tabs with the same IDs, names, structure, proportions, zoom and each pane's `right_click_passthrough`, `exit_behavior` and `scrollback_bytes`. A missing saved file SHALL start with no restored tabs.
@@ -130,10 +123,10 @@ Each restored pane SHALL run `[server.defaults.pane] shell`, else the login shel
 - **THEN** the pane runs the configured shell in `~/projects/ship` and `nvim` is not started
 
 ### Requirement: Starting without restoring
-`ship server --no-restore` SHALL start without reading the saved file. Its help SHALL say that the saved tabs are replaced on the first save and kept as `<port>.json.prev`. Every server launched automatically SHALL restore.
+`ship server --no-restore` SHALL start without reading the saved file. Its help SHALL say that the saved tabs are replaced on the first save and kept as `<name>.json.prev`. Every server launched automatically SHALL restore.
 
 #### Scenario: Starting fresh
-- **WHEN** the port has saved tabs and a user runs `ship server --no-restore`
+- **WHEN** the server's name has saved tabs and a user runs `ship server --no-restore`
 - **THEN** `ship tab list` prints `{}` and the saved file is unchanged until the first save
 
 ### Requirement: Missing pane directory
@@ -167,3 +160,14 @@ Restore problems SHALL be reported only in the server log, not to clients or in 
 #### Scenario: Status after a restore problem
 - **WHEN** a pane's saved directory was missing at startup and a user runs `ship server status`
 - **THEN** the output has no restore field, and the warning is in the server log
+
+### Requirement: Saved file per server name
+Each server name SHALL have its own saved file at `$XDG_STATE_HOME/ship/tabs/<name>.json`, defaulting to `~/.local/state/ship/tabs/<name>.json` on Linux and macOS; other platforms' location is best effort. A server SHALL NOT read or write another name's file, and a second server with a running name SHALL fail to take the name before it reads the file.
+
+#### Scenario: Two names
+- **WHEN** servers named `default` and `scratch` run with different tabs and both restart
+- **THEN** each restores its own saved tabs from its own file
+
+#### Scenario: Second server with the same name
+- **WHEN** a server named `scratch` is running and another `ship server --name scratch` starts
+- **THEN** the second exits saying a server is already running, without reading or writing `tabs/scratch.json`

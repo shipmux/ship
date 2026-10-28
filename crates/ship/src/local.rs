@@ -8,13 +8,13 @@ use std::{
 
 use crate::runlog::{self, RunLog};
 use ship_client::Client;
-use ship_core::{DEFAULT_PORT, prelude::*};
+use ship_core::{endpoint::ServerName, prelude::*};
 use tokio::time::{Instant, sleep, timeout_at};
 
-/// Reuse the default server, or launch one with the starter tab. True when
+/// Reuse the named server, or launch one with the starter tab. True when
 /// this call launched it, even if a concurrent launcher's server won the bind.
 /// The launched server reads `config`.
-pub async fn default_health(client: &Client, config: &Path) -> Result<bool> {
+pub async fn ensure_running(client: &Client, name: &ServerName, config: &Path) -> Result<bool> {
     match crate::health(client).await {
         Ok(_) => return Ok(false),
         Err(error) if *error.code() == ErrorCode::ConnectionRefused => {}
@@ -24,7 +24,7 @@ pub async fn default_health(client: &Client, config: &Path) -> Result<bool> {
     let executable = env::current_exe()
         .map_err(|error| err!(Io, "cannot resolve current executable", @external: error))?;
     let run = RunLog::start(
-        &runlog::logs_dir()?.join(DEFAULT_PORT.to_string()),
+        &runlog::logs_dir()?.join(name.as_str()),
         runlog::stem(&chrono::Local::now()),
     )?;
     let log = run.path();
@@ -36,11 +36,21 @@ pub async fn default_health(client: &Client, config: &Path) -> Result<bool> {
         .try_clone()
         .map_err(|error| err!(Io, "cannot clone server log handle", @external: error))
         .context(format!("launch failed; retained log {}", log.display()))?;
-    let mut child = Command::new(executable)
+    let mut command = Command::new(executable);
+    // Off Unix the child can't detach itself, so start it without the console.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+    }
+    let mut child = command
         .args([
             "server",
-            "--port",
-            &DEFAULT_PORT.to_string(),
+            "--name",
+            name.as_str(),
             "--starter",
             "--background-child",
         ])

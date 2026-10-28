@@ -26,6 +26,7 @@ crossterm = { version = "0.29", default-features = false, features = ["events", 
 etcetera = "0.11"
 futures-util = "0.3"
 indexmap = { version = "2", features = ["serde"] }
+interprocess = { version = "2.4", features = ["tokio"] }
 kameo = "0.22"
 libc = "0.2"
 # Same revision as ratatui-ghostty; named here for the `tracing` bridge.

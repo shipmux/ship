@@ -1,10 +1,13 @@
-use std::path::{self, PathBuf};
+use std::{
+    env,
+    path::{self, PathBuf},
+};
 
 use clap::{Args, Parser, Subcommand};
 use etcetera::BaseStrategy;
 use ship_core::{
-    DEFAULT_PORT, DEFAULT_SERVER_URL,
     command::Command as ServerAction,
+    endpoint::{Endpoint, ServerName},
     id::{Attachment, IdOf},
     model::NodeId,
     prelude::*,
@@ -13,19 +16,21 @@ use ship_core::{
 #[derive(Parser)]
 #[command(
     version,
-    about = "Open the Ship client, run a loopback server or script tabs and panes",
-    long_about = "Open the Ship client, run a loopback server or script tabs and panes.\n\nBare ship opens a full-screen client on the whole server; alt-q detaches.\nBare ship and tab and pane commands reuse the default-local server or start a missing one in the background.\nThat server stays running after the client and launching terminal exit."
+    about = "Open the Ship client, run a named-socket server or script tabs and panes",
+    long_about = "Open the Ship client, run a named-socket server or script tabs and panes.\n\nBare ship opens a full-screen client on the whole server; alt-q detaches.\nBare ship and tab and pane commands reuse the default-local server or start a missing one in the background.\nThat server stays running after the client and launching terminal exit."
 )]
 pub struct Cli {
-    /// Connect only to this HTTP/HTTPS server; never start or fall back locally
+    /// Connect only to this socket (unix:///path); also SHIP_SERVER_URL. Never starts a server
     #[arg(
         long,
         global = true,
-        env = "SHIP_SERVER_URL",
         value_name = "URL",
-        default_value = DEFAULT_SERVER_URL
+        conflicts_with = "server_name"
     )]
-    pub server_url: String,
+    pub server_url: Option<Endpoint>,
+    /// Select a named server, starting it if needed; also SHIP_SERVER_NAME
+    #[arg(long, global = true, value_name = "NAME")]
+    pub server_name: Option<ServerName>,
     /// Config file; defaults to ship/config.toml in the platform config directory
     #[arg(long, global = true, env = "SHIP_CONFIG", value_name = "FILE")]
     pub config: Option<PathBuf>,
@@ -33,7 +38,51 @@ pub struct Cli {
     pub command: Option<Command>,
 }
 
+/// A name may launch a server; a URL only connects to its given endpoint.
+pub enum Target {
+    Named(ServerName),
+    Url(Endpoint),
+}
+
+impl Target {
+    pub fn endpoint(&self) -> Result<Endpoint> {
+        match self {
+            Self::Named(name) => Endpoint::named(name),
+            Self::Url(endpoint) => Ok(endpoint.clone()),
+        }
+    }
+}
+
 impl Cli {
+    /// Flags precede variables, and the pane's URL precedes an exported name.
+    pub fn target(&self) -> Result<Target> {
+        if let Some(endpoint) = &self.server_url {
+            return Ok(Target::Url(endpoint.clone()));
+        }
+        if let Some(name) = &self.server_name {
+            return Ok(Target::Named(name.clone()));
+        }
+        if let Some(value) = env::var_os("SHIP_SERVER_URL") {
+            let value = value
+                .into_string()
+                .map_err(|_| err!(Configuration, "SHIP_SERVER_URL must be valid UTF-8"))?;
+            return value
+                .parse()
+                .map(Target::Url)
+                .map_err(|error: AppError| error.context("invalid SHIP_SERVER_URL"));
+        }
+        if let Some(value) = env::var_os("SHIP_SERVER_NAME") {
+            let value = value
+                .into_string()
+                .map_err(|_| err!(Configuration, "SHIP_SERVER_NAME must be valid UTF-8"))?;
+            return value
+                .parse()
+                .map(Target::Named)
+                .map_err(|error: AppError| error.context("invalid SHIP_SERVER_NAME"));
+        }
+        Ok(Target::Named(ServerName::default()))
+    }
+
     /// `--config`, `SHIP_CONFIG`, then etcetera's config directory. Absolute,
     /// so the background server and relative settings see the same file.
     pub fn config_path(&self) -> Result<PathBuf> {
@@ -52,7 +101,7 @@ impl Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Run a foreground server on 127.0.0.1, or stop or check one
+    /// Run a foreground server on a named socket, or stop or check one
     Server(ServerArgs),
     #[command(flatten)]
     Action(ServerAction),
@@ -113,14 +162,15 @@ pub struct CompletionsArgs {
 pub struct ServerArgs {
     #[command(subcommand)]
     pub command: Option<ServerCommand>,
-    #[arg(long, default_value_t = DEFAULT_PORT, value_parser = clap::value_parser!(u16).range(1..))]
-    pub port: u16,
+    /// Which server: picks its socket, saved tabs and logs
+    #[arg(long, default_value_t)]
+    pub name: ServerName,
     /// Start with one tab holding a shell in your home directory, only when
     /// there are no tabs after restoring
     #[arg(long)]
     pub starter: bool,
-    /// Start without restoring this port's saved tabs. The first save
-    /// replaces them and keeps the old file beside it as <port>.json.prev
+    /// Start without restoring this name's saved tabs. The first save
+    /// replaces them and keeps the old file beside it as <name>.json.prev
     #[arg(long)]
     pub no_restore: bool,
     #[arg(long, hide = true)]

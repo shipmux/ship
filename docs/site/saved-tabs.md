@@ -9,17 +9,17 @@ After a server restart or a reboot, Ship brings back your tabs, their nesting an
 
 Tabs saved before these settings existed restore with `close` and 10,000,000 bytes of history per pane, even if your config gives new panes different defaults.
 
-Ship saves a few seconds after each change, and `ship server stop` saves right away. The file lives at `~/.local/state/ship/tabs/43179.json` (under `$XDG_STATE_HOME` if you set it; the number is the server's port).
+Ship saves a few seconds after each change, and `ship server stop` saves right away. The file lives at `~/.local/state/ship/tabs/default.json` (under `$XDG_STATE_HOME` if you set it). A [named server](windows-and-the-server.md#running-more-than-one-server) uses its own name in place of `default`.
 
 If a pane's directory is gone, it opens in your home directory instead. If the file can't be read, Ship starts with no tabs and leaves the file alone so you can look at it.
 
 ## Getting back the previous tabs
 
-Each time the server starts and saves, it keeps the file it replaced as `43179.json.prev`. To go back to it:
+Each time the server starts and saves, it keeps the file it replaced as `default.json.prev`. To go back to it:
 
 ```sh
 ship server stop
-SAVED="${XDG_STATE_HOME:-$HOME/.local/state}/ship/tabs/43179.json"
+SAVED="${XDG_STATE_HOME:-$HOME/.local/state}/ship/tabs/default.json"
 cp "$SAVED.prev" "$SAVED"
 ship
 ```
@@ -30,9 +30,10 @@ Copy the `.prev` file somewhere safe if you want to keep it, since the next run 
 
 `ship server --no-restore` starts a server in the foreground without loading the saved tabs. Add `--starter` to get one shell tab. Your first change then replaces the saved tabs, keeping the old ones as `.prev`.
 
-To try things without touching your usual tabs, run a second server on another port:
+To try things without touching your usual tabs, use a server with another name:
 
 ```sh
-ship server --port 43326 --no-restore --starter
-ship --server-url http://127.0.0.1:43326        # in another terminal
+ship --server-name scratch
 ```
+
+It has its own saved tabs, and opens with one shell tab the first time.

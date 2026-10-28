@@ -1,9 +1,12 @@
+#[cfg(unix)]
+use std::fs;
 use std::io;
+#[cfg(unix)]
 use std::os::unix::io::AsRawFd;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
-use std::{env, fs, panic};
+use std::{env, panic};
 
 use crossterm::cursor::SetCursorStyle;
 use crossterm::event::{
@@ -28,6 +31,7 @@ enum AppEvent {
 }
 
 fn redirect_stderr() {
+    #[cfg(unix)]
     if let Ok(log) = fs::File::create("/tmp/ratatui-ghostty-example.log") {
         // SAFETY: both descriptors are open for the duration of the call.
         unsafe { libc::dup2(log.as_raw_fd(), libc::STDERR_FILENO) };
@@ -108,8 +112,11 @@ fn main() -> anyhow::Result<()> {
     }));
 
     terminal::enable_raw_mode()?;
+    #[cfg(unix)]
     let host_colors = colors::query_colors(16, Duration::from_millis(500))
         .unwrap_or_else(|_| colors::HostColors::default());
+    #[cfg(not(unix))]
+    let host_colors = colors::HostColors::default();
 
     let mut stdout = io::stdout();
     execute!(
