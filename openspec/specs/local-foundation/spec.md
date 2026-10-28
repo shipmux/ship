@@ -7,7 +7,7 @@ Provide a usable local Ship executable with discoverable commands, documented pr
 ## Requirements
 
 ### Requirement: Buildable application and command help
-The project SHALL provide a buildable Ship executable with help and version output that do not require a running server. Help SHALL describe bare `ship` opening the client and `alt-q` detaching, `ship server status`, explicit server startup with `--starter`, custom target selection, `--config`, `ship config check`, `ship config defaults` and `ship completions`, and automatic background-server persistence.
+The project SHALL provide a buildable Ship executable with help and version output that do not require a running server. Help SHALL describe bare `ship` opening the client and `alt-q` detaching, `ship server status`, explicit server startup with `--name` and `--starter`, target selection by URL and by name, `--config`, `ship config check`, `ship config defaults` and `ship completions`, and automatic background-server persistence.
 
 #### Scenario: Foundation help without a server
 - **WHEN** a developer builds the foundation and runs `ship --help` or `ship --version` with no server running
@@ -15,7 +15,7 @@ The project SHALL provide a buildable Ship executable with help and version outp
 
 #### Scenario: Command discovery
 - **WHEN** a user requests help
-- **THEN** help describes `ship`, `ship server status`, `ship --server-url URL`, `ship --config FILE`, `ship config check`, `ship config defaults`, `ship completions SHELL`, `ship server [--port PORT] [--starter]` and that automatic startup leaves the server running
+- **THEN** help describes `ship`, `ship server status`, `ship --server-url URL`, `ship --server-name NAME`, `ship --config FILE`, `ship config check`, `ship config defaults`, `ship completions SHELL`, `ship server [--name NAME] [--starter]` and that automatic startup leaves the server running
 
 ### Requirement: Repeatable local checks and honest evidence
 The project SHALL document repeatable formatting, linting and build commands. Each runnable slice SHALL pass its applicable checks and manual acceptance exercises before progression; unavailable checks SHALL remain explicitly unverified.
@@ -56,3 +56,17 @@ The guide SHALL explain where server and client logs are, how to set and change 
 #### Scenario: Unsupported shell
 - **WHEN** a user runs `ship completions` with a shell name Ship doesn't support
 - **THEN** the argument parser reports the supported shells and the command exits 2
+
+### Requirement: Windows CI
+CI SHALL build and test Ship on Windows in a job whose failure does not fail the workflow. The Linux and macOS jobs SHALL stay required. Windows behavior beyond what that job runs SHALL be reported as unverified.
+
+#### Scenario: Windows job on a pull request
+- **WHEN** a change is pushed to a pull request
+- **THEN** a Windows job builds and tests Ship, and its result shows on the pull request without blocking the merge
+
+### Requirement: Socket documentation
+The guide SHALL explain where a server's socket is, how to run and select named servers, and how to reach a server on another machine by forwarding its socket over ssh. It SHALL NOT describe ports.
+
+#### Scenario: Reach a remote server from the guide
+- **WHEN** a user follows the guide to use Ship running on another machine
+- **THEN** they can find the remote socket with `ship server status`, forward it with `ssh -N -L`, and run `ship --server-url unix://<local socket>` against it

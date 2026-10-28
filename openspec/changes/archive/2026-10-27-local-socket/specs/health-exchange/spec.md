@@ -259,7 +259,7 @@ The server SHALL answer a request only when its host, from the HTTP/2 authority 
 - **THEN** its requests carry a loopback host and succeed
 
 ### Requirement: HTTP/2 transport
-The client SHALL speak HTTP/2 to the server without upgrade negotiation, and the server SHALL accept both that and HTTP/1.1 on its one listener. When the health check of a URL target fails over HTTP/2 for a reason other than a refused connection, a missing socket or a timeout, the client SHALL retry it once over HTTP/1.1. If that succeeds, the client SHALL log a warning naming the target and use HTTP/1.1 for the rest of the run. A server selected by name, launched or found, SHALL always use HTTP/2.
+The client SHALL speak HTTP/2 without upgrade negotiation, and the server SHALL accept both that and HTTP/1.1 on its one listener. When the health check of a URL target fails over HTTP/2 for a reason other than a refused connection, a missing socket or a timeout, the client SHALL retry it once over HTTP/1.1. If that succeeds, the client SHALL log a warning naming the target and use HTTP/1.1 for the rest of the run. A server selected by name, launched or found, SHALL always use HTTP/2.
 
 #### Scenario: Local server
 - **WHEN** a user runs `ship` against the local server
