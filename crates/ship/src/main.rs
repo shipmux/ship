@@ -6,8 +6,8 @@ mod runlog;
 
 use std::{io, process::ExitCode, time::Duration};
 
-use clap::{CommandFactory, FromArgMatches, parser::ValueSource};
-use cli::{Cli, Command};
+use clap::{CommandFactory, Parser};
+use cli::{Cli, Command, Target};
 use reqwest::redirect::Policy;
 use ship_client::{Client, ui};
 use ship_core::{
@@ -16,15 +16,8 @@ use ship_core::{
 use tokio::runtime::Builder;
 use url::Url;
 
-// Temporary client/launcher defaults until slice 2 moves them onto sockets.
-const DEFAULT_PORT: u16 = 43179;
-const DEFAULT_SERVER_URL: &str = "http://127.0.0.1:43179";
-
 fn main() -> ExitCode {
-    let matches = Cli::command().get_matches();
-    let source = matches.value_source("server_url");
-    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
-    match run(cli, source) {
+    match run(Cli::parse()) {
         Ok(code) => code,
         Err(error) => {
             match serde_json::to_string(&error) {
@@ -36,7 +29,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(cli: Cli, source: Option<ValueSource>) -> Result<ExitCode> {
+fn run(cli: Cli) -> Result<ExitCode> {
     if matches!(
         cli.command,
         Some(Command::Server(cli::ServerArgs {
@@ -51,7 +44,7 @@ fn run(cli: Cli, source: Option<ValueSource>) -> Result<ExitCode> {
         .enable_all()
         .build()
         .map_err(|error| err!(Internal, "cannot create runtime", @external: error))?;
-    runtime.block_on(dispatch(cli, source, &diagnostics))
+    runtime.block_on(dispatch(cli, &diagnostics))
 }
 
 fn role(cli: &Cli) -> diagnostics::Role {
@@ -81,49 +74,48 @@ async fn health(client: &Client) -> Result<HealthResponse> {
     if response.service != SERVICE || response.protocol_version != PROTOCOL_VERSION {
         return Err(err!(
             Validation,
-            "incompatible health response from {}: expected service {SERVICE} and protocol {PROTOCOL_VERSION}",
-            client.url.origin().ascii_serialization(),
+            "incompatible health response: expected service {} and protocol {}",
+            SERVICE,
+            PROTOCOL_VERSION
         ));
     }
     Ok(response)
 }
 
-/// `--server-url` or `SHIP_SERVER_URL` makes the target explicit for client
-/// commands. `ship server` refuses only the flag, so an exported variable
-/// doesn't stop a terminal from running a server.
-async fn dispatch(
-    mut cli: Cli,
-    source: Option<ValueSource>,
-    diagnostics: &diagnostics::Diagnostics,
-) -> Result<ExitCode> {
-    let explicit_target = matches!(
-        source,
-        Some(ValueSource::CommandLine | ValueSource::EnvVariable)
-    );
+/// Only client commands resolve target variables. Running a server refuses
+/// target flags and uses its own `--name`, even inside another server's pane.
+async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Result<ExitCode> {
     match cli.command.take() {
         // Never start a server, so a stopped default server stays stopped.
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Stop),
             ..
         })) => {
-            let (client, _) = checked(&cli.server_url, explicit_target).await?;
+            let target = cli.target()?;
+            let (client, _) = checked(&target.endpoint()?, matches!(target, Target::Url(_))).await?;
             commands::stop_server(&client).await
         }
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Status),
             ..
-        })) => commands::print(&checked(&cli.server_url, explicit_target).await?.1),
+        })) => {
+            let target = cli.target()?;
+            commands::print(&checked(&target.endpoint()?, matches!(target, Target::Url(_))).await?.1)
+        }
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Log(args)),
             ..
         })) => {
-            let (client, _) = checked(&cli.server_url, explicit_target).await?;
+            let target = cli.target()?;
+            let (client, _) = checked(&target.endpoint()?, matches!(target, Target::Url(_))).await?;
             commands::server_log(&client, args).await
         }
-        Some(Command::Server(_)) if source == Some(ValueSource::CommandLine) => Err(err!(
-            Configuration,
-            "--server-url selects a server for clients; ship server does not take it"
-        )),
+        Some(Command::Server(_)) if cli.server_url.is_some() || cli.server_name.is_some() => {
+            Err(err!(
+                Configuration,
+                "--server-url and --server-name select servers for clients; use ship server --name NAME to run one"
+            ))
+        }
         Some(Command::Server(args)) => {
             let tabs = runlog::state_dir()?.join("tabs");
             runlog::create_private_dir(&tabs)?;
@@ -161,23 +153,28 @@ async fn dispatch(
             Ok(())
         }
         Some(Command::Action(command)) => {
-            let client = connect(&cli, explicit_target).await?;
+            let client = connect(&cli).await?;
             commands::action(&client, command).await
         }
         Some(Command::View(command)) => {
-            let client = connect(&cli, explicit_target).await?;
+            let client = connect(&cli).await?;
             commands::view(&client, command).await
         }
         None => {
             // A full-screen client must not misread another protocol. Only a
             // server this call launched opens on its first tab, restored or
             // the starter.
-            let (client, open_first) = if explicit_target {
-                (checked(&cli.server_url, true).await?.0, false)
-            } else {
-                let client = client(&cli.server_url, true)?;
-                let launched = local::default_health(&client, &cli.config_path()?).await?;
-                (client, launched)
+            let target = cli.target()?;
+            let endpoint = target.endpoint()?;
+            let (client, open_first) = match target {
+                Target::Url(_) => (checked(&endpoint, true).await?.0, false),
+                Target::Named(name) => {
+                    let client = client(&endpoint, true)?;
+                    let launched = local::ensure_running(&client, &name, &cli.config_path()?)
+                        .await
+                        .context(format!("server at {endpoint}"))?;
+                    (client, launched)
+                }
             };
             ui::run(&client, open_first, &cli.config_path()?)
                 .await
@@ -188,30 +185,40 @@ async fn dispatch(
     .map(|()| ExitCode::SUCCESS)
 }
 
-/// Validate an explicit target without starting it; otherwise reuse or start
-/// the default local server.
-async fn connect(cli: &Cli, explicit_target: bool) -> Result<Client> {
-    if explicit_target {
-        return Ok(checked(&cli.server_url, true).await?.0);
+/// Validate a URL without starting it; otherwise reuse or start the named server.
+async fn connect(cli: &Cli) -> Result<Client> {
+    let target = cli.target()?;
+    let endpoint = target.endpoint()?;
+    match target {
+        Target::Url(_) => Ok(checked(&endpoint, true).await?.0),
+        Target::Named(name) => {
+            let client = client(&endpoint, true)?;
+            local::ensure_running(&client, &name, &cli.config_path()?)
+                .await
+                .context(format!("server at {endpoint}"))?;
+            Ok(client)
+        }
     }
-    let client = client(&cli.server_url, true)?;
-    local::default_health(&client, &cli.config_path()?).await?;
-    Ok(client)
 }
 
 /// A client whose health check passed. An explicit target that fails over
 /// HTTP/2 for any reason but an absent or silent server, such as a proxy that
 /// speaks only HTTP/1.1, gets one more check over HTTP/1.1. Ship's own server
 /// always speaks HTTP/2, so the local default target never needs it.
-async fn checked(server_url: &str, explicit_target: bool) -> Result<(Client, HealthResponse)> {
-    let http2 = client(server_url, true)?;
-    match health(&http2).await {
+async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<(Client, HealthResponse)> {
+    let http2 = client(endpoint, true)?;
+    match health(&http2)
+        .await
+        .context(format!("server at {endpoint}"))
+    {
         Err(error) if explicit_target && *error.code() == ErrorCode::Network => {
             tracing::debug!(%error, "HTTP/2 health check failed; retrying over HTTP/1.1");
-            let http1 = client(server_url, false)?;
-            let response = health(&http1).await?;
+            let http1 = client(endpoint, false)?;
+            let response = health(&http1)
+                .await
+                .context(format!("server at {endpoint}"))?;
             tracing::warn!(
-                server = %http1.url.origin().ascii_serialization(),
+                server = %endpoint,
                 "server answers only over HTTP/1.1"
             );
             Ok((http1, response))
@@ -220,19 +227,15 @@ async fn checked(server_url: &str, explicit_target: bool) -> Result<(Client, Hea
     }
 }
 
-fn client(server_url: &str, http2: bool) -> Result<Client> {
-    // Never include the input: even a malformed URL can contain credentials.
-    let url = Url::parse(server_url)
-        .map_err(|error| err!(Configuration, "invalid server URL", @external: error))?;
-    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
-        return Err(err!(
-            Configuration,
-            "server URL requires absolute HTTP/HTTPS and a host"
-        ));
-    }
+fn client(endpoint: &Endpoint, http2: bool) -> Result<Client> {
+    let url = Url::parse("http://localhost/").expect("valid internal HTTP base");
     let builder = reqwest::Client::builder()
         .redirect(Policy::none())
         .connect_timeout(Duration::from_secs(1));
+    #[cfg(unix)]
+    let builder = builder.unix_socket(endpoint.path());
+    #[cfg(windows)]
+    let builder = builder.windows_named_pipe(endpoint.path());
     let builder = if http2 {
         builder.http2_prior_knowledge()
     } else {
@@ -240,6 +243,6 @@ fn client(server_url: &str, http2: bool) -> Result<Client> {
     };
     let http = builder
         .build()
-        .map_err(|error| err!(Configuration, "cannot initialize HTTP client", @external: error.without_url()))?;
+        .map_err(|error| err!(Configuration, "cannot initialize HTTP client for {}", endpoint, @external: error.without_url()))?;
     Ok(Client::new(http, url))
 }

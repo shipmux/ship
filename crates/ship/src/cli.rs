@@ -1,16 +1,17 @@
-use std::path::{self, PathBuf};
+use std::{
+    env,
+    path::{self, PathBuf},
+};
 
 use clap::{Args, Parser, Subcommand};
 use etcetera::BaseStrategy;
 use ship_core::{
     command::Command as ServerAction,
-    endpoint::ServerName,
+    endpoint::{Endpoint, ServerName},
     id::{Attachment, IdOf},
     model::NodeId,
     prelude::*,
 };
-
-use crate::DEFAULT_SERVER_URL;
 
 #[derive(Parser)]
 #[command(
@@ -19,15 +20,17 @@ use crate::DEFAULT_SERVER_URL;
     long_about = "Open the Ship client, run a named-socket server or script tabs and panes.\n\nBare ship opens a full-screen client on the whole server; alt-q detaches.\nBare ship and tab and pane commands reuse the default-local server or start a missing one in the background.\nThat server stays running after the client and launching terminal exit."
 )]
 pub struct Cli {
-    /// Connect only to this HTTP/HTTPS server; never start or fall back locally
+    /// Connect only to this socket (unix:///path); also SHIP_SERVER_URL. Never starts a server
     #[arg(
         long,
         global = true,
-        env = "SHIP_SERVER_URL",
         value_name = "URL",
-        default_value = DEFAULT_SERVER_URL
+        conflicts_with = "server_name"
     )]
-    pub server_url: String,
+    pub server_url: Option<Endpoint>,
+    /// Select a named server, starting it if needed; also SHIP_SERVER_NAME
+    #[arg(long, global = true, value_name = "NAME")]
+    pub server_name: Option<ServerName>,
     /// Config file; defaults to ship/config.toml in the platform config directory
     #[arg(long, global = true, env = "SHIP_CONFIG", value_name = "FILE")]
     pub config: Option<PathBuf>,
@@ -35,7 +38,51 @@ pub struct Cli {
     pub command: Option<Command>,
 }
 
+/// A name may launch a server; a URL only connects to its given endpoint.
+pub enum Target {
+    Named(ServerName),
+    Url(Endpoint),
+}
+
+impl Target {
+    pub fn endpoint(&self) -> Result<Endpoint> {
+        match self {
+            Self::Named(name) => Endpoint::named(name),
+            Self::Url(endpoint) => Ok(endpoint.clone()),
+        }
+    }
+}
+
 impl Cli {
+    /// Flags precede variables, and the pane's URL precedes an exported name.
+    pub fn target(&self) -> Result<Target> {
+        if let Some(endpoint) = &self.server_url {
+            return Ok(Target::Url(endpoint.clone()));
+        }
+        if let Some(name) = &self.server_name {
+            return Ok(Target::Named(name.clone()));
+        }
+        if let Some(value) = env::var_os("SHIP_SERVER_URL") {
+            let value = value
+                .into_string()
+                .map_err(|_| err!(Configuration, "SHIP_SERVER_URL must be valid UTF-8"))?;
+            return value
+                .parse()
+                .map(Target::Url)
+                .map_err(|error: AppError| error.context("invalid SHIP_SERVER_URL"));
+        }
+        if let Some(value) = env::var_os("SHIP_SERVER_NAME") {
+            let value = value
+                .into_string()
+                .map_err(|_| err!(Configuration, "SHIP_SERVER_NAME must be valid UTF-8"))?;
+            return value
+                .parse()
+                .map(Target::Named)
+                .map_err(|error: AppError| error.context("invalid SHIP_SERVER_NAME"));
+        }
+        Ok(Target::Named(ServerName::default()))
+    }
+
     /// `--config`, `SHIP_CONFIG`, then etcetera's config directory. Absolute,
     /// so the background server and relative settings see the same file.
     pub fn config_path(&self) -> Result<PathBuf> {

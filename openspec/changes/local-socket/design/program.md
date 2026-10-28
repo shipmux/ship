@@ -489,3 +489,55 @@ Debug and release workspace builds, `cargo fmt --all -- --check`, `cargo clippy 
 At Cyan's request, `Endpoint` now uses the workspace's existing url 2.5.8 for parsing and serialization, with `Url::to_file_path` and `Url::from_file_path` handling percent decoding and encoding. Ship validates the `unix` scheme and requires an absolute path without a host, query or fragment. Formatting copies the library-encoded file path into a `unix` URL with `set_path`, so literal percent signs are not mistaken for existing escapes. The path-backed public interface, name rules and directory checks are unchanged; Cargo added ship-core's direct url dependency without changing package versions.
 
 Temporary probes passed seven escaped-path cases (including a literal `%20` filename), fifteen invalid URL forms, a non-UTF-8 path round trip and an actual escaped-path socket connection. A release server in a directory containing ` #é%` gave its pane the correctly escaped `SHIP_SERVER_URL`; parsing that URL reached the server's protocol-19 health endpoint. The server stopped cleanly and removed its socket. All 17 slice-1 runtime checks and the original core probe passed again, as did debug/release builds, formatting, Clippy and strict OpenSpec validation. Evidence is under `/tmp/ship-socket-slice1.sBc5jy/` in `url-verification.log`, `url-core-regression.log`, `url-live.log`, `url-build-checks.log` and `url-runtime-regression.log`. No permanent tests were added; Linux and Windows remain unverified.
+
+### Slice 2, 2026-10-28 UTC
+
+The client and launcher now use typed socket targets. Flags and variables follow FR-007; named targets can start their server, URL targets never do. reqwest connects to the socket with the fixed internal base `http://localhost/`, preserving HTTP/2 and the URL-only HTTP/1.1 fallback. The launcher passes `--name`, uses named logs, and treats a missing socket like connection refusal. The temporary binary-private TCP defaults from slice 1 are removed.
+
+**SSH verification exception approved by Cyan:** skip the `ssh -N -L` end-to-end check for this slice. Existing localhost SSH authentication was refused. With Cyan's approval, an isolated sshd and throwaway keys were created under `/tmp/ship-s2.lJltis/ssh`; authentication succeeded, but the fixture denied forwarding. No Ship defect was demonstrated. Cyan directed stopping that investigation and skipping the check. SSH forwarding remains unverified, not passed. The fixture was shut down, and existing SSH configuration and keys were not modified. This changes the slice-2 verification checklist only; the product's SSH-forwarding behavior remains part of the contract.
+
+#### Workflow verification
+
+Twenty-four local workflow checks passed on macOS arm64 using the release binary, isolated XDG directories and temporary probes under `/tmp/ship-s2.lJltis/`:
+
+- Bare `ship` started `default`, selected its starter pane, rendered through a real 120x42 pseudo-terminal and detached without stopping the server. Reattaching to an existing server left selection empty. Restarting restored the saved tabs and selected the first pane for the launching client.
+- All five target-precedence levels worked. Invalid lower-priority variables were ignored; selected empty or non-UTF-8 variables were rejected. Both target flags together, HTTP/HTTPS URLs, and target flags on foreground `ship server` were refused. Foreground servers ignored target variables.
+- A real pane with `SHIP_SERVER_NAME=scratch` still listed and created tabs in its owning `default` server through its injected URL; the explicit name flag reached `scratch`. Both names restored their own tab IDs after restart and had separate logs.
+- Ten concurrent named `tab list` calls all succeeded, seeing one starter tab and leaving exactly one listening server. The launcher also reclaimed a SIGKILLed server's stale socket. A duplicate foreground name was refused, and the named client rejected a `0755` socket directory.
+- Missing sockets reported "no server running" with their path. URL targets and `server status`, `stop` and `log` never launched a missing server. Offline commands did not start one.
+- An HTTP/1.1-only Unix-socket fixture exercised fallback and a subsequent tab-list request, both with Host `localhost`. Wrong service, wrong protocol, malformed health and redirects failed before any command request. A silent fixture timed out without an HTTP/1.1 retry; refused sockets did not retry either.
+- Named, explicit-URL and real-pane clients worked through a socket directory containing ` #é%`. The pane URL round-tripped percent escapes correctly. All proxy variables pointing at an unreachable proxy did not redirect the socket connector. The four checked Ship servers had no TCP listener.
+
+Evidence: `run-3.log`, `run-3/checks.json`, `run-3/processes.json`, `extra.log`, and `run-url #é%/checks.json` beneath `/tmp/ship-s2.lJltis/`. The tracked owned servers exited and their sockets were removed. The unrelated pre-existing `vendor/ratatui-ghostty/src/colors.rs` edit still has SHA-256 `19caa724aa7c55d369271ff01281640ed40be451646e0ae973cee4907be76f95`.
+
+#### Performance comparison
+
+Repeated slice 0's temporary probes with only transport, fixed HTTP base and expected protocol changed. The release socket binary's SHA-256 is `34d61bc5d628f8d71557b2b83e84115933af230c8ef644e95470258aaa279640`, built from slice-1 commit `a39673c` plus this uncommitted slice-2 patch. The full run completed with exit 0; its server, PID 25066, shut down with exit 0. All 30 input runs delivered all 16,266 frames in byte-for-byte order. An independent Python pass reconstructed every expected payload and recomputed every PTY sample from the raw receipt logs.
+
+Warm-connection attach p50 improved from 0.193 to 0.118 ms; p99 was 0.359 versus 0.340 ms. Screen latency stayed similar with the same 120x40 geometry, generators and decoding:
+
+| Screen workload | TCP p50 / p99 range, ms | Socket p50 / p99 range, ms |
+| --- | --- | --- |
+| tick | 3.006–3.026 / 3.239–3.391 | 3.001–3.040 / 3.264–4.003 |
+| spinner | 3.080–3.108 / 3.245–3.788 | 3.020–3.085 / 3.268–3.613 |
+| matrix | 4.517–4.623 / 6.505–7.187 | 4.550–4.610 / 6.790–7.028 |
+| full | 10.369–11.188 / 14.923–15.272 | 10.771–11.354 / 15.150–15.474 |
+
+The 32 MiB flood producer remained 0.166–0.167 seconds, versus 0.166–0.168 on TCP. Real 120x42 terminal-client total CPU, percent of one core, was TCP → socket: tick 4.69 → 3.79; spinner 2.50 → 2.50; matrix 5.09 → 5.39; full 16.56 → 15.28; flood 28.27 → 25.99; htop 0.40 → 0.50; nvim 15.30 → 16.89. These CPU figures are single runs with centisecond process-time resolution, not statistically established differences. Flood retains the baseline's 300 ms final-draw tail.
+
+The initial input pass had higher HTTP/2 typing and drag tails, and consistently higher 1 MiB paste acknowledgment times. One bounded follow-up alternated TCP and socket order over three pairs, using the same probe binary, the retained protocol-18 TCP Ship binary on an owned spare port, and the current protocol-19 socket binary. All additional 4,212 frames arrived in order. Typing and drag were comparable or faster, but the paste difference persisted:
+
+| Paired metric | TCP range, ms | Socket range, ms |
+| --- | --- | --- |
+| h2 typing PTY p50 / p99 | 0.495–0.498 / 0.748–0.819 | 0.439–0.446 / 0.724–0.867 |
+| h2 drag PTY p50 / p99 | 0.341–0.345 / 0.691–0.773 | 0.307–0.313 / 0.646–0.785 |
+| h2 1 MiB paste ACK | 1.653–1.821 | 2.743–2.843 |
+| h2 1 MiB paste PTY completion | 50.418–52.950 | 51.782–53.600 |
+| h1 1 MiB paste ACK | 1.344–1.410 | 1.887–2.070 |
+| h1 1 MiB paste PTY completion | 50.540–50.847 | 51.120–51.430 |
+
+Each paste run has one sample, so no tail estimate is claimed. HTTP ACK measures request acceptance/routing, not complete delivery to the pane. **Verification exception approved by Cyan:** accept the measured roughly 1 ms extra HTTP acknowledgment time for a 1 MiB paste and finish slice 2 without further performance work. This is an accepted timing difference, not evidence of an unqualified "no regression" result. Task 2.5 closes with this exception and the separately approved SSH-verification skip. No implementation change was made in response to these timings.
+
+Full results, temporary sources, lockfiles, logs, CPU geometry and independent verification are under `/tmp/ship-s2.lJltis/bench/`, especially `comparison.log`, `summary.json` and `input-verification.json`. Paired results and cleanup are in `/tmp/ship-s2.lJltis/control/{results,cleanup}.json`. The existing 43179 server was not contacted or changed. Both paired servers exited with code 0. The baseline's wall-clock timing and Python-reader limitations still apply; light fixture/setup work also occurred on the host during the initial run. Linux, Windows, the two-user story, subjective typing feel and rendered-display latency remain unverified.
+
+Debug and release workspace builds, formatting, Clippy and strict OpenSpec validation passed. An independent read-only source review found no actionable slice-2 issue. No permanent tests were added. Stop here; slices 3 and 4 have not started.

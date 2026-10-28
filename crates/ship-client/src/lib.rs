@@ -162,9 +162,12 @@ fn http_error(error: HttpError) -> AppError {
     // Body/decode failures cannot establish an absent listener.
     let connection_refused = error.is_connect()
         && iter::successors(error.source(), |source| (*source).source()).any(|source| {
-            source
-                .downcast_ref::<io::Error>()
-                .is_some_and(|error| error.kind() == io::ErrorKind::ConnectionRefused)
+            source.downcast_ref::<io::Error>().is_some_and(|error| {
+                matches!(
+                    error.kind(),
+                    io::ErrorKind::ConnectionRefused | io::ErrorKind::NotFound
+                )
+            })
         });
     // reqwest only says "error sending request"; this is what it means.
     if connection_refused {

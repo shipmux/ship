@@ -26,11 +26,11 @@ Use owned temporary servers with `XDG_RUNTIME_DIR`, `XDG_STATE_HOME` and `XDG_CO
 
 ## 2. Clients, launcher and target selection
 
-- [ ] 2.1 Add `Cli.server_url: Option<Endpoint>`, `Cli.server_name: Option<ServerName>`, `Target` and `Cli::target()` with FR-007's order, reading the two variables by hand. Refuse both flags together and `http(s)` URLs with the pointer message.
-- [ ] 2.2 Build the reqwest client over the socket (and pipe) with base `http://localhost/`, keeping the HTTP/2-then-HTTP/1.1 fallback for URL targets. Show the endpoint in errors in place of the origin.
-- [ ] 2.3 Replace `default_health` with `ensure_running(client, name, config)`, spawning `ship server --name NAME --starter --background-child`. Make `ship server` refuse the two target flags.
-- [ ] 2.4 In `ship-client`'s `http_error`, treat `NotFound` on connect as `ConnectionRefused`.
-- [ ] 2.5 Verify slice 2's checks: every P1 and P2 product story except the two-user one, ten concurrent `ship tab list` calls leave one server, `SHIP_SERVER_NAME=scratch` in a `default` pane still lists `default`, an `http://` URL gets the pointer, both flags are refused, a socket forwarded with `ssh -N -L` to localhost works, and slice 0's workloads show no regression. Report the two-user story and Linux unverified unless run.
+- [x] 2.1 Add `Cli.server_url: Option<Endpoint>`, `Cli.server_name: Option<ServerName>`, `Target` and `Cli::target()` with FR-007's order, reading the two variables by hand. Refuse both flags together and `http(s)` URLs with the pointer message.
+- [x] 2.2 Build the reqwest client over the socket (and pipe) with base `http://localhost/`, keeping the HTTP/2-then-HTTP/1.1 fallback for URL targets. Show the endpoint in errors in place of the origin.
+- [x] 2.3 Replace `default_health` with `ensure_running(client, name, config)`, spawning `ship server --name NAME --starter --background-child`. Make `ship server` refuse the two target flags.
+- [x] 2.4 In `ship-client`'s `http_error`, treat `NotFound` on connect as `ConnectionRefused`.
+- [x] 2.5 Verify slice 2's checks: the local P1 and P2 product stories except the two-user one, ten concurrent `ship tab list` calls leave one server, `SHIP_SERVER_NAME=scratch` in a `default` pane still lists `default`, an `http://` URL gets the pointer, both flags are refused, and slice 0's workloads are compared. Cyan approved skipping SSH-forwarding verification and accepting the measured roughly 1 ms extra acknowledgment time for a 1 MiB paste; see `design/program.md`. The two-user story and Linux remain unverified.
 
 ## 3. Windows builds
 
