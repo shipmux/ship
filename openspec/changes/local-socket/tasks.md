@@ -42,6 +42,8 @@ Use owned temporary servers with `XDG_RUNTIME_DIR`, `XDG_STATE_HOME` and `XDG_CO
 
 ## 4. Docs and specs
 
-- [ ] 4.1 Update `docs/site/troubleshooting.md`, `docs/site/saved-tabs.md` and `docs/site/windows-and-the-server.md`, following `docs/agents/docs.md`: ports become names and sockets, add the ssh-forwarding example, and drop the warning that other accounts can drive the server.
-- [ ] 4.2 Check the deltas under `specs/` against what slices 1 to 3 built, and update them and `proposal.md` for any deviation.
-- [ ] 4.3 Verify: `openspec validate local-socket --type change --strict` passes, `grep -rn 43179 docs/site openspec/specs` finds nothing once the specs are synced, and the size report gives implementation Rust and tests separately.
+- [x] 4.1 Update `docs/site/troubleshooting.md`, `docs/site/saved-tabs.md` and `docs/site/windows-and-the-server.md`, following `docs/agents/docs.md`: ports become names and sockets, add the ssh-forwarding example, and drop the warning that other accounts can drive the server.
+- [x] 4.2 Check the deltas under `specs/` against what slices 1 to 3 built, and update them and `proposal.md` for any deviation.
+- [x] 4.3 Verify: `openspec validate local-socket --type change --strict` passes, `grep -rn 43179 docs/site openspec/specs` finds nothing once the specs are synced, and the size report gives implementation Rust and tests separately.
+
+Size, measured with CI's tokei count against the merge base: implementation Rust 12,107 to 12,502 lines (+395), tests in `crates/*/tests` 0 to 0, vendored Rust 4,157 to 4,183 (+26). Inline `#[cfg(test)]` modules count as implementation in this measure; this change added none.

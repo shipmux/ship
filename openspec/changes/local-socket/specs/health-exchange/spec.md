@@ -75,7 +75,7 @@ A server URL, from `--server-url` or `SHIP_SERVER_URL`, SHALL be `unix://` follo
 - **THEN** it lists `scratch`'s tabs
 
 #### Scenario: HTTP URL
-- **WHEN** a user runs `ship --server-url http://127.0.0.1:43179 tab list`
+- **WHEN** a user runs `ship --server-url http://127.0.0.1:1 tab list`
 - **THEN** it fails with a message pointing at the `unix://` form and starts nothing
 
 ### Requirement: Pane server URL
@@ -86,7 +86,7 @@ Every pane SHALL receive `SHIP_SERVER_URL` set to the URL of its own server's so
 - **THEN** the tab is created on `scratch`
 
 ### Requirement: Explicit server and URL target
-`ship server [--name NAME] [--starter] [--no-restore]` SHALL run a foreground server listening only on NAME's socket. A `--server-url URL` SHALL use only that socket without automatic local launch or fallback. Running a server with `--server-url` or `--server-name` given as flags SHALL be rejected with a pointer to `--name`; `ship server stop` and `ship server status` accept them.
+`ship server [--name NAME] [--starter] [--no-restore]` SHALL run a foreground server listening only on NAME's socket. A `--server-url URL` SHALL use only that socket without automatic local launch or fallback. Running a server with `--server-url` or `--server-name` given as flags SHALL be rejected with a pointer to `--name`; `ship server stop`, `ship server status` and `ship server log` accept them.
 
 #### Scenario: Explicit named server
 - **WHEN** a user runs `ship server --name scratch`, then `ship --server-url unix://<dir>/scratch.sock server status` and `ship --server-name scratch server status`

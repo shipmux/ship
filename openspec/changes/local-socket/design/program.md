@@ -566,3 +566,18 @@ CC_x86_64_pc_windows_gnu=/tmp/ship-s3/zcc AR_x86_64_pc_windows_gnu="zig ar" \
 ```
 
 On draft pull request #92, the `windows-latest` job ([run 40624193121](https://github.com/shipmux/ship/actions/runs/40624193121/job/122605091834)) passed `cargo clippy --workspace --all-targets --locked -- -D warnings` and `cargo test --workspace --locked` on `x86_64-pc-windows-msvc` in 14m17s with a cold cache, which closes SC-004 and task 3.5. The Linux and macOS jobs also passed. No test starts a server on a pipe, so all Windows runtime behavior, including the pipe descriptor, the conflict mapping, detaching and shutdown, is unverified.
+
+### Slice 4, 2026-10-28 UTC
+
+`docs/site/windows-and-the-server.md` gains "Where the server lives" and "Running more than one server" sections, and its remote section now leads with `ssh otherbox -t ship` and forwards the socket with `ssh -N -o StreamLocalBindUnlink=yes -L`. The option is an addition to the product paper's example: without it, rerunning `ssh` fails on the socket file the last run left behind. The warning that other accounts can drive the server is gone, and the page's scope comment now names the socket and named servers. `saved-tabs.md` and `troubleshooting.md` use `default` and `--server-name` in place of ports; the trace recipe runs `ship server --name trace --starter`.
+
+Spec deltas checked against the code. Two corrections:
+- `health-exchange`'s "Explicit server and URL target" listed only `stop` and `status` as accepting the target flags; `ship server log` accepts them too.
+- The refused-URL scenario used `http://127.0.0.1:43179`; it now uses port 1 so the synced specs don't name the old port. The remaining `43179` mentions are in a REMOVED requirement's migration note, which doesn't sync, and in `proposal.md`.
+
+Verified on macOS with a release build under temporary XDG directories (`/tmp/ship-s4.AOyu5R/`): `ship --server-name scratch tab list` started `scratch` with a starter tab and wrote `logs/scratch/`; `ship server status` printed its socket; the trace recipe wrote a timeline and `ship --server-name trace server stop` exited 0. Strict OpenSpec validation passed. The ssh-forwarding example is unverified, as in slice 2.
+
+Size is in `tasks.md`: implementation Rust +395 lines, tests unchanged.
+
+Noticed, outside this change: run files are named with fractional seconds (`2026-10-27T23-24-42.306539000.log`), while the diagnostics spec's examples show `2026-10-15T18-40-07.log`.
+
