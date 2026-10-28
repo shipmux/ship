@@ -38,7 +38,7 @@ Use owned temporary servers with `XDG_RUNTIME_DIR`, `XDG_STATE_HOME` and `XDG_CO
 - [x] 3.2 Add Windows `detach` and `shutdown`, and the launcher's `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` creation flags.
 - [x] 3.3 Move the `colors.rs` terminal query into `#[cfg(unix)] mod query`, replacing the earlier probe's gates, and fall back to `HostColors::default()` in the two examples off Unix.
 - [x] 3.4 Allow `0BSD` in `deny.toml` and add the `continue-on-error` Windows entry to the CI matrix.
-- [ ] 3.5 Verify slice 3's checks: `cargo check --workspace --all-targets --target x86_64-pc-windows-gnu` passes from macOS through the zig wrapper, `cargo deny check` passes, macOS clippy still passes, and after a push the Windows job's result shows on the pull request. Report Windows behavior unverified.
+- [x] 3.5 Verify slice 3's checks: `cargo check --workspace --all-targets --target x86_64-pc-windows-gnu` passes from macOS through the zig wrapper, `cargo deny check` passes, macOS clippy still passes, and after a push the Windows job's result shows on the pull request. Report Windows behavior unverified.
 
 ## 4. Docs and specs
 

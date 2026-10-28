@@ -565,4 +565,4 @@ CC_x86_64_pc_windows_gnu=/tmp/ship-s3/zcc AR_x86_64_pc_windows_gnu="zig ar" \
   cargo clippy --workspace --all-targets --target x86_64-pc-windows-gnu -- -D warnings
 ```
 
-Not yet done: the Windows CI job's result on a pull request (SC-004) needs a push, so task 3.5 stays open. CI builds `x86_64-pc-windows-msvc`, not the gnu target checked here. All Windows runtime behavior, including the pipe descriptor, the conflict mapping, detaching and shutdown, is unverified.
+On draft pull request #92, the `windows-latest` job ([run 40624193121](https://github.com/shipmux/ship/actions/runs/40624193121/job/122605091834)) passed `cargo clippy --workspace --all-targets --locked -- -D warnings` and `cargo test --workspace --locked` on `x86_64-pc-windows-msvc` in 14m17s with a cold cache, which closes SC-004 and task 3.5. The Linux and macOS jobs also passed. No test starts a server on a pipe, so all Windows runtime behavior, including the pipe descriptor, the conflict mapping, detaching and shutdown, is unverified.
