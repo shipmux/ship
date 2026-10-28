@@ -3380,6 +3380,7 @@ dependencies = [
  "crossterm",
  "indexmap 2.14.2",
  "kameo",
+ "nix 0.31.3",
  "ratatui-core",
  "serde",
  "serde_json",
@@ -3390,6 +3391,7 @@ dependencies = [
  "tokio",
  "toml",
  "tracing",
+ "url",
  "utoipa",
  "uuid",
 ]

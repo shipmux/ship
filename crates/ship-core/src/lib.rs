@@ -4,6 +4,7 @@ use tokio::task::JoinHandle;
 
 pub mod command;
 pub mod config;
+pub mod endpoint;
 pub mod error;
 pub mod geometry;
 pub mod id;
@@ -33,7 +34,4 @@ where
 }
 
 pub mod protocol;
-pub use protocol::{
-    DEFAULT_PORT, DEFAULT_SERVER_URL, HEALTH_PATH, HealthResponse, LogChange, LogFilter,
-    PROTOCOL_VERSION, SERVICE,
-};
+pub use protocol::{HEALTH_PATH, HealthResponse, LogChange, LogFilter, PROTOCOL_VERSION, SERVICE};

@@ -29,6 +29,7 @@ pub struct AppState {
     /// Cancelled by `POST /api/v0/server/stop`; shuts down like SIGTERM.
     pub(crate) stop: CancellationToken,
     pub(crate) log: crate::ServerLog,
+    pub(crate) socket: Arc<str>,
     /// The state actor's revision, set by each commit before it replies.
     pub(crate) revision: Arc<AtomicU64>,
     /// Numbered requests' lanes; only the ordering middleware reads them.

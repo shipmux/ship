@@ -15,5 +15,6 @@ pub(crate) async fn health(State(app): State<AppState>) -> Result<Json<HealthRes
         protocol_version: PROTOCOL_VERSION,
         version: env!("CARGO_PKG_VERSION").into(),
         log: (app.log)(None)?.file,
+        socket: app.socket.to_string(),
     }))
 }

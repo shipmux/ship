@@ -1,8 +1,9 @@
-//! Loopback HTTP listener, health route, tab and pane API and attach stream.
+//! Socket HTTP listener, health route, tab and pane API and attach stream.
 
 mod app;
 mod attach;
 mod body;
+mod claim;
 mod health;
 mod input;
 mod middleware;
@@ -17,8 +18,6 @@ mod views;
 
 use std::{
     future::{Future, IntoFuture},
-    io::ErrorKind,
-    net::SocketAddr,
     path::PathBuf,
     process,
     sync::Arc,
@@ -31,7 +30,6 @@ use axum::{
     http::StatusCode,
     middleware::{from_fn, from_fn_with_state},
     response::{IntoResponse, Response},
-    serve::ListenerExt,
 };
 use kameo::{
     actor::{ActorRef, Spawn},
@@ -40,13 +38,13 @@ use kameo::{
 use libghostty_vt::log::{Level, Logger, TracingLogger};
 use ship_core::{
     LogChange, LogFilter,
+    endpoint::Endpoint,
     geometry::{PaneGeometry, TabGeometry},
     prelude::*,
     protocol::{CreateTab, MoveTab, NewTab, Problem, Replica, Starter, ViewingRecord},
     relay,
 };
 use tokio::{
-    net::TcpListener,
     sync::{mpsc, watch},
     time::timeout,
 };
@@ -64,13 +62,6 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 
 /// The runner's control over its log filter and current file.
 pub type ServerLog = Arc<dyn Fn(Option<LogChange>) -> Result<LogFilter> + Send + Sync>;
-
-pub fn loopback_addr(port: u16) -> Result<SocketAddr> {
-    if port == 0 {
-        return Err(err!(Configuration, "server port must not be zero"));
-    }
-    Ok(SocketAddr::from(([127, 0, 0, 1], port)))
-}
 
 /// Document metadata. Expanding the derive here takes title, version and
 /// description from ship-server's manifest; paths and schemas come from
@@ -164,7 +155,7 @@ async fn wrong_method() -> Response {
 /// tab when `starter` is set and nothing was restored, then serves. A failed starter stops the actors and returns its error
 /// before any connection is accepted.
 pub async fn serve(
-    address: SocketAddr,
+    endpoint: Endpoint,
     starter: bool,
     config: PathBuf,
     save: PathBuf,
@@ -172,25 +163,8 @@ pub async fn serve(
     shutdown: impl Future<Output = Result<()>> + Send + 'static,
     log: impl Fn(Option<LogChange>) -> Result<LogFilter> + Send + Sync + 'static,
 ) -> Result<()> {
-    if !address.ip().is_loopback() || address.port() == 0 {
-        return Err(err!(
-            Configuration,
-            "server requires a loopback address and nonzero port"
-        ));
-    }
-    let listener = TcpListener::bind(address).await.map_err(|error| {
-        let code = if error.kind() == ErrorKind::AddrInUse {
-            ErrorCode::Conflict
-        } else {
-            ErrorCode::Io
-        };
-        err!(code, "cannot bind server at {}", address, @external: error)
-    })?;
-    // Keys are tiny writes that must not wait for an ACK.
-    let listener = listener.tap_io(|tcp| {
-        tcp.set_nodelay(true).ok();
-    });
-    tracing::info!(%address, pid = process::id(), protocol_version = ship_core::PROTOCOL_VERSION, config = %config.display(), save = %save.display(), restore, "server listening");
+    let (claim, listener) = claim::Claim::take(endpoint)?;
+    tracing::info!(socket = %claim.endpoint(), pid = process::id(), protocol_version = ship_core::PROTOCOL_VERSION, config = %config.display(), save = %save.display(), restore, "server listening");
     // Ghostty drops its own logs unless given a logger.
     // SAFETY: No pane exists yet, so no other thread is inside libghostty.
     if let Err(error) = unsafe { libghostty_vt::set_logger(Some(Box::new(GhosttyLogger))) } {
@@ -211,7 +185,7 @@ pub async fn serve(
     let state = state::ServerState::new(
         bus.clone(),
         live_tx,
-        pane::PaneEnv::new(address, config)?,
+        pane::PaneEnv::new(claim.endpoint(), config)?,
         saved,
     );
     let (replicas, replica_sink) = replicas::Replicas::new(state.replica());
@@ -252,6 +226,12 @@ pub async fn serve(
         stop: stop.clone(),
         revision,
         log: Arc::new(log),
+        socket: claim
+            .endpoint()
+            .path()
+            .to_string_lossy()
+            .into_owned()
+            .into(),
         lanes: Default::default(),
     };
     let serving = axum::serve(listener, router(app))

@@ -17,12 +17,12 @@ Use owned temporary servers with `XDG_RUNTIME_DIR`, `XDG_STATE_HOME` and `XDG_CO
 
 ## 1. The server listens on a named socket
 
-- [ ] 1.1 Add `crates/ship-core/src/endpoint.rs` with `ServerName`, `Endpoint` and the Unix `dir` module, export it from `lib.rs`, and add `nix` with `user` as a Unix dependency of ship-core.
-- [ ] 1.2 In `protocol.rs`, remove `DEFAULT_PORT` and `DEFAULT_SERVER_URL`, set `PROTOCOL_VERSION` to 19, and add `HealthResponse.socket`.
-- [ ] 1.3 Add `crates/ship-server/src/claim.rs` (Unix half): take `NAME.lock`, unlink a stale `NAME.sock`, bind a `UnixListener`, return `Conflict` when the name is held, and unlink the socket on drop.
-- [ ] 1.4 Make `serve` take an `Endpoint` and a `Claim`, removing `loopback_addr` and `tap_io`. Add `AppState.socket`, fill it in `health.rs`, and build `SHIP_SERVER_URL` from `endpoint.url()` in `PaneEnv::new`.
-- [ ] 1.5 Replace `ServerArgs.port` with `name: ServerName`, and key `Role::Server`, `role()`, `tabs/NAME.json` and `logs/NAME/` on the name.
-- [ ] 1.6 Verify slice 1's checks in `design/program.md`: `curl --unix-socket` health shows `socket` and a foreign `Host` gets 403, a second server with the name exits "already running", a `kill -9`ed server restarts without cleanup, the directory is `0700` and a `chmod 755` makes the server refuse, a pane sees `SHIP_SERVER_URL=unix:///…`, and `lsof -iTCP -sTCP:LISTEN` shows no Ship process.
+- [x] 1.1 Add `crates/ship-core/src/endpoint.rs` with `ServerName`, `Endpoint` and the Unix `dir` module, export it from `lib.rs`, and add `nix` with `user` as a Unix dependency of ship-core.
+- [x] 1.2 In `protocol.rs`, remove `DEFAULT_PORT` and `DEFAULT_SERVER_URL`, set `PROTOCOL_VERSION` to 19, and add `HealthResponse.socket`.
+- [x] 1.3 Add `crates/ship-server/src/claim.rs` (Unix half): take `NAME.lock`, unlink a stale `NAME.sock`, bind a `UnixListener`, return `Conflict` when the name is held, and unlink the socket on drop.
+- [x] 1.4 Make `serve` take an `Endpoint` and a `Claim`, removing `loopback_addr` and `tap_io`. Add `AppState.socket`, fill it in `health.rs`, and build `SHIP_SERVER_URL` from `endpoint.url()` in `PaneEnv::new`.
+- [x] 1.5 Replace `ServerArgs.port` with `name: ServerName`, and key `Role::Server`, `role()`, `tabs/NAME.json` and `logs/NAME/` on the name.
+- [x] 1.6 Verify slice 1's checks in `design/program.md`: `curl --unix-socket` health shows `socket` and a foreign `Host` gets 403, a second server with the name exits "already running", a `kill -9`ed server restarts without cleanup, the directory is `0700` and a `chmod 755` makes the server refuse, a pane sees `SHIP_SERVER_URL=unix:///…`, and `lsof -iTCP -sTCP:LISTEN` shows no Ship process.
 
 ## 2. Clients, launcher and target selection
 

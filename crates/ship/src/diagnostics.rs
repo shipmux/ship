@@ -9,7 +9,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use ship_core::{LogChange, LogFilter, prelude::*};
+use ship_core::{LogChange, LogFilter, endpoint::ServerName, prelude::*};
 use tracing::Level;
 use tracing_subscriber::{
     EnvFilter, Layer, Registry,
@@ -22,7 +22,7 @@ use crate::runlog::{self, RunLog};
 
 pub enum Role {
     Server {
-        port: u16,
+        name: ServerName,
         log_file: Option<PathBuf>,
     },
     Client,
@@ -84,10 +84,10 @@ pub fn init(role: Role) -> Result<Diagnostics> {
     };
     let stderr = matches!(role, Role::Command | Role::Server { log_file: None, .. });
     let log = match role {
-        Role::Server { port, log_file } => Some(match log_file {
+        Role::Server { name, log_file } => Some(match log_file {
             Some(path) => RunLog::resume(&path)?,
             None => RunLog::start(
-                &runlog::logs_dir()?.join(port.to_string()),
+                &runlog::logs_dir()?.join(name.as_str()),
                 runlog::stem(&chrono::Local::now()),
             )?,
         }),

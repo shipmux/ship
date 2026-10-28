@@ -4,7 +4,6 @@
 use std::{
     collections::HashMap,
     env,
-    net::SocketAddr,
     path::PathBuf,
     sync::{Arc, Mutex},
     thread,
@@ -26,6 +25,7 @@ use ratatui_ghostty::{
 };
 use ship_core::{
     config::ServerSettings,
+    endpoint::Endpoint,
     id::{Attachment, IdOf},
     model::{ExitStatus, Pane, StatusRecord},
     prelude::*,
@@ -101,11 +101,11 @@ pub(crate) struct PaneEnv {
 }
 
 impl PaneEnv {
-    pub fn new(address: SocketAddr, config: PathBuf) -> Result<Self> {
+    pub fn new(endpoint: &Endpoint, config: PathBuf) -> Result<Self> {
         let bin = env::current_exe()
             .map_err(|error| err!(Io, "cannot resolve the server executable", @external: error))?;
         Ok(Self {
-            server_url: format!("http://{address}"),
+            server_url: endpoint.url(),
             bin,
             config,
         })

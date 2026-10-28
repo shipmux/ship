@@ -10,9 +10,15 @@ use clap::{CommandFactory, FromArgMatches, parser::ValueSource};
 use cli::{Cli, Command};
 use reqwest::redirect::Policy;
 use ship_client::{Client, ui};
-use ship_core::{HealthResponse, PROTOCOL_VERSION, SERVICE, config, prelude::*};
+use ship_core::{
+    HealthResponse, PROTOCOL_VERSION, SERVICE, config, endpoint::Endpoint, prelude::*,
+};
 use tokio::runtime::Builder;
 use url::Url;
+
+// Temporary client/launcher defaults until slice 2 moves them onto sockets.
+const DEFAULT_PORT: u16 = 43179;
+const DEFAULT_SERVER_URL: &str = "http://127.0.0.1:43179";
 
 fn main() -> ExitCode {
     let matches = Cli::command().get_matches();
@@ -51,7 +57,7 @@ fn run(cli: Cli, source: Option<ValueSource>) -> Result<ExitCode> {
 fn role(cli: &Cli) -> diagnostics::Role {
     match &cli.command {
         Some(Command::Server(args)) if args.command.is_none() => diagnostics::Role::Server {
-            port: args.port,
+            name: args.name.clone(),
             log_file: args.log_file.clone(),
         },
         None => diagnostics::Role::Client,
@@ -122,10 +128,10 @@ async fn dispatch(
             let tabs = runlog::state_dir()?.join("tabs");
             runlog::create_private_dir(&tabs)?;
             ship_server::serve(
-                ship_server::loopback_addr(args.port)?,
+                Endpoint::named(&args.name)?,
                 args.starter,
                 cli.config_path()?,
-                tabs.join(format!("{}.json", args.port)),
+                tabs.join(format!("{}.json", args.name)),
                 !args.no_restore,
                 diagnostics::shutdown()?,
                 diagnostics.server_log(),

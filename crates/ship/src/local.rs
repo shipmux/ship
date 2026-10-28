@@ -6,9 +6,10 @@ use std::{
     time::Duration,
 };
 
+use crate::DEFAULT_PORT;
 use crate::runlog::{self, RunLog};
 use ship_client::Client;
-use ship_core::{DEFAULT_PORT, prelude::*};
+use ship_core::prelude::*;
 use tokio::time::{Instant, sleep, timeout_at};
 
 /// Reuse the default server, or launch one with the starter tab. True when
