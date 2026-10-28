@@ -45,7 +45,7 @@ jobs:
           use-cache: false
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y pkg-config libasound2-dev
-      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
           tool: cargo-about
       - run: cargo about generate --locked --output-file THIRD-PARTY-LICENSES.txt about.hbs
