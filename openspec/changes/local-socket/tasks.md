@@ -12,8 +12,8 @@ Use owned temporary servers with `XDG_RUNTIME_DIR`, `XDG_STATE_HOME` and `XDG_CO
 
 ## 0. Baseline latency on TCP
 
-- [ ] 0.1 On today's build, run the input and screen workloads from `docs/research/request-ordering-probe.md` and `docs/research/screen-cost.md` against an owned temporary server. If none of their probe scripts still run, stop and ask Cyan before writing new ones.
-- [ ] 0.2 Record the numbers in the program paper's deviation log.
+- [x] 0.1 On today's build, run the input and screen workloads from `docs/research/request-ordering-probe.md` and `docs/research/screen-cost.md` against an owned temporary server. If none of their probe scripts still run, stop and ask Cyan before writing new ones.
+- [x] 0.2 Record the numbers in the program paper's deviation log.
 
 ## 1. The server listens on a named socket
 

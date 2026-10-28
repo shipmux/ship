@@ -398,3 +398,68 @@ None. O-1 was resolved on 2026-10-27 by Cyan's approval, which took the recommen
 ## Deviation log
 
 - 2026-10-27, during program design: `architecture.md` says a small adapter implements axum's `Listener` on both platforms. axum 0.8.9 already implements it for `tokio::net::UnixListener` (`serve/listener.rs:46`), so the adapter is needed on Windows only. This simplifies the plan without changing the shape. Under the ripple rule, editing the locked architecture paper would reopen it, so it's recorded here rather than edited there.
+
+### Slice 0 baseline, 2026-10-28 UTC
+
+The historical probes were not preserved. Cyan approved temporary replacements in this apply session. This is a new baseline for the socket comparison, not a replication of the old research numbers. No implementation Rust or permanent tests changed.
+
+Measured on macOS arm64 (Darwin 25.6.0, Mac16,6, 16 logical CPUs), rustc 1.98.0, Zig 0.17.0, release build at `e1a69dfa5a1523f6e7bb9157955e25f8fbd4ca12`, with the pre-existing `vendor/ratatui-ghostty/src/colors.rs` edit untouched. The binary SHA-256 is `d68481083dd6503b2fecbd6dfce3bcdf780af6fa0477bf2b7b7b75e823733453`.
+
+#### Input
+
+Three runs per transport. One POST in flight with queued frames batched into the next. Typing: 200 keys at 30 ms; drag: 500 events at 8 ms; flood: 2000 keys without a gap; paste: ten 64 KiB frames at 100 ms, or one 1 MiB frame. Ranges below span per-run percentiles, in milliseconds. PTY receipt means all bytes of the frame reached the raw-mode pane program. HTTP acknowledgment means the input route accepted/routed the request, not that the program read it.
+
+| Transport / workload | PTY p50 | PTY p99 | HTTP ACK p50 | HTTP ACK p99 | Requests/run |
+| --- | --- | --- | --- | --- | --- |
+| h2/typing | 0.468 to 0.487 | 0.774 to 1.066 | 0.550 to 0.568 | 0.900 to 1.116 | 200 to 200 |
+| h2/drag | 0.288 to 0.337 | 0.693 to 0.721 | 0.349 to 0.404 | 0.757 to 0.813 | 500 to 500 |
+| h2/flood | 3.970 to 4.346 | 4.363 to 4.553 | 3.989 to 4.193 | 4.193 to 4.715 | 3 to 3 |
+| h2/paste64k | 7.369 to 8.967 | 14.317 to 14.892 | 0.495 to 0.702 | 1.071 to 1.538 | 10 to 10 |
+| h2/paste1m | 50.202 to 50.582 | 50.202 to 50.582 | 1.536 to 1.773 | 1.536 to 1.773 | 1 to 1 |
+| h1/typing | 0.398 to 0.405 | 0.657 to 0.689 | 0.460 to 0.469 | 0.711 to 0.766 | 200 to 200 |
+| h1/drag | 0.286 to 0.290 | 0.586 to 0.608 | 0.338 to 0.346 | 0.643 to 0.781 | 500 to 500 |
+| h1/flood | 3.210 to 3.353 | 4.573 to 4.807 | 3.087 to 3.231 | 4.764 to 4.964 | 3 to 3 |
+| h1/paste64k | 5.634 to 11.173 | 14.408 to 17.155 | 0.450 to 0.726 | 0.832 to 1.913 | 10 to 10 |
+| h1/paste1m | 50.713 to 51.040 | 50.713 to 51.040 | 1.323 to 1.705 | 1.323 to 1.705 | 1 to 1 |
+
+All 30 input runs completed, with exactly 16,266 frames delivered in byte-for-byte order and no request failures. A separate Python pass recomputed every PTY latency from the raw receipt logs and creation timestamps. The 1 MiB rows have only one sample per run, so their p99 is not a tail estimate.
+
+Unlike the old synthetic input probe, receipt includes actual PTY throughput and the temporary Python reader. In particular, its logging/reading cost affects paste completion. The ACK column keeps route completion separate. The old NDJSON and unbounded-spawn modes were not repeated because today's server uses POST input.
+
+#### Screens and attaching
+
+Three HTTP/2 runs, 120x40 pane, zstd-compressed attach stream, decoded by reqwest, `sse-stream` and JSON. Tick rewrites one line at 60 Hz; spinner one line at 30 Hz; matrix writes 180 deterministic cells at 30 Hz; full changes 120x40 cells at 30 Hz. Each timed workload runs for 10 seconds. Generation-to-SSE latency ends after decompression and JSON decoding, not after a terminal draw.
+
+| Workload | Generation-to-SSE p50, ms | p99, ms | Screens/run |
+| --- | --- | --- | --- |
+| tick | 3.006 to 3.026 | 3.239 to 3.391 | 600 to 601 |
+| spinner | 3.080 to 3.108 | 3.245 to 3.788 | 301 to 301 |
+| matrix | 4.517 to 4.623 | 6.505 to 7.187 | 300 to 301 |
+| full | 10.369 to 11.188 | 14.923 to 15.272 | 300 to 301 |
+| flood | - | - | 27 to 28 |
+
+Twenty warm-connection attaches reached the first decoded screen in p50 0.193 ms, p99 0.359 ms. Each flood wrote exactly 32 MiB; producer elapsed was 0.166 to 0.168 seconds. Flood has no generation marker, so no per-frame latency is claimed. Screens can include the initial/stale snapshot as well as the unique marked frames.
+
+#### Actual terminal-client CPU
+
+One run per workload, a drained 120x42 pseudo-terminal, sidebar hidden, with the server-published pane geometry retained in the raw results. CPU is server plus the real full-screen Ship client, percent of one core, excluding the generator, pane program and PTY drainer. Ten seconds per timed workload. Flood also includes a 300 ms final-draw tail; its producer time is recorded separately. These dimensions differ from the historical 120x40 CPU runs and must stay fixed for the socket comparison.
+
+| Workload | Server CPU | Client CPU | Total CPU | Terminal output |
+| --- | --- | --- | --- | --- |
+| tick | 2.69% | 2.00% | 4.69% | 28,019 bytes |
+| spinner | 1.40% | 1.10% | 2.50% | 19,442 bytes |
+| matrix | 3.29% | 1.80% | 5.09% | 462,934 bytes |
+| full | 8.98% | 7.58% | 16.56% | 20,925,046 bytes |
+| flood | 26.25% | 2.02% | 28.27% | 8,994 bytes |
+| htop | 0.30% | 0.10% | 0.40% | 111,587 bytes |
+| nvim | 7.90% | 7.40% | 15.30% | 186,508 bytes |
+
+The CPU flood producer wrote 32 MiB in 0.182 seconds, while the measurement including the final-draw tail took 0.495 seconds. This short fixed-size throughput probe is not a sustained 10-second flood CPU measurement. nvim ran with `--clean -n` on 10,000 lines and received 600 Ctrl-E keys at 60/s through the real client's PTY. htop used `-d 5`.
+
+#### Evidence and limits
+
+The owned server was PID 8866 on `127.0.0.1:43331`, protocol 18. Runtime, state, config and home were under `/tmp/ship-socket-baseline.1bcUB2/`; the existing 43179 server was not contacted or changed. The runner completed with exit 0, all seven terminal clients remained alive until deliberately detached, and the server shut down with exit 0. Its PID and listener were then absent.
+
+Raw results, per-frame creation and receipt logs, temporary probe sources, generated probe lockfile, run/build logs and snapshots of both executables are retained in `/tmp/ship-socket-baseline.1bcUB2/`. A verified archive is at `/Users/cyan/.cache/ship/benchmarks/local-socket/tcp-2026-10-28-1bcUB2.tar.gz`. The archive's `README.md` describes fresh-directory reproduction and the minimal transport-only changes needed for the socket comparison. reqwest 0.13.5, Tokio 1.53.3, h2 0.4.20, hyper 1.11.1 and `sse-stream` 0.3.0 match the repository lockfile.
+
+`cargo build --workspace`, `cargo build --workspace --release`, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `openspec validate local-socket --type change --strict` passed. No permanent authored tests were added. Cross-process receipt and screen timing use the same host's wall clock, not a clock-correction-resistant shared monotonic clock. Python receipt logging, the value-based probe JSON decoder and synthetic output patterns affect the absolute numbers; repeat the same probes for before/after comparisons. CPU has one run per workload and centisecond process-time resolution. Linux, Windows, subjective typing feel and rendered-display latency remain unverified. Slice 1 has not started.
