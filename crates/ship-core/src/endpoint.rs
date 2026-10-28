@@ -81,6 +81,12 @@ impl Endpoint {
         Ok(Self(directory.join(format!("{name}.sock"))))
     }
 
+    /// The current user's pipe; the server's descriptor admits only its owner.
+    #[cfg(windows)]
+    pub fn named(name: &ServerName) -> Result<Self> {
+        pipe::path(name).map(Self)
+    }
+
     pub fn path(&self) -> &Path {
         &self.0
     }
@@ -91,6 +97,12 @@ impl Endpoint {
         let mut url = Url::parse("unix:///").expect("valid Unix socket URL base");
         url.set_path(file.path());
         url.into()
+    }
+
+    /// `\\.\pipe\NAME` as `npipe:////./pipe/NAME`.
+    #[cfg(windows)]
+    pub fn url(&self) -> String {
+        format!("npipe://{}", self.0.display()).replace('\\', "/")
     }
 
     /// Never deleted: its inode arbitrates ownership for the server's life.
@@ -131,6 +143,28 @@ impl FromStr for Endpoint {
             )
         })?;
         Ok(Self(path))
+    }
+}
+
+#[cfg(windows)]
+impl FromStr for Endpoint {
+    type Err = AppError;
+
+    fn from_str(value: &str) -> Result<Self> {
+        let Some(rest) = value.strip_prefix("npipe://") else {
+            return Err(err!(
+                Configuration,
+                "server URL must be npipe:////./pipe/NAME; HTTP/HTTPS targets are no longer supported"
+            ));
+        };
+        let path = rest.replace('/', "\\");
+        if path.strip_prefix(r"\\.\pipe\").is_none_or(str::is_empty) {
+            return Err(err!(
+                Configuration,
+                "server URL requires a local pipe: npipe:////./pipe/NAME"
+            ));
+        }
+        Ok(Self(path.into()))
     }
 }
 
@@ -184,5 +218,19 @@ mod dir {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(windows)]
+mod pipe {
+    use std::{env, path::PathBuf};
+
+    use super::ServerName;
+    use crate::prelude::*;
+
+    pub(super) fn path(name: &ServerName) -> Result<PathBuf> {
+        let user = env::var("USERNAME")
+            .map_err(|error| err!(Configuration, "cannot name the server pipe without USERNAME", @external: error))?;
+        Ok(format!(r"\\.\pipe\ship-{user}-{name}").into())
     }
 }

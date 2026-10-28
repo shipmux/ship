@@ -36,7 +36,17 @@ pub async fn ensure_running(client: &Client, name: &ServerName, config: &Path) -
         .try_clone()
         .map_err(|error| err!(Io, "cannot clone server log handle", @external: error))
         .context(format!("launch failed; retained log {}", log.display()))?;
-    let mut child = Command::new(executable)
+    let mut command = Command::new(executable);
+    // Off Unix the child can't detach itself, so start it without the console.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+    }
+    let mut child = command
         .args([
             "server",
             "--name",

@@ -220,3 +220,23 @@ pub fn shutdown() -> Result<impl Future<Output = Result<()>> + Send + 'static> {
         Ok(())
     })
 }
+
+/// Resolves on Ctrl+C or the console closing.
+#[cfg(windows)]
+pub fn shutdown() -> Result<impl Future<Output = Result<()>> + Send + 'static> {
+    use tokio::signal::windows::{ctrl_c, ctrl_close};
+
+    let mut interrupt =
+        ctrl_c().map_err(|error| err!(Io, "cannot register Ctrl+C", @external: error))?;
+    let mut close = ctrl_close()
+        .map_err(|error| err!(Io, "cannot register console close", @external: error))?;
+    Ok(async move {
+        let received = tokio::select! {
+            value = interrupt.recv() => value,
+            value = close.recv() => value,
+        };
+        received.ok_or_else(|| err!(Io, "shutdown signal stream closed"))?;
+        tracing::info!("shutdown requested");
+        Ok(())
+    })
+}

@@ -68,6 +68,12 @@ fn detach() -> Result<()> {
         .map_err(|error| err!(Io, "cannot establish background server session", @external: error))
 }
 
+/// The launcher already started it detached (`local::ensure_running`).
+#[cfg(windows)]
+fn detach() -> Result<()> {
+    Ok(())
+}
+
 /// Application compatibility boundary, shared by explicit requests and local readiness.
 async fn health(client: &Client) -> Result<HealthResponse> {
     let response = client.health().await?;

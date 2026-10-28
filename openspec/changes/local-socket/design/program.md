@@ -541,3 +541,28 @@ Each paste run has one sample, so no tail estimate is claimed. HTTP ACK measures
 Full results, temporary sources, lockfiles, logs, CPU geometry and independent verification are under `/tmp/ship-s2.lJltis/bench/`, especially `comparison.log`, `summary.json` and `input-verification.json`. Paired results and cleanup are in `/tmp/ship-s2.lJltis/control/{results,cleanup}.json`. The existing 43179 server was not contacted or changed. Both paired servers exited with code 0. The baseline's wall-clock timing and Python-reader limitations still apply; light fixture/setup work also occurred on the host during the initial run. Linux, Windows, the two-user story, subjective typing feel and rendered-display latency remain unverified.
 
 Debug and release workspace builds, formatting, Clippy and strict OpenSpec validation passed. An independent read-only source review found no actionable slice-2 issue. No permanent tests were added. Stop here; slices 3 and 4 have not started.
+
+### Slice 3, 2026-10-28 UTC
+
+Windows now compiles. `Endpoint` names `\\.\pipe\ship-USER-NAME` from `USERNAME`, formats it as `npipe:////./pipe/…` and parses that form back, refusing other schemes with the same HTTP pointer. `Claim::take` on Windows creates the first pipe instance through interprocess 2.4.7 with the owner-only `D:P(A;;GA;;;OW)` descriptor. interprocess sets `FILE_FLAG_FIRST_PIPE_INSTANCE` itself and rejects remote clients by default, so Ship adds neither. A held name is expected to fail with `PermissionDenied`, which maps to `Conflict` "already running"; that mapping is unverified. `PipeListener` implements axum's `Listener`, retrying immediately when a client disconnected before accept and waiting one second on other errors, as axum's own listeners do. Windows `detach` is a no-op because the launcher spawns with `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`, and Windows `shutdown` resolves on Ctrl+C or console close. interprocess is a workspace dependency used only by ship-server on Windows. `deny.toml` allows 0BSD (O-1), and CI's build matrix gains a `windows-latest` entry with `continue-on-error`.
+
+Two departures from the skeleton:
+- The `colors.rs` `query` module also holds `send_queries`, the OSC parsers and their unit tests, not only the query, read and poll functions. Off Unix nothing calls the parsers, so leaving them outside would fail Windows clippy as dead code. `HostColors` and `Rgb` stay portable. The earlier probe's per-function gates were discarded.
+- Both examples also gate their stderr redirect (`AsRawFd`, `dup2` and the `fs` import) to Unix, beyond the planned `HostColors::default()` fallback.
+
+Verified on macOS arm64:
+- `cargo check` and `cargo clippy -- -D warnings`, workspace and all targets, for `x86_64-pc-windows-gnu` passed. Neither links nor runs anything. The C compiler was `zig cc -target x86_64-windows-gnu` through a wrapper script that drops the `--target=x86_64-pc-windows-gnu` flag the cc crate passes, which zig can't parse (zstd-sys failed without it). The script and command are below.
+- `cargo deny check`: advisories, bans, licenses and sources ok.
+- macOS `cargo fmt --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`, debug and release builds, the five moved `colors` unit tests, and strict OpenSpec validation passed.
+- A release server under isolated XDG directories in `/tmp/ship-s3-run.QSRFnG/` reported protocol 19 and its socket over `curl --unix-socket`, answered `--server-name` `tab list`, refused a duplicate name with `Conflict`, and removed its socket on SIGINT.
+
+```sh
+# /tmp/ship-s3/zcc
+for arg do shift; case "$arg" in --target=*) ;; *) set -- "$@" "$arg" ;; esac; done
+exec zig cc -target x86_64-windows-gnu "$@"
+
+CC_x86_64_pc_windows_gnu=/tmp/ship-s3/zcc AR_x86_64_pc_windows_gnu="zig ar" \
+  cargo clippy --workspace --all-targets --target x86_64-pc-windows-gnu -- -D warnings
+```
+
+Not yet done: the Windows CI job's result on a pull request (SC-004) needs a push, so task 3.5 stays open. CI builds `x86_64-pc-windows-msvc`, not the gnu target checked here. All Windows runtime behavior, including the pipe descriptor, the conflict mapping, detaching and shutdown, is unverified.
