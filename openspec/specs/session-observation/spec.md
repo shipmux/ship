@@ -70,7 +70,7 @@ Each attached client SHALL have its own selection: a tab, a pane, or nothing. A 
 - **THEN** B becomes the shared front and both clients have B selected
 
 ### Requirement: Selection repair
-When a client's selected pane is removed, its selection SHALL move to the next pane in its slot if any remain, else into the sibling subtree that takes the slot's space, choosing the leaf toward the closed side on same-axis splits and the first child otherwise. With no own panes left it SHALL fall back to the tab. Removed tabs or ancestors SHALL repair to the nearest surviving ancestor, or nothing. Moved surviving selections SHALL stay selected. A selection on a pane behind its slot's front SHALL repair to that front. A selection hidden by shared zoom SHALL repair to the zoomed pane.
+When a client's selected pane is removed, its selection SHALL move to the next pane in its slot if any remain, else into the sibling subtree that takes the slot's space, choosing the leaf toward the closed side on same-axis splits and the first child otherwise. With no own panes left it SHALL fall back to the tab.
 
 #### Scenario: Selected pane removed
 - **WHEN** A is selected in `[A | [B / C]]`, alone in its slot, and A is removed
@@ -80,21 +80,30 @@ When a client's selected pane is removed, its selection SHALL move to the next p
 - **WHEN** X is selected in a slot holding `[X, A]` and X is removed
 - **THEN** the client's selection moves to A
 
-#### Scenario: Selected pane pushed behind
-- **WHEN** one client has X selected, X is the front of its slot, and another client stacks a new pane N onto X's slot
-- **THEN** the first client's selection moves to N
-
 #### Scenario: Last pane in a tab removed
 - **WHEN** a client's selected pane is the only pane in its tab and is removed
 - **THEN** its selection becomes the tab and the client shows the no-pane hint
+
+### Requirement: Selection repair after tab removal
+Removed tabs or ancestors SHALL repair to the nearest surviving ancestor, or nothing.
 
 #### Scenario: Selected tab's ancestor removed
 - **WHEN** an ancestor of a client's selected tab is removed
 - **THEN** its selection becomes the nearest surviving ancestor, or nothing if none survives
 
+### Requirement: Selection repair after a move
+Moved surviving selections SHALL stay selected.
+
 #### Scenario: Selected tab moved
 - **WHEN** a client's selected pane's tab moves to the top level
 - **THEN** the client keeps that pane selected
+
+### Requirement: Selection repair follows shared visibility
+A selection on a pane behind its slot's front SHALL repair to that front. A selection hidden by shared zoom SHALL repair to the zoomed pane.
+
+#### Scenario: Selected pane pushed behind
+- **WHEN** one client has X selected, X is the front of its slot, and another client stacks a new pane N onto X's slot
+- **THEN** the first client's selection moves to N
 
 #### Scenario: Shared zoom hides selection
 - **WHEN** one client zooms A while another viewing that tab has B selected
@@ -238,19 +247,40 @@ PTY sizing SHALL consume the committed published tab geometry. Clients SHALL ren
 - **THEN** the nearest center wins, with equal distances resolved by layout order
 
 ### Requirement: Shared zoom
-A tab's zoomed slot, set as session-structure's Tab zoom describes, SHALL fill the tab for all viewers, showing its front, while other programs keep running. Pane focus or next from the zoomed pane SHALL unzoom before moving, and a directional client swap SHALL unzoom before resolving its neighbor, even when none is found. Splitting, swapping or resizing in a tab SHALL unzoom it before the edit, as SHALL removing the zoomed slot. Cycling, stacking onto the zoomed slot, and closing or moving out a pane SHALL keep the zoom, with `zoomed` naming the zoomed slot's new front. A move SHALL instead unzoom its destination if that zoom would hide the moved pane and any client has that pane selected, including a move within one tab. Selecting another tab SHALL leave zoom unchanged.
+A tab's zoomed slot, set as session-structure's Tab zoom describes, SHALL fill the tab for all viewers, showing its front, while other programs keep running. Selecting another tab SHALL leave zoom unchanged.
 
 #### Scenario: Two viewers zoom together
 - **WHEN** one client zooms its selected pane
 - **THEN** both viewers see that pane alone and hidden selected panes repair to it
 
+#### Scenario: Visit another tab
+- **WHEN** a client leaves a zoomed tab to view a different tab
+- **THEN** the original tab stays zoomed for its other viewers and for a later return
+
+#### Scenario: Zoom from a script
+- **WHEN** a script runs `ship tab set --tab <t> --zoomed <p>` for a tab no client is attached to, then attaches a client to it
+- **THEN** the client shows `<p>` filling the tab
+
+### Requirement: Navigation out of shared zoom
+Pane focus or next from the zoomed pane SHALL unzoom before moving, and a directional client swap SHALL unzoom before resolving its neighbor, even when none is found.
+
 #### Scenario: Move out of zoom
 - **WHEN** two clients concurrently request directional focus out of a zoomed pane
 - **THEN** the tab becomes unzoomed, does not toggle back into zoom, and each client moves using unzoomed geometry
 
+### Requirement: Layout edits end shared zoom
+Splitting, swapping or resizing in a tab SHALL unzoom it before the edit, as SHALL removing the zoomed slot.
+
 #### Scenario: Layout edit ends zoom
 - **WHEN** a valid split create, swap or resize operation is performed in a zoomed tab
 - **THEN** the tab unzooms and all viewers see the edited layout
+
+#### Scenario: Zoomed slot removed
+- **WHEN** X is alone in its zoomed slot and X closes
+- **THEN** the tab unzooms
+
+### Requirement: Stack edits retain shared zoom
+Cycling, stacking onto the zoomed slot, and closing or moving out a pane SHALL keep the zoom, with `zoomed` naming the zoomed slot's new front.
 
 #### Scenario: Stack edits keep zoom
 - **WHEN** X's slot is zoomed and the user cycles it, stacks a new pane onto it, or opens edit-scrollback on X
@@ -264,17 +294,12 @@ A tab's zoomed slot, set as session-structure's Tab zoom describes, SHALL fill t
 - **WHEN** X's slot is zoomed and a pane in another slot of the same tab closes
 - **THEN** the tab stays zoomed
 
-#### Scenario: Zoomed slot removed
-- **WHEN** X is alone in its zoomed slot and X closes
-- **THEN** the tab unzooms
+### Requirement: Moved selections remain visible through zoom
+A move SHALL instead unzoom its destination if that zoom would hide the moved pane and any client has that pane selected, including a move within one tab.
 
-#### Scenario: Visit another tab
-- **WHEN** a client leaves a zoomed tab to view a different tab
-- **THEN** the original tab stays zoomed for its other viewers and for a later return
-
-#### Scenario: Zoom from a script
-- **WHEN** a script runs `ship tab set --tab <t> --zoomed <p>` for a tab no client is attached to, then attaches a client to it
-- **THEN** the client shows `<p>` filling the tab
+#### Scenario: Move a selected pane into a zoomed destination
+- **WHEN** a client has M selected and M moves into another tab's slot while a different slot in that destination tab is zoomed
+- **THEN** the destination tab unzooms and M stays selected and visible
 
 ### Requirement: Who changes a selection
 The server SHALL hold each attachment's selection. It SHALL change only through its own client's navigation and clicks, a select naming that attachment, a create that selects for it, and Selection repair. A client SHALL show a selection set by someone else as it shows its own, within a frame of the server publishing it.

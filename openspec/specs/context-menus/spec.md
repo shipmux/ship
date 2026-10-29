@@ -25,7 +25,12 @@ Ship's defaults SHALL define all three targets. A target in the user's file SHAL
 - **THEN** the pane menu shows only `fill`, and the tab and global menus keep their default items
 
 ### Requirement: Default pane menu
-With no `pane` target in the file, the pane menu SHALL be, in order:
+With no `pane` target in the file, the pane menu SHALL use the labels, actions and order in the Default pane menu scenario.
+
+#### Scenario: Default pane menu
+- **WHEN** a user with no config right-clicks a pane
+- **THEN** the menu shows split right, split down, stack, edit scrollback, zoom, right-click passthrough and close, in that order
+- **AND** each entry uses its matching action below
 
 | Label | Action |
 | --- | --- |
@@ -36,10 +41,6 @@ With no `pane` target in the file, the pane menu SHALL be, in order:
 | zoom | `client.pane.zoom = { zoomed = "toggle" }` |
 | right-click passthrough | `server.pane.set = { right_click_passthrough = "toggle" }` |
 | close | `server.pane.close = {}` |
-
-#### Scenario: Default pane menu
-- **WHEN** a user with no config right-clicks a pane
-- **THEN** the menu shows split right, split down, stack, edit scrollback, zoom, right-click passthrough and close, in that order
 
 ### Requirement: Default tab menu
 With no `tab` target in the file, the tab menu SHALL be, in order:

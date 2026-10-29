@@ -290,11 +290,7 @@ Documented binding syntax SHALL be a table with optional `action`, holding exact
 - **THEN** it reports the unknown field with its line and column and exits 1; no compatibility alias is accepted
 
 ### Requirement: Selecting creates from keys
-`server.tab.create` and `server.pane.create` SHALL accept `select = true`, which selects what they create for the pressing client in the same edit: the new pane, or the new tab when it has none. Without it, a create SHALL NOT explicitly select its result; ordinary front and zoom repair still apply. A selecting create SHALL unzoom the tab in the same edit if needed to keep its new pane visible. The defaults SHALL set `select = true` on `alt-n`, `alt-shift-n`, `alt--`, `alt-|`, `alt-s` and `alt-e`. The config SHALL NOT name an attachment. `server.pane.create` SHALL take `place = "right" | "down" | "stack"`, and the defaults SHALL use `place`.
-
-#### Scenario: Default split lands on the new pane
-- **WHEN** a user with no config presses `alt-|` then `alt-f`
-- **THEN** the new pane is selected and zoomed
+`server.tab.create` and `server.pane.create` SHALL accept `select = true`, which selects what they create for the pressing client in the same edit: the new pane, or the new tab when it has none. Without it, a create SHALL NOT explicitly select its result; ordinary front and zoom repair still apply. A selecting create SHALL unzoom the tab in the same edit if needed to keep its new pane visible. The config SHALL NOT name an attachment.
 
 #### Scenario: Create without select
 - **WHEN** the file binds `"alt-t" = { action = { server.pane.create = { place = "down" } } }` and the user presses `alt-t` with a pane selected
@@ -311,6 +307,20 @@ Documented binding syntax SHALL be a table with optional `action`, holding exact
 #### Scenario: Attachment in the config
 - **WHEN** a file binds `"alt-t" = { action = { server.tab.create = { select = true, attachment = "…" } } }` and the user runs `ship config check`
 - **THEN** it reports the unknown field `attachment` and exits 1
+
+### Requirement: Default selecting create bindings
+The defaults SHALL set `select = true` on `alt-n`, `alt-shift-n`, `alt--`, `alt-|`, `alt-s` and `alt-e`.
+
+#### Scenario: Default split lands on the new pane
+- **WHEN** a user with no config presses `alt-|` then `alt-f`
+- **THEN** the new pane is selected and zoomed
+
+### Requirement: Pane placement in create bindings
+`server.pane.create` SHALL take `place = "right" | "down" | "stack"`, and the defaults SHALL use `place`.
+
+#### Scenario: Create binding stacks a pane
+- **WHEN** the file binds `"alt-t" = { action = { server.pane.create = { place = "stack", select = true } } }` and the user presses `alt-t` with a pane selected
+- **THEN** a new pane appears at the front of that slot without adding a split
 
 ### Requirement: Sidebar resize action
 `client.sidebar.resize` SHALL take a `direction` of `left`, `right`, `up` or `down` and an optional `amount`, defaulting to 1. `left` and `right` SHALL move the sidebar's right edge that many columns under config-file's Client sidebar width, as a dragged width does. Any other direction SHALL be a config error with its line and column.

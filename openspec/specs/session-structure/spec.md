@@ -230,11 +230,14 @@ A tab's pane order SHALL be its binary split tree traversed first child before s
 - **THEN** all pane IDs, programs, tree structure and stored proportions survive, and enlarged panes recover their proportions subject to rounding
 
 ### Requirement: Split placement
-Pane creation SHALL take a place: split the anchor's slot right or down, or stack in front of it, defaulting to right. The CLI SHALL take `--place right|down|stack`. With only a tab target it SHALL use that tab's largest pane by content area, breaking ties by layout order, or create the first pane in an empty tab. A split that would leave either half with less than 1 column and 1 row of content SHALL be refused with "no space for new pane", without starting a program or changing the layout. A split SHALL put the new pane alone in its own slot.
+Pane creation SHALL take a place: split the anchor's slot right or down, or stack in front of it, defaulting to right. The CLI SHALL take `--place right|down|stack`. A split SHALL put the new pane alone in its own slot.
 
 #### Scenario: Explicit anchor
 - **WHEN** a user runs `ship pane create --pane <id> --place down` with enough room for the split
 - **THEN** the original pane's slot is above the new pane's slot in the same tab and existing unrelated splits remain
+
+### Requirement: Tab-only pane placement
+With only a tab target it SHALL use that tab's largest pane by content area, breaking ties by layout order, or create the first pane in an empty tab.
 
 #### Scenario: Largest pane
 - **WHEN** a user creates a pane with only `--tab` in a viewed tab with differently sized panes
@@ -243,6 +246,9 @@ Pane creation SHALL take a place: split the anchor's slot right or down, or stac
 #### Scenario: Empty tab
 - **WHEN** a user creates a pane in an empty tab
 - **THEN** it becomes the tab's only pane
+
+### Requirement: Split creation needs content space
+A split that would leave either half with less than 1 column and 1 row of content SHALL be refused with "no space for new pane", without starting a program or changing the layout.
 
 #### Scenario: No space for the split
 - **WHEN** a user splits a pane right whose content is 2 columns wide
@@ -316,7 +322,7 @@ A request giving both `to` and `amount` SHALL be rejected without changing anyth
 - **THEN** the request is rejected, the CLI exits 2, and nothing changes
 
 ### Requirement: Creates that select
-`ship tab create` and `ship pane create` SHALL accept `--select`. With it, the create SHALL select for one attachment the new pane, or the new tab when it has no pane, in the same edit that creates it, so no client sees the new tab or pane before that attachment selects it. Without `--select`, a create SHALL NOT explicitly select its result; ordinary front and zoom repair still apply. A selecting create SHALL unzoom if needed to show its new pane. The HTTP create bodies SHALL carry this as an optional `select` holding the attachment ID.
+`ship tab create` and `ship pane create` SHALL accept `--select`. With it, the create SHALL select for one attachment the new pane, or the new tab when it has no pane, in the same edit that creates it, so no client sees the new tab or pane before that attachment selects it. Without `--select`, a create SHALL NOT explicitly select its result; ordinary front and zoom repair still apply. The HTTP create bodies SHALL carry this as an optional `select` holding the attachment ID.
 
 #### Scenario: An agent creates without stealing focus
 - **WHEN** a client has a pane selected and an agent in another pane runs `ship pane create --tab <id> -- cargo test`
@@ -337,6 +343,9 @@ A request giving both `to` and `amount` SHALL be rejected without changing anyth
 #### Scenario: Stack without select repairs selection
 - **WHEN** X is selected and a caller creates N in X's stack without `select`
 - **THEN** the selection repairs to the new front N
+
+### Requirement: Selecting creates remain visible
+A selecting create SHALL unzoom if needed to show its new pane.
 
 #### Scenario: Selecting stack create behind zoom
 - **WHEN** a caller creates N in another slot of X's zoomed tab with `select` naming an attachment
@@ -464,15 +473,11 @@ Every field of a tab or pane SHALL have one name, one path and one type in `get`
 - **THEN** each accepts it under the same name with the same value
 
 ### Requirement: Create request bodies
-`POST /api/v0/panes` SHALL take `{ "at", "place"?, "select"?, "pane"? }` and `POST /api/v0/tabs` SHALL take `{ "at"?, "starter"?, "select"?, "tab"? }`. `place` SHALL be `{"split": "right"}`, `{"split": "down"}` or `"stack"`, defaulting to `{"split": "right"}`; the body SHALL NOT take `direction`. The request's own fields SHALL sit at the top level, and the new entity's fields SHALL sit under `pane` or `tab`, using the entity's names. An absent `at` on `POST /api/v0/tabs` SHALL mean the end of the top level.
+`POST /api/v0/panes` SHALL take `{ "at", "place"?, "select"?, "pane"? }` and `POST /api/v0/tabs` SHALL take `{ "at"?, "starter"?, "select"?, "tab"? }`. The request's own fields SHALL sit at the top level, and the new entity's fields SHALL sit under `pane` or `tab`, using the entity's names. An absent `at` on `POST /api/v0/tabs` SHALL mean the end of the top level.
 
 #### Scenario: Create a pane with settings
 - **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"tab": "<t>"}, "pane": {"cwd": "/tmp", "exit_behavior": "keep"}}`
 - **THEN** a pane is created in `<t>` starting in `/tmp` with `exit_behavior: keep`
-
-#### Scenario: Stack a pane over HTTP
-- **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"pane": "<p>"}, "place": "stack"}`
-- **THEN** the new pane is in front of `<p>`'s slot
 
 #### Scenario: Entity field at the top level
 - **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"tab": "<t>"}, "cwd": "/tmp"}`
@@ -481,6 +486,13 @@ Every field of a tab or pane SHALL have one name, one path and one type in `get`
 #### Scenario: Create a named tab
 - **WHEN** a caller sends `POST /api/v0/tabs` with `{"tab": {"name": "notes"}}`
 - **THEN** a top-level tab named `notes` is appended
+
+### Requirement: HTTP pane creation placement
+`place` SHALL be `{"split": "right"}`, `{"split": "down"}` or `"stack"`, defaulting to `{"split": "right"}`; the body SHALL NOT take `direction`.
+
+#### Scenario: Stack a pane over HTTP
+- **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"pane": "<p>"}, "place": "stack"}`
+- **THEN** the new pane is in front of `<p>`'s slot
 
 ### Requirement: Plain values on create
 Create bodies and config defaults SHALL take plain values only. A create body SHALL reject `"toggle"` on every field, and `null` on every field but `name`, with 400 `validation`.

@@ -87,11 +87,7 @@ A drag SHALL belong to the client that started it and SHALL end on release. No o
 - **THEN** the second client's selection is unchanged and it shows the resized layout as the server publishes it
 
 ### Requirement: Border drags
-A press on a cell of one border between panes SHALL grab that border, unless the cell holds the title of a pane behind its slot's front, where the press SHALL be a title click. A press on a cell where borders meet SHALL grab every border through that cell, each moving in its own axis. A left press on a border SHALL NOT change which pane is selected and SHALL NOT reach any program, including while earlier input is still waiting. A lone or zoomed slot has no border, so there SHALL be nothing to grab.
-
-#### Scenario: Selection stays
-- **WHEN** the right pane is selected, a delayed create is still waiting, and the user presses on the border and drags
-- **THEN** the right pane stays selected and no program receives the press
+A press on a cell of one border between panes SHALL grab that border, unless the cell holds the title of a pane behind its slot's front, where the press SHALL be a title click. A press on a cell where borders meet SHALL grab every border through that cell, each moving in its own axis. A lone or zoomed slot has no border, so there SHALL be nothing to grab.
 
 #### Scenario: Junction
 - **WHEN** a user presses on the center junction of a 2x2 grid and drags diagonally
@@ -100,6 +96,13 @@ A press on a cell of one border between panes SHALL grab that border, unless the
 #### Scenario: Title on a border
 - **WHEN** a slot's top border is also a border between two slots and the user presses on the title of a pane behind its front
 - **THEN** that pane is selected and brought forward, and no border is grabbed
+
+### Requirement: Border-grab input isolation
+A left press on a border SHALL NOT change which pane is selected and SHALL NOT reach any program, including while earlier input is still waiting.
+
+#### Scenario: Selection stays
+- **WHEN** the right pane is selected, a delayed create is still waiting, and the user presses on the border and drags
+- **THEN** the right pane stays selected and no program receives the press
 
 ### Requirement: Border drag edges
 While dragging, each grabbed edge SHALL follow the pointer through `server.pane.resize` with `to`, naming the edge by a pane beside it and a direction, so a layout change made elsewhere mid-drag still moves the same edge while that pane exists. If the pane is gone, the drag SHALL end without another resize.
