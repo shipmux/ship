@@ -37,6 +37,7 @@ pane = [
   { label = "split right", action = { server.pane.create = { place = "right", select = true } } },
   { label = "split down", action = { server.pane.create = { place = "down", select = true } } },
   { label = "stack", action = { server.pane.create = { place = "stack", select = true } } },
+  { label = "edit scrollback", action = { server.pane.create = { place = "stack", select = true, exit_behavior = "keep_failed", command = ["sh", "-c", "exec \"$SHIP_BIN\" pane edit-scrollback"] } } },
   { label = "zoom", action = { client.pane.zoom = { zoomed = "toggle" } } },
   { label = "right-click passthrough", action = { server.pane.set = { right_click_passthrough = "toggle" } } },
   { label = "close", action = { server.pane.close = {} } },
@@ -65,6 +66,7 @@ global = [
 "alt-s"       = { action = { server.pane.create = { place = "stack", select = true } } }
 "alt-."       = { action = { server.pane.cycle = { direction = "next" } } }
 "alt-,"       = { action = { server.pane.cycle = { direction = "prev" } } }
+"alt-e"       = { action = { server.pane.create = { place = "stack", select = true, exit_behavior = "keep_failed", command = ["sh", "-c", "exec \"$SHIP_BIN\" pane edit-scrollback"] } } }
 "alt-shift-x" = { action = { server.pane.close = {} } }
 "alt-left"    = { action = { client.tab.prev = {} } }
 "alt-right"   = { action = { client.tab.next = {} } }

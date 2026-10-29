@@ -14,6 +14,7 @@ tracing.workspace = true
 
 crokey.workspace = true
 crossterm = { workspace = true, features = ["bracketed-paste", "event-stream", "osc52"] }
+etcetera.workspace = true
 futures-util.workspace = true
 indexmap.workspace = true
 notify-debouncer-mini.workspace = true
@@ -25,7 +26,8 @@ strum.workspace = true
 serde_json.workspace = true
 sse-stream.workspace = true
 url.workspace = true
-tokio.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["process"] }
 toml.workspace = true
 tui-tree-widget.workspace = true
 tokio-stream.workspace = true

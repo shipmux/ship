@@ -254,7 +254,7 @@ pub mod pane {
         protocol::{Place, ScrollDirection, SplitDirection},
     };
 
-    /// `get`, `read`, `send` and `wait` are CLI-only, so the config rejects them.
+    /// Inspection, automation and explicit moves are CLI-only; the config rejects them.
     #[derive(Clone, Debug, Deserialize, strum::IntoStaticStr)]
     #[cfg_attr(feature = "clap", derive(Subcommand))]
     #[serde(rename_all = "snake_case")]
@@ -289,6 +289,24 @@ pub mod pane {
         /// Move a pane onto or beside another pane and print the destination tab as JSON
         #[serde(skip)]
         Move(Move),
+        /// Open a pane's full scrollback in VISUAL, EDITOR or vi; discard edits
+        #[serde(skip)]
+        EditScrollback(EditScrollback),
+    }
+
+    /// CLI only; keys run it through `SHIP_BIN` in a stacked pane.
+    #[derive(Clone, Debug, Default, Deserialize)]
+    #[cfg_attr(feature = "clap", derive(Args))]
+    pub struct EditScrollback {
+        /// Pane to edit; defaults to the pane directly behind this one
+        #[cfg_attr(feature = "clap", arg(long, value_name = "ID"))]
+        pub pane: Option<IdOf<Pane>>,
+        /// The pane this runs in
+        #[cfg_attr(
+            feature = "clap",
+            arg(long = "from", env = "SHIP_PANE_ID", hide = true)
+        )]
+        pub from: Option<IdOf<Pane>>,
     }
 
     #[derive(Clone, Debug, Default, Deserialize)]

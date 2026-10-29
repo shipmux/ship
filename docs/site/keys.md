@@ -15,6 +15,7 @@ All of Ship's default keys are Alt chords. Any other key goes to the program in 
 | `alt-\|` / `alt--` | Split the pane right / down |
 | `alt-s` | Stack a new shell in front of the pane |
 | `alt-,` / `alt-.` | Previous / next pane in the stack |
+| `alt-e` | Open [scrollback in your editor](panes.md#edit-scrollback) |
 | `alt-shift-x` | Close the pane |
 | `alt-left` / `alt-right` | Previous / next tab |
 | `alt-h` / `alt-j` / `alt-k` / `alt-l` | Move to the pane left, below, above or right |

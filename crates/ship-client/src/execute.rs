@@ -189,6 +189,10 @@ impl Client {
                     let id = Self::pane_target(pane, scope)?;
                     Outcome::Tab(self.move_pane(id, &to).await?)
                 }
+                PaneCommand::EditScrollback(pane::EditScrollback { pane, from }) => {
+                    self.edit_scrollback(pane, from).await?;
+                    Outcome::Closed
+                }
                 PaneCommand::Get(pane::Get { pane }) => {
                     Outcome::Pane(self.get::<Pane>(Self::pane_target(pane, scope)?).await?)
                 }

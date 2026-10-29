@@ -3422,6 +3422,7 @@ version = "0.1.0"
 dependencies = [
  "crokey",
  "crossterm",
+ "etcetera",
  "futures-util",
  "indexmap 2.14.2",
  "notify-debouncer-mini",
@@ -3434,6 +3435,7 @@ dependencies = [
  "ship-macros",
  "sse-stream",
  "strum 0.27.2",
+ "tempfile",
  "tokio",
  "tokio-stream",
  "toml",

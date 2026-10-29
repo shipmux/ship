@@ -12,6 +12,7 @@ Every pane runs a program in its own terminal, your shell unless you say otherwi
 | `alt-\|` / `alt--` | Split right / down |
 | `alt-s` | Stack a new shell in the same place |
 | `alt-,` / `alt-.` | Previous / next pane in the stack |
+| `alt-e` | Open the pane's scrollback in your editor |
 | `alt-h` / `alt-j` / `alt-k` / `alt-l` | Move to the pane left, below, above or right |
 | `alt-tab` | Next visible pane in the tab, skipping panes behind |
 | `alt-shift-h` / `j` / `k` / `l` | Swap with the neighbor in that direction |
@@ -49,6 +50,20 @@ ship pane move --pane "$PANE" --beside "$OTHER" --direction right
 ```
 
 `OTHER` can be in another tab, or in the same stack when taking a pane out into its own split. Use `--direction down` to put it below instead. The pane keeps its ID, output and running program. Clients with it selected follow it; the destination unzooms if needed to keep it visible. An emptied old slot disappears, but its tab stays.
+
+## Edit scrollback
+
+Press `alt-e`, or choose **edit scrollback** from the pane's right-click menu, to open its full history and screen in your editor. The editor opens in front of the pane without splitting it. Quit the editor to return; any edits are discarded, and a zoomed stack stays zoomed.
+
+On Unix, Ship uses `VISUAL`, then `EDITOR`, then `vi`. Values with arguments, such as `code --wait`, work. For the shortcut, set these in the environment that starts the server. The temporary file is readable only by you and deleted when the editor exits; a later run cleans up files left by a crashed run. If the editor fails, its pane stays open showing the error until you close it.
+
+To open a specific pane's scrollback from another terminal:
+
+```sh
+ship pane edit-scrollback --pane "$PANE"
+```
+
+Without `--pane`, the command reads the pane directly behind its own pane, as the shortcut does. With no pane behind it, it reports an error instead.
 
 ## When a program exits
 

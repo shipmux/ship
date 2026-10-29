@@ -51,10 +51,10 @@ Use an owned temporary server on a scratch name, with `XDG_RUNTIME_DIR`, `XDG_ST
 
 ## 5. Edit-scrollback
 
-- [ ] 5.1 Add `etcetera`, `tempfile` and tokio's `process` feature to ship-client, and `EditScrollback` to `command.rs`.
-- [ ] 5.2 In `automation.rs`, add `edit_scrollback`: resolve the target from `--pane` or the pane behind `--from`, read all lines unwrapped, sweep unlocked files from the scrollback directory, write and lock a 0600 temp file, run the editor through `sh -c`, then delete the file. Off Unix, fail with a message. Route it from `execute.rs`.
-- [ ] 5.3 Add `alt-e` and the "edit scrollback" menu item to `defaults.toml`, and describe edit-scrollback in `docs/site/panes.md` and `docs/site/keys.md`.
-- [ ] 5.4 Verify: `alt-e` on a pane that printed `seq 1 5000` opens the editor with all 5000 lines; quitting returns to the pane with the layout unchanged; an `EDITOR="code --wait"` style value works; the temp file is mode 0600 while open and gone after; a file left by a killed run is removed by the next run while a concurrent run's file is kept; running it in a pane alone in its slot fails with the "no pane behind" message; with `EDITOR=/nonexistent` the pane stays open showing the error.
+- [x] 5.1 Add `etcetera`, `tempfile` and tokio's `process` feature to ship-client, and `EditScrollback` to `command.rs`.
+- [x] 5.2 In `automation.rs`, add `edit_scrollback`: resolve the target from `--pane` or the pane behind `--from`, read all lines unwrapped, sweep unlocked files from the scrollback directory, write and lock a 0600 temp file, run the editor through `sh -c`, then delete the file. Off Unix, fail with a message. Route it from `execute.rs`.
+- [x] 5.3 Add `alt-e` and the "edit scrollback" menu item to `defaults.toml`, and describe edit-scrollback in `docs/site/panes.md` and `docs/site/keys.md`.
+- [x] 5.4 Verify: `alt-e` on a pane that printed `seq 1 5000` opens the editor with all 5000 lines; quitting returns to the pane with the layout unchanged; an `EDITOR="code --wait"` style value works; the temp file is mode 0600 while open and gone after; a file left by a killed run is removed by the next run while a concurrent run's file is kept; running it in a pane alone in its slot fails with the "no pane behind" message; with `EDITOR=/nonexistent` the pane stays open showing the error.
 
 ## 6. Specs and size
 
