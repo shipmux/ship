@@ -102,13 +102,13 @@ pub(crate) fn tab(tab: &Tab, size: Size) -> TabGeometry {
         panes: &mut IndexMap<IdOf<Pane>, PaneGeometry>,
     ) {
         match layout {
-            Layout::Pane(pane) => {
+            Layout::Slot(slot) => {
                 let content = if bordered {
                     Block::bordered().inner(frame)
                 } else {
                     frame
                 };
-                panes.insert(pane.id, PaneGeometry { frame, content });
+                panes.insert(slot.front().id, PaneGeometry { frame, content });
             }
             Layout::Split(split) => {
                 let [first, second] = halves(frame, split.axis, split.ratio);
@@ -119,9 +119,9 @@ pub(crate) fn tab(tab: &Tab, size: Size) -> TabGeometry {
     }
     let mut panes = IndexMap::new();
     let frame = Rect::new(0, 0, size.cols, size.rows);
-    if let Some(zoomed) = tab.zoomed.filter(|id| tab.pane(*id).is_some()) {
+    if let Some(slot) = tab.zoomed.and_then(|id| tab.slot(id)) {
         panes.insert(
-            zoomed,
+            slot.front().id,
             PaneGeometry {
                 frame,
                 content: frame,

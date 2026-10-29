@@ -21,7 +21,7 @@ use crate::{
 pub const HEALTH_PATH: &str = "/health";
 /// What a Ship server reports as `service` from `/health`.
 pub const SERVICE: &str = "ship";
-pub const PROTOCOL_VERSION: u32 = 19;
+pub const PROTOCOL_VERSION: u32 = 20;
 /// Names the attachment a view or input request controls.
 pub const ATTACHMENT_HEADER: &str = "x-ship-attachment-id";
 /// On every response: the server's revision once the request was handled,

@@ -36,7 +36,7 @@ Until layout is available, `server.pane.create` SHALL add a shell pane to the se
 - **THEN** a pane running the shell is added to the selected pane's tab and selected
 
 ### Requirement: Selecting creates from keys
-`server.tab.create` and `server.pane.create` SHALL accept `select = true`, which selects what they create for the pressing client in the same edit: the new pane, or the new tab when it has none. Without it, a create from a key SHALL NOT change any selection. The defaults SHALL set `select = true` on `alt-n`, `alt-shift-n`, `alt--`, `alt-|`, `alt-s` and `alt-e`. The config SHALL NOT name an attachment. `server.pane.create` SHALL take `place = "right" | "down" | "stack"`, with `direction` as another name for it, and the defaults SHALL use `place`.
+`server.tab.create` and `server.pane.create` SHALL accept `select = true`, which selects what they create for the pressing client in the same edit: the new pane, or the new tab when it has none. Without it, a create from a key SHALL NOT change any selection. The defaults SHALL set `select = true` on `alt-n`, `alt-shift-n`, `alt--`, `alt-|`, `alt-s` and `alt-e`. The config SHALL NOT name an attachment. `server.pane.create` SHALL take `place = "right" | "down" | "stack"`, and the defaults SHALL use `place`.
 
 #### Scenario: Default split lands on the new pane
 - **WHEN** a user with no config presses `alt-|` then `alt-f`
@@ -45,10 +45,6 @@ Until layout is available, `server.pane.create` SHALL add a shell pane to the se
 #### Scenario: Create without select
 - **WHEN** the file binds `"alt-t" = { action = { server.pane.create = { place = "down" } } }` and the user presses `alt-t` with a pane selected
 - **THEN** a pane is split below it and the original pane stays selected
-
-#### Scenario: Old field name in a binding
-- **WHEN** the file binds `"alt-t" = { action = { server.pane.create = { direction = "down" } } }` and the user runs `ship config check`, then presses `alt-t`
-- **THEN** the check passes and a pane is split below the selected pane
 
 #### Scenario: Attachment in the config
 - **WHEN** a file binds `"alt-t" = { action = { server.tab.create = { select = true, attachment = "…" } } }` and the user runs `ship config check`

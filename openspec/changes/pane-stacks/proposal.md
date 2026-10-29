@@ -1,6 +1,6 @@
 # Proposal
 
-This is the planning artifact for a locked plan. Cyan locked the three papers in `design/` on 2026-10-29. The papers are the source of truth; this proposal and the deltas under `specs/` are views of them. Approval does not start implementation.
+This is the planning artifact for a locked plan. Cyan locked the three papers in `design/` on 2026-10-29. The papers are the source of truth; this proposal and the deltas under `specs/` are views of them. Approval does not start implementation. Cyan approved removing backward-compatibility requirements on 2026-10-29 because Ship has not had its first release; the earlier compatibility commitments are superseded.
 
 ## Why
 
@@ -9,8 +9,8 @@ A layout position holds exactly one pane, so the only way to open something next
 ## What Changes
 
 - **Slots and stacks.** Each layout leaf is a slot holding one or more panes in order. The front pane is drawn and sized to the slot. The panes behind it keep running at their last size. The front is shared by every client.
-- **BREAKING: layout shape.** A leaf serializes as `{"kind": "slot", "panes": [...]}`, front first, instead of `{"kind": "pane", ...}`. Saved tabs in the old form still load, each pane alone in its slot. The protocol version goes to 20.
-- **BREAKING: create body.** `POST /api/v0/panes` takes `place` (`{"split": "right"}`, `{"split": "down"}` or `"stack"`) instead of `direction`. The CLI and bindings take a flat `place = right | down | stack`, with `direction` kept as another name for it.
+- **BREAKING: layout shape.** A leaf serializes as `{"kind": "slot", "panes": [...]}`, front first, instead of `{"kind": "pane", ...}`. The protocol version goes to 20.
+- **BREAKING: create body.** `POST /api/v0/panes` takes `place` (`{"split": "right"}`, `{"split": "down"}` or `"stack"`) instead of `direction`. The CLI and bindings take a flat `place = right | down | stack`.
 - **Cycle.** `ship pane cycle --direction next|prev`, `server.pane.cycle` and `POST /api/v0/panes/{id}/cycle` rotate a slot one step.
 - **Move.** `ship pane move --pane X --onto Y | --beside Y --direction D` and `POST /api/v0/panes/{id}/move` move a pane into another slot or split, in any tab, keeping its program and ID.
 - **Selection and zoom follow the front.** Selecting a pane behind the front brings it forward. A selection on a pane pushed behind moves to the new front. Zoom belongs to a slot and stays through cycling, stacking and closing panes in the zoomed slot or in other slots. It clears on split, swap and resize as before.
@@ -37,7 +37,7 @@ Not in this change (the product paper lists them all):
 
 - `session-structure`: create's `place`, layout order through stacks, closing and swapping in slots, the create body, and zoom naming the slot's front.
 - `session-observation`: selection repair to the front, geometry for fronts only, zoom kept through stack edits and other slots' closes, and selecting within a zoomed slot.
-- `session-restore`: slots saved in order, and old saved leaves loading.
+- `session-restore`: slots saved and restored in order.
 - `health-exchange`: protocol 20.
 - `keymap`: `alt-s`, `alt-]`, `alt-[` and `alt-e`, `place` in bindings, and pane cycling over fronts only.
 - `context-menus`: the default pane menu gains "stack" and "edit scrollback", and uses `place`.

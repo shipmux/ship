@@ -2,6 +2,8 @@
 
 These are checkpoints for implementing the locked plan, one slice at a time. Cyan locked the papers in `design/` on 2026-10-29, and they are the contract. `design/program.md` holds the file map, signatures and checks for each slice. Complete and verify one slice, then stop for Cyan's review before starting the next. Record surprises in the program paper's deviation log.
 
+Cyan approved removing backward-compatibility requirements on 2026-10-29. The revised slice 1 uses direct serde and verifies current-format save/restore instead of legacy migration.
+
 Verification uses real workflows and temporary probes, not permanent authored tests. For each slice, run these checks:
 - `cargo fmt --all -- --check`;
 - `cargo clippy --workspace --all-targets -- -D warnings`;
@@ -13,24 +15,24 @@ Use an owned temporary server on a scratch name, with `XDG_RUNTIME_DIR`, `XDG_ST
 
 ## 0. Settle the blocking unknowns
 
-- [ ] 0.1 Find the mitsein 0.9 call that turns a one-item `VecDeque1<Pane>` into its item by value, with a throwaway probe outside the workspace. If none exists, plan `Slot::take` to convert to `VecDeque` first. Record the answer in the program paper's deviation log.
+- [x] 0.1 Find the mitsein 0.9 call that turns a one-item `VecDeque1<Pane>` into its item by value, with a throwaway probe outside the workspace. If none exists, plan `Slot::take` to convert to `VecDeque` first. Record the answer in the program paper's deviation log.
 - [ ] 0.2 Probe whether `alt-[` reaches the current client as a key event in Ghostty and one other terminal, with a throwaway binding in a scratch config. If it doesn't, stop and bring FR-030 back to Cyan with a recommendation before slice 2.
 
 ## 1. Every leaf is a slot
 
-- [ ] 1.1 Add `mitsein` with `serde` to the workspace and ship-core. Add `Slot`, `Taken`, `CycleDirection` and the private `Repr` to `ship-core/src/layout.rs`, replace `Layout::Pane` with `Layout::Slot`, and add `Tab::slot` to `model.rs`.
-- [ ] 1.2 Set `PROTOCOL_VERSION` to 20.
-- [ ] 1.3 In `ship-server`, replace `layout::close` with `layout::take` (still clearing zoom as today), make geometry walk slots, and build `CreateTab` and `restore_tab` leaves as slots of one. Update client code that matched `Layout::Pane`.
-- [ ] 1.4 Verify: `ship tab get | jq .layout` shows `"kind": "slot"` leaves with a `panes` list; a `tabs.json` saved by the current release, copied before building, loads with every pane present; splitting, closing, swapping, resizing and zooming behave as before; `ship server status` reports protocol 20.
+- [x] 1.1 Add `mitsein` with `serde` to the workspace and ship-core. Add `Slot`, `Taken` and `CycleDirection` to `ship-core/src/layout.rs`, replace `Layout::Pane` with `Layout::Slot`, and add `Tab::slot` to `model.rs`. Derive `Layout` serde directly, removing the existing private legacy leaf adapter and its conversion.
+- [x] 1.2 Set `PROTOCOL_VERSION` to 20.
+- [x] 1.3 In `ship-server`, replace `layout::close` with `layout::take` (still clearing zoom as today), make geometry walk slots, and build `CreateTab` and `restore_tab` leaves as slots of one. Update client code that matched `Layout::Pane`.
+- [x] 1.4 Verify: `ship tab get | jq .layout` shows `"kind": "slot"` leaves with a `panes` list; slot-format saved tabs restore with the same IDs, names, nesting, pane order, proportions and zoom; splitting, closing, swapping, resizing and zooming behave as before; `ship server status` reports protocol 20.
 
 ## 2. Stack and cycle from the CLI and keys
 
-- [ ] 2.1 Add `Place` and `CyclePane` to `protocol.rs`, replacing `CreatePane.direction` with `place`. Add `Placement`, `Create.place` with the `direction` alias, and `Cycle` to `command.rs`.
+- [ ] 2.1 Add `Place` and `CyclePane` to `protocol.rs`, replacing `CreatePane.direction` with `place`. Add `Placement`, `Create.place` and `Cycle` to `command.rs`, without a creation alias for `direction`.
 - [ ] 2.2 In `state/layout.rs`, add `stack`, `cycle`, `bring_to_front` and `successor`, and give `take` the zoom rules in the program paper's table. Add the title row for borderless stacked slots in `state/geometry.rs`.
 - [ ] 2.3 In `state.rs`, match create on `Place`, add the `Cycle` message, add the front rule to `repair` before the zoom rule, bring a behind pane forward in the select handler and in `SetTab`'s zoom, and compare slots for the select unzoom. Add `POST /api/v0/panes/{id}/cycle` in `routes.rs` and `lib.rs`.
 - [ ] 2.4 Wire `cycle` and `place` through `ship-client`'s `api.rs` and `execute.rs`. In `defaults.toml`, change `direction` to `place`, and add `alt-s`, `alt-]`, `alt-[` and the "stack" menu item.
 - [ ] 2.5 Update `docs/site/keys.md`, `GLOSSARY.md` (slot, stack) and `docs/agents/code.md` (`direction` to `place` in the create-body rule).
-- [ ] 2.6 Verify: `ship pane create --place stack` twice, then `ship pane cycle --direction next` and `--direction prev`, give P1's orders in `ship tab get`; `--direction right` still splits; closing the front shows the next pane and closing the last removes the slot; each P3 step leaves `zoomed` set and naming the front; a selection on a pane pushed behind ends on the new front; `ship view select` of a behind pane brings it forward; a restart restores a stacked slot in order; in the client, `alt-s`, `alt-]` and `alt-[` work and only the front is drawn.
+- [ ] 2.6 Verify: `ship pane create --place stack` twice, then `ship pane cycle --direction next` and `--direction prev`, give P1's orders in `ship tab get`; `--place right` splits; closing the front shows the next pane and closing the last removes the slot; each P3 step leaves `zoomed` set and naming the front; a selection on a pane pushed behind ends on the new front; `ship view select` of a behind pane brings it forward; a restart restores a stacked slot in order; in the client, `alt-s`, `alt-]` and `alt-[` work and only the front is drawn.
 
 ## 3. Titles and title clicks
 

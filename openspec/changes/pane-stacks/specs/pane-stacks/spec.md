@@ -15,7 +15,7 @@ A slot's size SHALL come from the layout alone. The front pane's terminal SHALL 
 - **THEN** `A` is shown at the slot's new size
 
 ### Requirement: Slot layout shape
-`ship tab get`, `GET /api/v0/tabs` and every other layout output SHALL show each leaf as `{"kind": "slot", "panes": [...]}`, front first. Nothing SHALL write the old `{"kind": "pane", ...}` leaf.
+`ship tab get`, `GET /api/v0/tabs` and every other layout output SHALL show each leaf as `{"kind": "slot", "panes": [...]}`, front first.
 
 #### Scenario: Read a stack back
 - **WHEN** a slot holds `[X, A, B]` and a user runs `ship tab get`

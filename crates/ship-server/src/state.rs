@@ -13,7 +13,7 @@ use indexmap::IndexMap;
 use kameo::{error::Infallible, prelude::*};
 use ship_core::{
     id::*,
-    layout::{Layout, Ratio},
+    layout::{Layout, Ratio, Slot},
     model::*,
     prelude::*,
     protocol::{
@@ -130,7 +130,7 @@ impl ServerState {
                 Ok(pane) => *tab.pane_mut(saved.id).expect("saved pane belongs to tab") = pane,
                 Err(error) => {
                     tracing::warn!(pane = %saved.id, directory = %saved.cwd, %error, "cannot start restored pane");
-                    layout::close(&mut tab, saved.id).expect("saved pane belongs to tab");
+                    layout::take(&mut tab, saved.id).expect("saved pane belongs to tab");
                 }
             }
         }
@@ -457,11 +457,11 @@ impl Message<CreateTab> for ServerState {
     ) -> Self::Reply {
         let id = Id::new();
         let layout = if let Some(Starter::Shell) = create.starter {
-            Some(Layout::Pane(self.start_pane(
+            Some(Layout::Slot(Slot::new(self.start_pane(
                 Id::new(),
                 Size::FALLBACK,
                 NewPane::default(),
-            )?))
+            )?)))
         } else {
             None
         };
@@ -721,7 +721,7 @@ impl Message<Remove<Pane>> for ServerState {
     ) -> Self::Reply {
         self.commit(|tabs, _| {
             let owner = tree::pane_owner(tabs, id)?;
-            layout::close(tree::tab_mut(tabs, owner)?, id)?;
+            layout::take(tree::tab_mut(tabs, owner)?, id)?;
             Ok(())
         })
         .await
@@ -986,7 +986,7 @@ impl Message<PaneEvent> for ServerState {
             // Publish the exit before removing the pane so every-feed waits see it.
             self.commit(|tabs, _| {
                 let owner = tree::pane_owner(tabs, id)?;
-                layout::close(tree::tab_mut(tabs, owner)?, id)?;
+                layout::take(tree::tab_mut(tabs, owner)?, id)?;
                 Ok(())
             })
             .await?;

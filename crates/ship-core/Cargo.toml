@@ -18,6 +18,7 @@ clap = { workspace = true, optional = true }
 crokey.workspace = true
 crossterm.workspace = true
 indexmap.workspace = true
+mitsein.workspace = true
 ratatui-core.workspace = true
 kameo = { workspace = true, optional = true }
 serde.workspace = true

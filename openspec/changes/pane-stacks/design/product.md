@@ -1,6 +1,6 @@
 # Stacked panes
 
-Status: Locked on 2026-10-29. Written from a design conversation with Cyan on 2026-10-28 for [#85](https://github.com/shipmux/ship/issues/85), then approved in Plannotator review ("LGTM!"). The feature name changed from "edit history" to "edit scrollback" at Cyan's request during that review. Reopened on 2026-10-28 during architecture design to replace `--stack` with `--place right|down|stack` in FR-005 and FR-006 ("sounds good to me"); re-locked with that change. Reopened on 2026-10-29 during program design to replace `--next|--prev` in FR-007 with `--direction next|prev`, because `docs/agents/code.md` rules out meaning carried by bare flags and swap, resize and scroll already take `--direction` ("go for it"). Re-locked on 2026-10-29 with the program paper ("lock it!").
+Status: Locked on 2026-10-29. Written from a design conversation with Cyan on 2026-10-28 for [#85](https://github.com/shipmux/ship/issues/85), then approved in Plannotator review ("LGTM!"). The feature name changed from "edit history" to "edit scrollback" at Cyan's request during that review. Reopened on 2026-10-28 during architecture design to replace `--stack` with `--place right|down|stack` in FR-005 and FR-006 ("sounds good to me"); re-locked with that change. Reopened on 2026-10-29 during program design to replace `--next|--prev` in FR-007 with `--direction next|prev`, because `docs/agents/code.md` rules out meaning carried by bare flags and swap, resize and scroll already take `--direction` ("go for it"). Re-locked on 2026-10-29 with the program paper ("lock it!"). Amended and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier commitments to legacy saved formats and creation aliases are superseded.
 
 ## Goal
 
@@ -67,9 +67,8 @@ Tested independently by moving panes with the CLI and reading both tabs back wit
 ### P5: Stacks survive a restart
 
 - **Given** a tab with a slot holding `[A, X]`, **when** the server restarts and restores saved tabs, **then** the slot holds the same panes in the same order with `A` in front, each running a fresh shell, as restored panes do today.
-- **Given** saved tabs written before this change, **when** the server loads them, **then** every pane comes back, each alone in its slot.
 
-Tested independently by restarting the server with stacked and pre-change saved tabs.
+Tested independently by saving stacked tabs and restarting the server.
 
 ## Non-goals
 
@@ -83,6 +82,7 @@ Tested independently by restarting the server with stacked and pre-change saved 
 - Hidden panes and floating panes ([#86](https://github.com/shipmux/ship/issues/86)).
 - Pane rows in the sidebar.
 - Changing `ship pane swap`. It keeps its flags and its meaning.
+- Backward compatibility with earlier development builds' saved formats, flags or config fields.
 
 ## Functional requirements
 
@@ -95,8 +95,8 @@ Tested independently by restarting the server with stacked and pre-change saved 
 
 ### Creating and cycling
 
-- **FR-005** `ship pane create` MUST accept `--place right|down|stack`, defaulting to `right`. `stack` puts the new pane in front of the anchor pane's slot instead of splitting it. With a tab target, `stack` MUST stack onto the pane a split would have split. `--direction` MUST keep working as another name for `--place`.
-- **FR-006** `server.pane.create` MUST accept the same `place` for key bindings and menus, with `direction` as another name for it.
+- **FR-005** `ship pane create` MUST accept `--place right|down|stack`, defaulting to `right`. `stack` puts the new pane in front of the anchor pane's slot instead of splitting it. With a tab target, `stack` MUST stack onto the pane a split would have split.
+- **FR-006** `server.pane.create` MUST accept the same `place` for key bindings and menus.
 - **FR-007** `ship pane cycle --pane X --direction next|prev` and the key action `server.pane.cycle` with the same `direction` MUST rotate `X`'s slot one step, so `[X, A, B]` becomes `[A, B, X]` with `next` and `[B, X, A]` with `prev`. `direction` is required. Cycling a slot with one pane MUST do nothing and succeed.
 
 ### Selection
@@ -135,7 +135,7 @@ Tested independently by restarting the server with stacked and pre-change saved 
 ### Restore
 
 - **FR-026** Saved tabs MUST record each slot's panes in order with its front. On restore, every pane MUST come back in its slot and position, restarted as a shell as today.
-- **FR-027** Saved tabs written before this change MUST load, each pane alone in its slot.
+- **FR-027** Superseded on 2026-10-29: no backward-compatibility requirement for saved tabs.
 
 ### Drawing
 
@@ -153,7 +153,7 @@ Tested independently by restarting the server with stacked and pre-change saved 
 - **SC-001** From a pane with output, a user can open its scrollback in their editor with one key and get back to the pane by quitting the editor, without the layout changing in between.
 - **SC-002** Stacking, cycling and closing panes never leaves an empty slot or a pane missing from the layout, checked by reading `ship tab get` after each step in P1.
 - **SC-003** Every step in P3 leaves the tab zoomed.
-- **SC-004** Saved tabs from the current release load with every pane present.
+- **SC-004** Saved tabs in the slot format load with every pane present, preserving slot order.
 - **SC-005** Cycling a stack feels as quick as moving between split panes.
 
 ## Open unknowns

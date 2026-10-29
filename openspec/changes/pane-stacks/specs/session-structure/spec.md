@@ -16,15 +16,11 @@ A tab's pane order SHALL be its binary split tree traversed first child before s
 - **THEN** all pane IDs, programs, tree structure and stored proportions survive, and enlarged panes recover their proportions subject to rounding
 
 ### Requirement: Split placement
-Pane creation SHALL take a place: split the anchor's slot right or down, or stack in front of it, defaulting to right. The CLI SHALL take `--place right|down|stack`, with `--direction` as another name for it. With only a tab target it SHALL use that tab's largest pane by content area, breaking ties by layout order, or create the first pane in an empty tab. A split that would leave either half with less than 1 column and 1 row of content SHALL be refused with "no space for new pane", without starting a program or changing the layout. A split SHALL put the new pane alone in its own slot.
+Pane creation SHALL take a place: split the anchor's slot right or down, or stack in front of it, defaulting to right. The CLI SHALL take `--place right|down|stack`. With only a tab target it SHALL use that tab's largest pane by content area, breaking ties by layout order, or create the first pane in an empty tab. A split that would leave either half with less than 1 column and 1 row of content SHALL be refused with "no space for new pane", without starting a program or changing the layout. A split SHALL put the new pane alone in its own slot.
 
 #### Scenario: Explicit anchor
 - **WHEN** a user runs `ship pane create --pane <id> --place down` with enough room for the split
 - **THEN** the original pane's slot is above the new pane's slot in the same tab and existing unrelated splits remain
-
-#### Scenario: Old flag name
-- **WHEN** a user runs `ship pane create --pane <id> --direction down`
-- **THEN** the pane is created as with `--place down`
 
 #### Scenario: Largest pane
 - **WHEN** a user creates a pane with only `--tab` in a viewed tab with differently sized panes

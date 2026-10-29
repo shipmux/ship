@@ -1,12 +1,12 @@
 # Stacked panes: program
 
-Status: Locked on 2026-10-29. Drafted 2026-10-28, revised 2026-10-29 against `docs/agents/code.md`: cycle takes `direction`, `Slot::take` returns a named `Taken`, `layout::close` folds into `take`, and the move body reuses create's `at` and `place`. Built on `product.md` and `architecture.md`, both re-locked with it. Approved in Plannotator review ("LGTM!") and locked in chat ("lock it!").
+Status: Locked on 2026-10-29. Drafted 2026-10-28, revised 2026-10-29 against `docs/agents/code.md`: cycle takes `direction`, `Slot::take` returns a named `Taken`, `layout::close` folds into `take`, and the move body reuses create's `at` and `place`. Built on `product.md` and `architecture.md`, both re-locked with it. Approved in Plannotator review ("LGTM!") and locked in chat ("lock it!"). Amended and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier legacy-format and creation-alias plans are superseded.
 
 ## Rationale
 
 Shape A puts a stack of panes in each layout leaf. In code that means one new type and a set of edits that keep it consistent:
 
-- **`ship-core/src/layout.rs` owns the stack.** `Slot` wraps the `VecDeque1<Pane>` privately and exposes the few operations the server needs: stack, cycle, bring to front, take out. Every mitsein call sits in this one file, so the `remove_if_many` trap (architecture, risks) has exactly one place to get it right. The serde compatibility for old `"pane"` leaves lives here too.
+- **`ship-core/src/layout.rs` owns the stack.** `Slot` wraps the `VecDeque1<Pane>` privately and exposes the few operations the server needs: stack, cycle, bring to front, take out. Every mitsein call sits in this one file, so the `remove_if_many` trap (architecture, risks) has exactly one place to get it right.
 - **`ship-server/src/state/layout.rs` owns the tree and zoom.** It finds the slot, calls the `Slot` method, collapses a split when a slot empties, and points `tab.zoomed` at the zoomed slot's new front. It's still the only code that changes a tab's layout.
 - **`ship-server/src/state.rs` owns selection.** `repair` gains the "never behind the front" rule, the select handler brings a behind pane forward, and two new handlers (`Cycle`, `PaneMove`) commit through the existing `commit`.
 - **`ship-server/src/state/geometry.rs`** emits one entry per slot, for its front, and takes a title row out of a borderless stacked slot.
@@ -14,7 +14,7 @@ Shape A puts a stack of panes in each layout leaf. In code that means one new ty
 
 One small move from the architecture paper: decision 1 and the structure block put stack-order edits in `state/layout.rs`. Here the order edits are methods on `Slot` in `ship-core`, called only from `state/layout.rs`. The reason is that the stack field can then stay private, and only `layout.rs` touches mitsein. Nothing about who decides what changes. This is flagged for review.
 
-This is a plan in the document only. None of the code below exists in the working tree, and none of it has been compiled.
+The signatures below describe the target implementation. `tasks.md` tracks what is implemented.
 
 ## Skeleton map
 
@@ -47,9 +47,8 @@ tokio = { workspace = true, features = ["process"] }
 
 ```diff
  #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
--#[serde(tag = "kind", rename_all = "snake_case")]
-+#[serde(tag = "kind", rename_all = "snake_case", from = "Repr")]
- #[expect(clippy::large_enum_variant, reason = "...")]
+ #[serde(tag = "kind", rename_all = "snake_case")]
+-#[expect(clippy::large_enum_variant, reason = "...")]
  pub enum Layout {
 -    Pane(Pane),
 +    Slot(Slot),
@@ -110,19 +109,6 @@ pub enum Taken {
     /// It was the only pane, so the slot is gone.
     Last(Pane),
 }
-
-/// Reads the pre-stack `{"kind": "pane", ...}` leaf as a slot of one.
-/// Nothing writes it.
-#[derive(Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-#[expect(clippy::large_enum_variant, reason = "mirrors Layout")]
-enum Repr {
-    Pane(Pane),
-    Slot(Slot),
-    Split(Split),
-}
-
-impl From<Repr> for Layout;
 
 impl Layout {
     /// Every pane, slot by slot in layout order, each slot front first.
@@ -228,8 +214,7 @@ pub struct MovePane {
 -    pub direction: Option<SplitDirection>,
 +    /// Split the anchor to the right or down, or stack in front of it;
 +    /// right by default
-+    #[cfg_attr(feature = "clap", arg(long, visible_alias = "direction"))]
-+    #[serde(alias = "direction")]
++    #[cfg_attr(feature = "clap", arg(long))]
 +    pub place: Option<Placement>,
      ...
  }
@@ -603,12 +588,12 @@ None.
 ### Replaced
 
 - `Layout::Pane(Pane)` is replaced by `Layout::Slot(Slot)` (slice 1).
-- `CreatePane.direction` is replaced by `CreatePane.place` (slice 2). `direction` stays readable only through the command layer's alias, not on the wire.
-- `pane::Create.direction` is replaced by `pane::Create.place`, with `direction` as an alias (slice 2).
+- `CreatePane.direction` is replaced by `CreatePane.place` (slice 2).
+- `pane::Create.direction` is replaced by `pane::Create.place` in flags and bindings (slice 2).
 
 ### Untouched
 
-- `ship-server/src/saver.rs`. `Layout`'s serde reads both leaf forms.
+- `ship-server/src/saver.rs`. `Layout`'s derived serde handles the slot format.
 - `ship-core/src/tree.rs`. Lookups go through `Tab::pane`, which still finds every pane.
 - `ship-core/src/geometry.rs` (`TabGeometry`, `largest`, `neighbor`). Directional focus and swap only see fronts because geometry only has fronts.
 - `ship-client/src/ui/agents.rs` and the sidebar. The agents list still shows panes behind a front, and selecting one brings it forward through FR-008.
@@ -637,12 +622,12 @@ Each slice builds and passes `cargo fmt --check`, `cargo clippy --all-targets` a
 1. **Slot leaf, no behavior change.**
    Files: `Cargo.toml`, `crates/ship-core/Cargo.toml`, `ship-core/src/layout.rs`, `model.rs`, `protocol.rs` (version only), `ship-server/src/state/layout.rs`, `state/geometry.rs`, `state.rs` (`CreateTab`, `restore_tab`), and whatever client code matched `Layout::Pane`.
    Delivers: every leaf is a slot of one; `close` is replaced by `take`, which still clears zoom as today.
-   Done when: `ship tab get | jq .layout` shows `"kind": "slot"` leaves with a `panes` list; a `tabs.json` saved by the current release (copied before building) loads with every pane present (SC-004, FR-027); splitting, closing, swapping, resizing and zooming behave as before.
+   Done when: `ship tab get | jq .layout` shows `"kind": "slot"` leaves with a `panes` list; a slot-format saved file loads with every pane present and in order (SC-004); splitting, closing, swapping, resizing and zooming behave as before.
 
 2. **Stack, cycle, selection and zoom on the server and CLI.**
    Files: `protocol.rs` (`Place`, `CyclePane`), `command.rs` (`Placement`, `place`, `Cycle`), `state/layout.rs` (`stack`, `cycle`, `bring_to_front`, `take`'s zoom rules, `successor`), `state/geometry.rs` (title row), `state.rs` (create, `Cycle`, `repair`, select, `SetTab`), `routes.rs`, `lib.rs`, `ship-client/src/api.rs`, `execute.rs`, `defaults.toml` (`place` rename, `alt-s`, `alt-]`, `alt-[`, "stack" menu item), `docs/site/keys.md`, `GLOSSARY.md`, `docs/agents/code.md`.
    Delivers: P1 except title clicks, P3, and P5's stacked restore.
-   Done when: from the CLI, `ship pane create --place stack` twice then `ship pane cycle --direction next` and `--direction prev` give the orders in P1, read back with `ship tab get`; `--direction right` still works; closing the front shows the next pane and closing the last removes the slot (SC-002); each P3 step leaves `zoomed` set and pointing at the front (SC-003); a selection on a pane pushed behind ends on the new front; `ship view select` of a behind pane brings it forward; a restart restores a stacked slot in order; in the client, `alt-s`, `alt-]` and `alt-[` work and only the front is drawn.
+   Done when: from the CLI, `ship pane create --place stack` twice then `ship pane cycle --direction next` and `--direction prev` give the orders in P1, read back with `ship tab get`; `--place right` splits; closing the front shows the next pane and closing the last removes the slot (SC-002); each P3 step leaves `zoomed` set and pointing at the front (SC-003); a selection on a pane pushed behind ends on the new front; `ship view select` of a behind pane brings it forward; a restart restores a stacked slot in order; in the client, `alt-s`, `alt-]` and `alt-[` work and only the front is drawn.
 
 3. **Titles and clicks in the client.**
    Files: `ship-client/src/ui/panes.rs`, `ui/mouse.rs`, `ui/mod.rs`, `ui/memory.rs`, `docs/site/panes.md`.
@@ -661,4 +646,8 @@ Each slice builds and passes `cargo fmt --check`, `cargo clippy --all-targets` a
 
 ## Deviation log
 
-Empty.
+- Slice 1 cleanup, 2026-10-29: removed the legacy leaf adapter and conversion from `ship-core/src/layout.rs`; `Layout` now derives serde directly. Tasks 1.1 and 1.4 are complete under the revised plan. On macOS, core all-features check, formatting, workspace Clippy with warnings denied, cargo-deny, debug/release builds and strict OpenSpec validation passed. `/tmp/ship-slice1.wVxhy7/current-format-workflow.py` passed against both binaries: current-format nested-tab restore, live client rendering/input, split/swap/resize/zoom/close, pane exit, empty-tab creation and save/restart; all 10 layout/geometry/zoom checkpoints matched the previously verified slice-1 reference. The throwaway `current_layout` binary in `mitsein-probe` verified slot extraction, non-empty serde, nested slot roundtrips, traversal/mutation and schema. Linux is unverified. No slice-2 work began.
+
+- Plan revision, 2026-10-29: Cyan approved dropping backward compatibility before the first release. The legacy leaf adapter, creation aliases and historical-format checks are no longer required. Normal slot-format save/restore and protocol-mismatch rejection remain. This was a planning-only edit; tasks 1.1 and 1.4 are reopened for removal of the existing adapter and verification against the revised plan.
+
+- Slice 1, 2026-10-29: the throwaway probe at `/tmp/ship-slice1.wVxhy7/mitsein-probe` compiled and ran with mitsein 0.9.0. `panes.into_iter1().first()` returns the singleton by value, including a non-`Copy` item, so `Slot::take` needs no conversion to `VecDeque`. The probe also confirmed that `remove_if_many(index).or_get()` returns the removed item while others remain, and serde rejects an empty deque.
