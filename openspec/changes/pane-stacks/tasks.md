@@ -16,7 +16,7 @@ Use an owned temporary server on a scratch name, with `XDG_RUNTIME_DIR`, `XDG_ST
 ## 0. Settle the blocking unknowns
 
 - [x] 0.1 Find the mitsein 0.9 call that turns a one-item `VecDeque1<Pane>` into its item by value, with a throwaway probe outside the workspace. If none exists, plan `Slot::take` to convert to `VecDeque` first. Record the answer in the program paper's deviation log.
-- [ ] 0.2 Probe whether `alt-[` reaches the current client as a key event in Ghostty and one other terminal, with a throwaway binding in a scratch config. If it doesn't, stop and bring FR-030 back to Cyan with a recommendation before slice 2.
+- [x] 0.2 Resolve the cycle-key blocker: the current-client PTY probe missed legacy `alt-[`; Cyan approved `alt-,` (previous) and `alt-.` (next), and both replacement bindings fired in a scratch config. Physical terminal checks remain unverified.
 
 ## 1. Every leaf is a slot
 
@@ -27,12 +27,12 @@ Use an owned temporary server on a scratch name, with `XDG_RUNTIME_DIR`, `XDG_ST
 
 ## 2. Stack and cycle from the CLI and keys
 
-- [ ] 2.1 Add `Place` and `CyclePane` to `protocol.rs`, replacing `CreatePane.direction` with `place`. Add `Placement`, `Create.place` and `Cycle` to `command.rs`, without a creation alias for `direction`.
-- [ ] 2.2 In `state/layout.rs`, add `stack`, `cycle`, `bring_to_front` and `successor`, and give `take` the zoom rules in the program paper's table. Add the title row for borderless stacked slots in `state/geometry.rs`.
-- [ ] 2.3 In `state.rs`, match create on `Place`, add the `Cycle` message, add the front rule to `repair` before the zoom rule, bring a behind pane forward in the select handler and in `SetTab`'s zoom, and compare slots for the select unzoom. Add `POST /api/v0/panes/{id}/cycle` in `routes.rs` and `lib.rs`.
-- [ ] 2.4 Wire `cycle` and `place` through `ship-client`'s `api.rs` and `execute.rs`. In `defaults.toml`, change `direction` to `place`, and add `alt-s`, `alt-]`, `alt-[` and the "stack" menu item.
-- [ ] 2.5 Update `docs/site/keys.md`, `GLOSSARY.md` (slot, stack) and `docs/agents/code.md` (`direction` to `place` in the create-body rule).
-- [ ] 2.6 Verify: `ship pane create --place stack` twice, then `ship pane cycle --direction next` and `--direction prev`, give P1's orders in `ship tab get`; `--place right` splits; closing the front shows the next pane and closing the last removes the slot; each P3 step leaves `zoomed` set and naming the front; a selection on a pane pushed behind ends on the new front; `ship view select` of a behind pane brings it forward; a restart restores a stacked slot in order; in the client, `alt-s`, `alt-]` and `alt-[` work and only the front is drawn.
+- [x] 2.1 Add `Place` and `CyclePane` to `protocol.rs`, replacing `CreatePane.direction` with `place`. Add `Placement`, `Create.place` and `Cycle` to `command.rs`, without a creation alias for `direction`.
+- [x] 2.2 In `state/layout.rs`, add `stack`, `cycle`, `bring_to_front` and `successor`, and give `take` the zoom rules in the program paper's table. Add the title row for borderless stacked slots in `state/geometry.rs`.
+- [x] 2.3 In `state.rs`, match create on `Place`, add the `Cycle` message, add the front rule to `repair` before the zoom rule, bring a behind pane forward in the select handler and in `SetTab`'s zoom, and compare slots for the select unzoom. Add `POST /api/v0/panes/{id}/cycle` in `routes.rs` and `lib.rs`.
+- [x] 2.4 Wire `cycle` and `place` through `ship-client`'s `api.rs` and `execute.rs`. In `defaults.toml`, change `direction` to `place`, and add `alt-s`, `alt-.`, `alt-,` and the "stack" menu item.
+- [x] 2.5 Update `docs/site/keys.md`, `GLOSSARY.md` (slot, stack) and `docs/agents/code.md` (`direction` to `place` in the create-body rule).
+- [x] 2.6 Verify: `ship pane create --place stack` twice, then `ship pane cycle --direction next` and `--direction prev`, give P1's orders in `ship tab get`; `--place right` splits; closing the front shows the next pane and closing the last removes the slot; each P3 step leaves `zoomed` set and naming the front; a selection on a pane pushed behind ends on the new front; `ship view select` of a behind pane brings it forward; a restart restores a stacked slot in order; in the client, `alt-s`, `alt-.` and `alt-,` work and only the front is drawn.
 
 ## 3. Titles and title clicks
 

@@ -33,14 +33,14 @@ A layout leaf holds exactly one pane, so opening something next to a pane means 
 Each slice runs from a real command or key to observable output. Files and checks for each are in the program paper's Build order.
 
 1. **Slot leaf, no behavior change.** `ship tab get` shows `"kind": "slot"` leaves, and slot-format saved tabs restore with every pane in order.
-2. **Stack, cycle, selection and zoom on the server and CLI.** `ship pane create --place stack`, `ship pane cycle`, the front repair rule, zoom retargeting, and `alt-s`, `alt-]` and `alt-[`.
+2. **Stack, cycle, selection and zoom on the server and CLI.** `ship pane create --place stack`, `ship pane cycle`, the front repair rule, zoom retargeting, and `alt-s`, `alt-.` and `alt-,`.
 3. **Titles and clicks in the client.** Borders list the stack, a title click selects, `alt-tab` walks fronts.
 4. **Move.** `ship pane move --onto` and `--beside`, within and across tabs.
 5. **Edit-scrollback.** `ship pane edit-scrollback`, `alt-e` and the menu item.
 
 ## Risks / Trade-offs
 
-- [`alt-[` may never reach Ship, because without the kitty keyboard protocol it arrives as `ESC [`] → Probe before slice 2. If it fails, FR-030 reopens (program Blocking unknowns 1).
+- [Legacy `alt-[` encoding collides with the start of an escape sequence] → Resolved by Cyan's approval of `alt-,` (previous) and `alt-.` (next). Both replacement bindings passed a current-client PTY probe.
 - [mitsein may have no call that hands back the only pane by value] → Settle before slice 1. The fallback converts to `VecDeque` inside `Slot::take` (Blocking unknowns 2).
 - [The schema says `panes` is an array without saying it's non-empty] → Accepted imprecision (decision 8).
 - [Stacking onto a lone pane adds a title row and costs it one row] → The front reflows by one row. Accepted by FR-029.

@@ -1,6 +1,6 @@
 # Stacked panes
 
-Status: Locked on 2026-10-29. Written from a design conversation with Cyan on 2026-10-28 for [#85](https://github.com/shipmux/ship/issues/85), then approved in Plannotator review ("LGTM!"). The feature name changed from "edit history" to "edit scrollback" at Cyan's request during that review. Reopened on 2026-10-28 during architecture design to replace `--stack` with `--place right|down|stack` in FR-005 and FR-006 ("sounds good to me"); re-locked with that change. Reopened on 2026-10-29 during program design to replace `--next|--prev` in FR-007 with `--direction next|prev`, because `docs/agents/code.md` rules out meaning carried by bare flags and swap, resize and scroll already take `--direction` ("go for it"). Re-locked on 2026-10-29 with the program paper ("lock it!"). Amended and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier commitments to legacy saved formats and creation aliases are superseded.
+Status: Locked on 2026-10-29. Written from a design conversation with Cyan on 2026-10-28 for [#85](https://github.com/shipmux/ship/issues/85), then approved in Plannotator review ("LGTM!"). The feature name changed from "edit history" to "edit scrollback" at Cyan's request during that review. Reopened on 2026-10-28 during architecture design to replace `--stack` with `--place right|down|stack` in FR-005 and FR-006 ("sounds good to me"); re-locked with that change. Reopened on 2026-10-29 during program design to replace `--next|--prev` in FR-007 with `--direction next|prev`, because `docs/agents/code.md` rules out meaning carried by bare flags and swap, resize and scroll already take `--direction` ("go for it"). Re-locked on 2026-10-29 with the program paper ("lock it!"). Amended and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier commitments to legacy saved formats and creation aliases are superseded. Amended and approved in chat on 2026-10-29 to use `alt-,` for previous and `alt-.` for next after the legacy bracket-key probe failed.
 
 ## Goal
 
@@ -22,7 +22,7 @@ one slot, stack [X, A, B], X in front
 │                      │          │
 └──────────────────────┴──────────┘
 
-alt-] → [A, B, X]          alt-e on X → [edit-scrollback, X, A, B]
+alt-. → [A, B, X]          alt-e on X → [edit-scrollback, X, A, B]
 ```
 
 ## User stories
@@ -30,8 +30,8 @@ alt-] → [A, B, X]          alt-e on X → [edit-scrollback, X, A, B]
 ### P1: Stack and cycle panes
 
 - **Given** pane `X` is selected, **when** the user presses `alt-s`, **then** a new shell pane opens in `X`'s slot, in front, at the slot's size, and is selected. `X`'s program keeps running behind it.
-- **Given** a slot holds `[X, A, B]`, **when** the user presses `alt-]`, **then** the order is `[A, B, X]`, `A` is shown and selected, and the border lists `A · B · X`.
-- **Given** a slot holds `[X, A, B]`, **when** the user presses `alt-[`, **then** the order is `[B, X, A]` and `B` is shown and selected.
+- **Given** a slot holds `[X, A, B]`, **when** the user presses `alt-.`, **then** the order is `[A, B, X]`, `A` is shown and selected, and the border lists `A · B · X`.
+- **Given** a slot holds `[X, A, B]`, **when** the user presses `alt-,`, **then** the order is `[B, X, A]` and `B` is shown and selected.
 - **Given** a slot holds `[X, A]`, **when** the user closes `X`, **then** `A` is shown and selected. **When** the user then closes `A`, **then** the slot is gone and its neighbor takes the space, as closing a pane does today.
 - **Given** two clients look at the same tab, **when** one cycles a stack, **then** both see the same front pane.
 - **Given** the user clicks `B`'s title in the border of a slot holding `[X, A, B]`, **then** `B` is shown and selected, and the order is `[B, X, A]`.
@@ -144,7 +144,7 @@ Tested independently by saving stacked tabs and restarting the server.
 
 ### Defaults and docs
 
-- **FR-030** Default keys: `alt-s` stacks a new shell onto the selected pane and selects it; `alt-]` and `alt-[` cycle the selected pane's slot next and previous; `alt-e` creates a stacked pane running `ship pane edit-scrollback` with exit behavior `keep_failed`, and selects it.
+- **FR-030** Default keys: `alt-s` stacks a new shell onto the selected pane and selects it; `alt-.` and `alt-,` cycle the selected pane's slot next and previous; `alt-e` creates a stacked pane running `ship pane edit-scrollback` with exit behavior `keep_failed`, and selects it.
 - **FR-031** The pane menu MUST offer "stack" and "edit scrollback" next to the split items.
 - **FR-032** `docs/site/panes.md` and `docs/site/keys.md` MUST describe stacks, cycling, moving and edit-scrollback, and `GLOSSARY.md` MUST define slot and stack.
 

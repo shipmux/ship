@@ -16,8 +16,8 @@ use ship_core::{
     model::{NodeId, Pane, Tab},
     prelude::*,
     protocol::{
-        CreatePane, CreateTab, MoveTab, MoveTabBody, NewPane, NewTab, PaneAt, ReadPane, ResizePane,
-        ScrollPane, SetPane, SetTab, SwapPane,
+        CreatePane, CreateTab, CyclePane, MoveTab, MoveTabBody, NewPane, NewTab, PaneAt, Place,
+        ReadPane, ResizePane, ScrollPane, SetPane, SetTab, SwapPane,
     },
     tree::{self, Tabs},
 };
@@ -118,7 +118,7 @@ impl Client {
             Command::Pane(command) => match command {
                 PaneCommand::Create(pane::Create {
                     tab,
-                    direction,
+                    place,
                     name,
                     right_click_passthrough,
                     exit_behavior,
@@ -153,12 +153,16 @@ impl Client {
                     Outcome::Pane(
                         self.create_pane(&CreatePane {
                             at,
-                            direction: direction.unwrap_or_default(),
+                            place: place.map(Place::from).unwrap_or_default(),
                             pane,
                             select,
                         })
                         .await?,
                     )
+                }
+                PaneCommand::Cycle(pane::Cycle { pane, direction }) => {
+                    let id = Self::pane_target(pane, scope)?;
+                    Outcome::Tab(self.cycle(id, &CyclePane { direction }).await?)
                 }
                 PaneCommand::Get(pane::Get { pane }) => {
                     Outcome::Pane(self.get::<Pane>(Self::pane_target(pane, scope)?).await?)

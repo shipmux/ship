@@ -67,6 +67,26 @@ impl Slot {
         self.panes.get(index + 1)
     }
 
+    pub fn push_front(&mut self, pane: Pane) {
+        self.panes.push_front(pane);
+    }
+
+    pub fn cycle(&mut self, direction: CycleDirection) {
+        match direction {
+            CycleDirection::Next => self.panes.rotate_left(1),
+            CycleDirection::Prev => self.panes.rotate_right(1),
+        }
+    }
+
+    /// Rotates to `pane`, preserving cyclic order; false if it isn't here.
+    pub fn bring_to_front(&mut self, pane: IdOf<Pane>) -> bool {
+        let Some(index) = self.panes().position(|item| item.id == pane) else {
+            return false;
+        };
+        self.panes.rotate_left(index);
+        true
+    }
+
     /// Takes `pane` out, or returns the slot unchanged if it isn't here.
     pub fn take(mut self, pane: IdOf<Pane>) -> Result<Taken, Slot> {
         let Some(index) = self.panes().position(|item| item.id == pane) else {

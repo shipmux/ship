@@ -17,7 +17,7 @@ A layout position holds exactly one pane, so the only way to open something next
 - **Swap** exchanges two panes' slot and position in the stack.
 - **Titles.** A slot's top border lists all its panes' titles, front first and marked. A lone stacked slot gets a title row. Clicking a title selects that pane.
 - **Edit-scrollback.** `ship pane edit-scrollback` opens the scrollback of the pane behind it in `VISUAL`, else `EDITOR`, else `vi`, from a private temp file it deletes afterwards. Edits are discarded. It's Unix-only for now.
-- **Defaults.** `alt-s` stacks a shell, `alt-]` and `alt-[` cycle, `alt-e` opens edit-scrollback in a stacked pane. The pane menu gains "stack" and "edit scrollback". Existing bindings move from `direction` to `place`.
+- **Defaults.** `alt-s` stacks a shell, `alt-.` and `alt-,` cycle, `alt-e` opens edit-scrollback in a stacked pane. The pane menu gains "stack" and "edit scrollback". Existing bindings move from `direction` to `place`.
 - **Docs.** `docs/site/panes.md`, `docs/site/keys.md` and `GLOSSARY.md` describe slots, stacks, cycling, moving and edit-scrollback.
 
 Not in this change (the product paper lists them all):
@@ -39,7 +39,7 @@ Not in this change (the product paper lists them all):
 - `session-observation`: selection repair to the front, geometry for fronts only, zoom kept through stack edits and other slots' closes, and selecting within a zoomed slot.
 - `session-restore`: slots saved and restored in order.
 - `health-exchange`: protocol 20.
-- `keymap`: `alt-s`, `alt-]`, `alt-[` and `alt-e`, `place` in bindings, and pane cycling over fronts only.
+- `keymap`: `alt-s`, `alt-.`, `alt-,` and `alt-e`, `place` in bindings, and pane cycling over fronts only.
 - `context-menus`: the default pane menu gains "stack" and "edit scrollback", and uses `place`.
 - `mouse-input`: title clicks, and a behind pane's title winning over a border grab.
 - `terminal-client`: stack titles in borders and the lone stacked slot's title row.

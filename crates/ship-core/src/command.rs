@@ -20,7 +20,7 @@ pub enum Command {
     /// List, create, inspect, set attributes, close or move tabs
     #[cfg_attr(feature = "clap", command(subcommand))]
     Tab(tab::TabCommand),
-    /// Create, inspect, set attributes, close, resize or swap panes
+    /// Create, inspect, set attributes, close, resize, swap or cycle panes
     #[cfg_attr(feature = "clap", command(subcommand))]
     Pane(pane::PaneCommand),
 }
@@ -249,8 +249,9 @@ pub mod pane {
     use super::{Direction, PaneTarget, TabTarget};
     use crate::{
         id::{Attachment, IdOf},
+        layout::CycleDirection,
         model::{ExitBehavior, Pane, ReportedState, Switch},
-        protocol::{ScrollDirection, SplitDirection},
+        protocol::{Place, ScrollDirection, SplitDirection},
     };
 
     /// `get`, `read`, `send` and `wait` are CLI-only, so the config rejects them.
@@ -283,6 +284,8 @@ pub mod pane {
         Wait(Wait),
         /// Exchange a pane with another pane in its tab and print the tab as JSON
         Swap(Swap),
+        /// Rotate a pane's stack one step and print its tab as JSON
+        Cycle(Cycle),
     }
 
     #[derive(Clone, Debug, Default, Deserialize)]
@@ -291,16 +294,16 @@ pub mod pane {
     #[cfg_attr(
         feature = "clap",
         command(
-            mut_arg("pane", |arg| arg.help("Split anchor pane ID; defaults to the pane this runs in")),
-            mut_arg("id", |arg| arg.help("Tab ID; splits its largest pane or creates its first pane; overrides --pane"))
+            mut_arg("pane", |arg| arg.help("Anchor pane ID; defaults to the pane this runs in")),
+            mut_arg("id", |arg| arg.help("Tab ID; uses its largest pane or creates its first pane; overrides --pane"))
         )
     )]
     pub struct Create {
         #[cfg_attr(feature = "clap", command(flatten))]
         pub tab: TabTarget,
-        /// Which side of the anchor to split; right by default
+        /// Split right or down, or stack in front of the anchor; right by default
         #[cfg_attr(feature = "clap", arg(long))]
-        pub direction: Option<SplitDirection>,
+        pub place: Option<Placement>,
         /// Pane name; omitted means none
         #[cfg_attr(feature = "clap", arg(long))]
         pub name: Option<String>,
@@ -490,6 +493,38 @@ pub mod pane {
                 ReportedState::Error => Self::Error,
             }
         }
+    }
+
+    /// The flat form of `Place` for flags and bindings.
+    #[derive(Clone, Copy, Debug, Deserialize)]
+    #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+    #[serde(rename_all = "snake_case")]
+    pub enum Placement {
+        Right,
+        Down,
+        Stack,
+    }
+
+    impl From<Placement> for Place {
+        fn from(place: Placement) -> Self {
+            match place {
+                Placement::Right => Self::Split(SplitDirection::Right),
+                Placement::Down => Self::Split(SplitDirection::Down),
+                Placement::Stack => Self::Stack,
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, Deserialize)]
+    #[cfg_attr(feature = "clap", derive(Args))]
+    #[serde(deny_unknown_fields)]
+    pub struct Cycle {
+        #[cfg_attr(feature = "clap", command(flatten))]
+        #[serde(default)]
+        pub pane: PaneTarget,
+        /// next brings the pane behind the front forward; prev brings the back forward
+        #[cfg_attr(feature = "clap", arg(long))]
+        pub direction: CycleDirection,
     }
 
     /// Directional swap is `client.pane.swap`, a key action with no CLI form.

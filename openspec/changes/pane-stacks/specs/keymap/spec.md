@@ -1,10 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Default stack keys
-With no bindings in the file, normal mode SHALL bind `alt-s` to `server.pane.create = { place = "stack", select = true }`, `alt-]` to `server.pane.cycle = { direction = "next" }`, `alt-[` to `server.pane.cycle = { direction = "prev" }`, and `alt-e` to `server.pane.create = { place = "stack", select = true, exit_behavior = "keep_failed", command = ["sh", "-c", "exec \"$SHIP_BIN\" pane edit-scrollback"] }`.
+With no bindings in the file, normal mode SHALL bind `alt-s` to `server.pane.create = { place = "stack", select = true }`, `alt-.` to `server.pane.cycle = { direction = "next" }`, `alt-,` to `server.pane.cycle = { direction = "prev" }`, and `alt-e` to `server.pane.create = { place = "stack", select = true, exit_behavior = "keep_failed", command = ["sh", "-c", "exec \"$SHIP_BIN\" pane edit-scrollback"] }`.
 
 #### Scenario: Stack and cycle from keys
-- **WHEN** a user with no config presses `alt-s` on pane X, then `alt-]`, then `alt-[`
+- **WHEN** a user with no config presses `alt-s` on pane X, then `alt-.`, then `alt-,`
 - **THEN** a new shell N is stacked and selected in front of X, then X is shown and selected, then N is shown and selected again
 
 #### Scenario: Edit scrollback from a key

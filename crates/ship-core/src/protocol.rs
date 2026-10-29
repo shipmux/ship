@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::{
     command::Direction,
     id::{Attachment, IdOf},
+    layout::CycleDirection,
     model::{ExitBehavior, NodeId, Pane, Switch, Tab, tabs_schema},
     screen::{Screen, Size},
     tree::Tabs,
@@ -110,7 +111,7 @@ pub enum Starter {
 pub struct CreatePane {
     pub at: PaneAt,
     #[serde(default)]
-    pub direction: SplitDirection,
+    pub place: Place,
     #[serde(default)]
     pub pane: NewPane,
     /// Select the new pane in the same commit.
@@ -119,7 +120,7 @@ pub struct CreatePane {
     pub select: Option<IdOf<Attachment>>,
 }
 
-/// Split an explicit pane, or the largest pane of a tab (first pane if empty).
+/// Place relative to an explicit pane, or the largest pane of a tab.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -135,6 +136,27 @@ pub enum SplitDirection {
     #[default]
     Right,
     Down,
+}
+
+/// Where a pane goes relative to its anchor.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Place {
+    Split(SplitDirection),
+    Stack,
+}
+
+impl Default for Place {
+    fn default() -> Self {
+        Self::Split(SplitDirection::Right)
+    }
+}
+
+/// POST /panes/{id}/cycle body.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct CyclePane {
+    pub direction: CycleDirection,
 }
 
 /// The new tab, as a subset of Tab.

@@ -1,11 +1,10 @@
-//! Local tree rewrites and old-tree close selection repair. Structural edits
-//! clear the tab's zoom.
+//! Tree rewrites, stack edits and close selection repair. Zoom follows its slot.
 
 use ratatui::layout::Rect;
 use ship_core::{
     command::Direction,
     id::IdOf,
-    layout::{Axis, Layout, Ratio, Slot, Split, Taken},
+    layout::{Axis, CycleDirection, Layout, Ratio, Slot, Split, Taken},
     model::{Pane, Tab},
     prelude::*,
     protocol::SplitDirection,
@@ -58,7 +57,55 @@ pub(crate) fn split(
     Ok(())
 }
 
-/// Takes a pane out, collapsing its split when its slot is emptied.
+/// Stack in front of the anchor's slot, or start an empty tab.
+pub(crate) fn stack(tab: &mut Tab, anchor: Option<IdOf<Pane>>, pane: Pane) -> Result<()> {
+    let zoomed = tab.zoomed;
+    match (&mut tab.layout, anchor) {
+        (None, None) => tab.layout = Some(Layout::Slot(Slot::new(pane))),
+        (Some(layout), Some(anchor)) => layout
+            .slot_mut(anchor)
+            .ok_or_else(|| err!(InvalidStructure, "stack anchor is not in the tab"))?
+            .push_front(pane),
+        _ => return Err(err!(InvalidStructure, "stack anchor is not in the tab")),
+    }
+    if let Some(was) = zoomed {
+        refocus_zoom(tab, was);
+    }
+    Ok(())
+}
+
+/// Rotate a slot; zoom follows its front.
+pub(crate) fn cycle(tab: &mut Tab, pane: IdOf<Pane>, direction: CycleDirection) -> Result<()> {
+    let zoomed = tab.zoomed;
+    tab.layout
+        .as_mut()
+        .and_then(|layout| layout.slot_mut(pane))
+        .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?
+        .cycle(direction);
+    if let Some(was) = zoomed {
+        refocus_zoom(tab, was);
+    }
+    Ok(())
+}
+
+pub(crate) fn bring_to_front(tab: &mut Tab, pane: IdOf<Pane>) -> Result<()> {
+    let zoomed = tab.zoomed;
+    tab.layout
+        .as_mut()
+        .and_then(|layout| layout.slot_mut(pane))
+        .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?
+        .bring_to_front(pane);
+    if let Some(was) = zoomed {
+        refocus_zoom(tab, was);
+    }
+    Ok(())
+}
+
+fn refocus_zoom(tab: &mut Tab, was: IdOf<Pane>) {
+    tab.zoomed = tab.slot(was).map(|slot| slot.front().id);
+}
+
+/// Takes a pane out, collapsing an emptied slot; zoom stays on a surviving slot.
 pub(crate) fn take(tab: &mut Tab, id: IdOf<Pane>) -> Result<Pane> {
     fn remove(layout: Layout, id: IdOf<Pane>, taken: &mut Option<Pane>) -> Option<Layout> {
         match layout {
@@ -90,12 +137,17 @@ pub(crate) fn take(tab: &mut Tab, id: IdOf<Pane>) -> Result<Pane> {
     if tab.pane(id).is_none() {
         return Err(err!(NotFound, "pane {} not found", id));
     }
+    let zoomed = tab
+        .zoomed
+        .and_then(|zoomed| tab.slot(zoomed))
+        .and_then(|slot| slot.panes().find(|pane| pane.id != id))
+        .map(|pane| pane.id);
     let mut taken = None;
     tab.layout = tab
         .layout
         .take()
         .and_then(|layout| remove(layout, id, &mut taken));
-    tab.zoomed = None;
+    tab.zoomed = zoomed;
     Ok(taken.expect("pane belongs to tab"))
 }
 
@@ -269,7 +321,7 @@ fn split_at<'a>(layout: &'a mut Layout, path: &[bool]) -> &'a mut Split {
     }
 }
 
-/// At same-axis splits descend toward the closed side; otherwise take first.
+/// Prefer the surviving front, else descend into the sibling toward the closed side.
 pub(crate) fn successor(layout: &Layout, closed: IdOf<Pane>) -> Option<IdOf<Pane>> {
     fn edge(layout: &Layout, axis: Axis, closed_first: bool) -> IdOf<Pane> {
         match layout {
@@ -283,6 +335,14 @@ pub(crate) fn successor(layout: &Layout, closed: IdOf<Pane>) -> Option<IdOf<Pane
                 edge(child, axis, closed_first)
             }
         }
+    }
+    if let Some(slot) = layout.slot(closed)
+        && slot.len().get() > 1
+    {
+        return slot
+            .panes()
+            .find(|pane| pane.id != closed)
+            .map(|pane| pane.id);
     }
     let Layout::Split(split) = layout else {
         return None;

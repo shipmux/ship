@@ -180,6 +180,28 @@ pub(crate) async fn create_pane(State(app): App, Body(body): Body<CreatePane>) -
 }
 
 #[utoipa::path(
+    post,
+    path = "/api/v0/panes/{id}/cycle",
+    operation_id = "cycle_pane",
+    params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
+    request_body = CyclePane,
+    responses(
+        (status = 200, body = Tab),
+        (status = 400, description = "Malformed pane ID or request validation failed", body = AppError),
+        (status = 404, body = AppError),
+        (status = 503, body = AppError),
+    ),
+)]
+pub(crate) async fn cycle_pane(
+    State(app): App,
+    Path(id): Path<IdOf<Pane>>,
+    Body(cycle): Body<CyclePane>,
+) -> Result<Response> {
+    let tab = app.state.ask(Cycle { id, cycle }).await?;
+    Ok(Json(tab).into_response())
+}
+
+#[utoipa::path(
     get,
     path = "/api/v0/panes/{id}",
     operation_id = "get_pane",

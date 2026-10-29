@@ -10,7 +10,7 @@ use ratatui::{
 use ship_core::{
     geometry::{PaneGeometry, TabGeometry},
     id::IdOf,
-    layout::{Axis, Layout, Ratio},
+    layout::{Axis, Layout, Ratio, Slot},
     model::{Pane, Tab},
     screen::Size,
     tree::Tabs,
@@ -103,11 +103,7 @@ pub(crate) fn tab(tab: &Tab, size: Size) -> TabGeometry {
     ) {
         match layout {
             Layout::Slot(slot) => {
-                let content = if bordered {
-                    Block::bordered().inner(frame)
-                } else {
-                    frame
-                };
+                let content = content(frame, bordered, slot);
                 panes.insert(slot.front().id, PaneGeometry { frame, content });
             }
             Layout::Split(split) => {
@@ -124,7 +120,7 @@ pub(crate) fn tab(tab: &Tab, size: Size) -> TabGeometry {
             slot.front().id,
             PaneGeometry {
                 frame,
-                content: frame,
+                content: content(frame, false, slot),
             },
         );
     } else if let Some(layout) = &tab.layout {
@@ -136,4 +132,18 @@ pub(crate) fn tab(tab: &Tab, size: Size) -> TabGeometry {
         );
     }
     TabGeometry { size, panes }
+}
+
+/// Only a borderless stack needs a separate title row.
+fn content(frame: Rect, bordered: bool, slot: &Slot) -> Rect {
+    if bordered {
+        return Block::bordered().inner(frame);
+    }
+    let title = u16::from(slot.len().get() > 1).min(frame.height);
+    Rect::new(
+        frame.x,
+        frame.y.saturating_add(title),
+        frame.width,
+        frame.height - title,
+    )
 }

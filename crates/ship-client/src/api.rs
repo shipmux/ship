@@ -17,8 +17,9 @@ use ship_core::{
     model::{Pane, Tab},
     prelude::*,
     protocol::{
-        AttachRequest, CreatePane, CreateTab, InputBody, InputFrame, MoveTabBody, REVISION_HEADER,
-        ReadPane, ResizePane, ScrollPane, SelectView, SseEvent, SwapPane, ViewInput, ViewingRecord,
+        AttachRequest, CreatePane, CreateTab, CyclePane, InputBody, InputFrame, MoveTabBody,
+        REVISION_HEADER, ReadPane, ResizePane, ScrollPane, SelectView, SseEvent, SwapPane,
+        ViewInput, ViewingRecord,
     },
     tree::Tabs,
 };
@@ -196,6 +197,11 @@ impl Client {
     /// Exchange the pane with `body.other`; returns their tab.
     pub async fn swap(&self, pane: IdOf<Pane>, body: &SwapPane) -> Result<Tab> {
         self.pane_edit(pane, "swap", body).await
+    }
+
+    /// Rotate the pane's slot; returns its tab.
+    pub async fn cycle(&self, pane: IdOf<Pane>, body: &CyclePane) -> Result<Tab> {
+        self.pane_edit(pane, "cycle", body).await
     }
 
     /// Move the pane's edge; returns its tab.

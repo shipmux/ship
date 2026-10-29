@@ -1,6 +1,6 @@
 # Stacked panes: architecture
 
-Status: Locked on 2026-10-29. Built on the locked `product.md`. Cyan picked shape A in chat ("i agree with a. soudns good to me"), with the deciding outcome that a pane in two places or an empty stack can't be represented, and accepted the follow-on decisions and the `SHIP_BIN` launch in the same message. `place` replaced the `--stack` flag during review, and the mitsein spike findings were folded into decisions 1 and 8 and the risks. Then approved in Plannotator review on the updated version ("LGTM! this is on the new one"). Reopened on 2026-10-29 under the ripple rule when FR-007 changed to `--direction`, and to make the move body reuse create's `at` and `place` in decision 6, following `docs/agents/code.md` ("Reuse a named shape instead of restating it"; "go for it"). Re-locked on 2026-10-29 with the program paper ("lock it!"). Reopened with the product paper and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier legacy-format and creation-alias decisions are superseded.
+Status: Locked on 2026-10-29. Built on the locked `product.md`. Cyan picked shape A in chat ("i agree with a. soudns good to me"), with the deciding outcome that a pane in two places or an empty stack can't be represented, and accepted the follow-on decisions and the `SHIP_BIN` launch in the same message. `place` replaced the `--stack` flag during review, and the mitsein spike findings were folded into decisions 1 and 8 and the risks. Then approved in Plannotator review on the updated version ("LGTM! this is on the new one"). Reopened on 2026-10-29 under the ripple rule when FR-007 changed to `--direction`, and to make the move body reuse create's `at` and `place` in decision 6, following `docs/agents/code.md` ("Reuse a named shape instead of restating it"; "go for it"). Re-locked on 2026-10-29 with the program paper ("lock it!"). Reopened with the product paper and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier legacy-format and creation-alias decisions are superseded. Amended and approved in chat on 2026-10-29 to use `alt-,` for previous and `alt-.` for next after the legacy bracket-key probe failed.
 
 Diagrams are code and diffs instead of Mermaid, at Cyan's request.
 
@@ -83,7 +83,7 @@ ship-client
 ├── automation.rs  edit-scrollback: find target, read, tempfile, editor
 └── ui/panes.rs    border titles for every pane in the slot, click to select
 
-ship-core/defaults.toml   alt-s, alt-[, alt-], alt-e, pane menu items
+ship-core/defaults.toml   alt-s, alt-,, alt-., alt-e, pane menu items
 ```
 
 What flows where:

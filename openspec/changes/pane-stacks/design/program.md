@@ -1,6 +1,6 @@
 # Stacked panes: program
 
-Status: Locked on 2026-10-29. Drafted 2026-10-28, revised 2026-10-29 against `docs/agents/code.md`: cycle takes `direction`, `Slot::take` returns a named `Taken`, `layout::close` folds into `take`, and the move body reuses create's `at` and `place`. Built on `product.md` and `architecture.md`, both re-locked with it. Approved in Plannotator review ("LGTM!") and locked in chat ("lock it!"). Amended and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier legacy-format and creation-alias plans are superseded.
+Status: Locked on 2026-10-29. Drafted 2026-10-28, revised 2026-10-29 against `docs/agents/code.md`: cycle takes `direction`, `Slot::take` returns a named `Taken`, `layout::close` folds into `take`, and the move body reuses create's `at` and `place`. Built on `product.md` and `architecture.md`, both re-locked with it. Approved in Plannotator review ("LGTM!") and locked in chat ("lock it!"). Amended and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier legacy-format and creation-alias plans are superseded. Amended and approved in chat on 2026-10-29 to use `alt-,` for previous and `alt-.` for next after the legacy bracket-key probe failed.
 
 ## Rationale
 
@@ -567,8 +567,8 @@ Neither is in the product paper. Both stop a client-local walk from reaching a p
 +"alt--" = { action = { server.pane.create = { place = "down", select = true } } }
 +"alt-|" = { action = { server.pane.create = { place = "right", select = true } } }
 +"alt-s" = { action = { server.pane.create = { place = "stack", select = true } } }
-+"alt-]" = { action = { server.pane.cycle = { direction = "next" } } }
-+"alt-[" = { action = { server.pane.cycle = { direction = "prev" } } }
++"alt-." = { action = { server.pane.cycle = { direction = "next" } } }
++"alt-," = { action = { server.pane.cycle = { direction = "prev" } } }
 +"alt-e" = { action = { server.pane.create = { place = "stack", select = true, exit_behavior = "keep_failed", command = ["sh", "-c", "exec \"$SHIP_BIN\" pane edit-scrollback"] } } }
 ```
 
@@ -577,7 +577,7 @@ The "stack" menu item lands in slice 2, "edit scrollback" and `alt-e` in slice 5
 #### Docs (in the slice that ships each behavior)
 
 - `docs/site/panes.md`: stacking, cycling and the border titles (slice 3), moving (slice 4), edit-scrollback (slice 5). The `--direction right` example becomes `--place right`.
-- `docs/site/keys.md`: `alt-s`, `alt-]`, `alt-[` (slice 2), `alt-e` (slice 5).
+- `docs/site/keys.md`: `alt-s`, `alt-.`, `alt-,` (slice 2), `alt-e` (slice 5).
 - `GLOSSARY.md`: slot and stack (slice 2).
 - `docs/agents/code.md`: `direction` becomes `place` in the create-body rule (slice 2).
 
@@ -601,7 +601,7 @@ None.
 
 ### Blocking unknowns
 
-1. **Does `alt-[` reach Ship?** The client doesn't turn on the kitty keyboard protocol, so a terminal sends alt-`[` as `ESC [`, the start of an escape sequence. crossterm may wait for the rest or drop it. Settle it with a probe before slice 2. If it fails, FR-030 reopens: another key, or turning the protocol on.
+1. **Cycle keys, resolved on 2026-10-29.** The current client's PTY probe fired `alt-]` but not `alt-[` with legacy terminal encoding. Cyan approved replacing them with `alt-.` for next and `alt-,` for previous, without changing keyboard protocols. Both replacement bindings fired in the same real-client PTY probe. Physical Ghostty/Terminal checks remain unverified; desktop automation timed out.
 2. **How does `Slot::take` get the only pane out by value?** The spike checked removal only while others remain, and `pop_front_if_many().or_get_only()` lends the last pane rather than returning it. Find the mitsein call that turns a one-item `VecDeque1` into its item before slice 1. If none exists, `Slot::take` converts to a `VecDeque` first.
 
 ### Open choices
@@ -625,9 +625,9 @@ Each slice builds and passes `cargo fmt --check`, `cargo clippy --all-targets` a
    Done when: `ship tab get | jq .layout` shows `"kind": "slot"` leaves with a `panes` list; a slot-format saved file loads with every pane present and in order (SC-004); splitting, closing, swapping, resizing and zooming behave as before.
 
 2. **Stack, cycle, selection and zoom on the server and CLI.**
-   Files: `protocol.rs` (`Place`, `CyclePane`), `command.rs` (`Placement`, `place`, `Cycle`), `state/layout.rs` (`stack`, `cycle`, `bring_to_front`, `take`'s zoom rules, `successor`), `state/geometry.rs` (title row), `state.rs` (create, `Cycle`, `repair`, select, `SetTab`), `routes.rs`, `lib.rs`, `ship-client/src/api.rs`, `execute.rs`, `defaults.toml` (`place` rename, `alt-s`, `alt-]`, `alt-[`, "stack" menu item), `docs/site/keys.md`, `GLOSSARY.md`, `docs/agents/code.md`.
+   Files: `protocol.rs` (`Place`, `CyclePane`), `command.rs` (`Placement`, `place`, `Cycle`), `state/layout.rs` (`stack`, `cycle`, `bring_to_front`, `take`'s zoom rules, `successor`), `state/geometry.rs` (title row), `state.rs` (create, `Cycle`, `repair`, select, `SetTab`), `routes.rs`, `lib.rs`, `ship-client/src/api.rs`, `execute.rs`, `defaults.toml` (`place` rename, `alt-s`, `alt-.`, `alt-,`, "stack" menu item), `docs/site/keys.md`, `GLOSSARY.md`, `docs/agents/code.md`.
    Delivers: P1 except title clicks, P3, and P5's stacked restore.
-   Done when: from the CLI, `ship pane create --place stack` twice then `ship pane cycle --direction next` and `--direction prev` give the orders in P1, read back with `ship tab get`; `--place right` splits; closing the front shows the next pane and closing the last removes the slot (SC-002); each P3 step leaves `zoomed` set and pointing at the front (SC-003); a selection on a pane pushed behind ends on the new front; `ship view select` of a behind pane brings it forward; a restart restores a stacked slot in order; in the client, `alt-s`, `alt-]` and `alt-[` work and only the front is drawn.
+   Done when: from the CLI, `ship pane create --place stack` twice then `ship pane cycle --direction next` and `--direction prev` give the orders in P1, read back with `ship tab get`; `--place right` splits; closing the front shows the next pane and closing the last removes the slot (SC-002); each P3 step leaves `zoomed` set and pointing at the front (SC-003); a selection on a pane pushed behind ends on the new front; `ship view select` of a behind pane brings it forward; a restart restores a stacked slot in order; in the client, `alt-s`, `alt-.` and `alt-,` work and only the front is drawn.
 
 3. **Titles and clicks in the client.**
    Files: `ship-client/src/ui/panes.rs`, `ui/mouse.rs`, `ui/mod.rs`, `ui/memory.rs`, `docs/site/panes.md`.
@@ -645,6 +645,10 @@ Each slice builds and passes `cargo fmt --check`, `cargo clippy --all-targets` a
    Done when: `alt-e` on a pane that printed `seq 1 5000` opens the editor with all 5000 lines; quitting returns to the pane with the layout unchanged; `EDITOR="code --wait"` style values work; the temp file is mode 0600 while open and gone after; a file left by a killed run is removed by the next run while a concurrent run's file is not; running it in a pane alone in its slot fails with the "no pane behind" message; with `EDITOR=/nonexistent` the pane stays open showing the error.
 
 ## Deviation log
+
+- Slice 2 verified, 2026-10-29: tasks 2.1–2.6 are complete with the approved comma/period keys. Stack/cycle, placement, front selection repair, zoom retargeting, front-only geometry and stacked restore run through the existing command/API/commit path. `/tmp/ship-slice2-workflow.py` passed 33 checkpoints against debug (`/tmp/ship-slice2.x75wxcrj/`) and release (`/tmp/ship-slice2.d9a3hfke/`) on macOS, using two real full-screen clients and owned temporary servers. Checks covered CLI/HTTP validation, default keys and existing split keys, largest-slot placement, behind-pane anchors, initial and transition PTY sizes, only-front rendering, shared selection, every close/zoom case, program exit and nested save/restart. The throwaway `stack` binary in `/tmp/ship-slice1.wVxhy7/mitsein-probe` passed rotation, bring-to-front, singleton, removal, serde and schema probes. Formatting, workspace Clippy with warnings denied, cargo-deny, debug/release builds and strict OpenSpec validation passed. Linux and physical terminal key delivery remain unverified. No permanent tests, coding subagents or slice-3 work were added.
+
+- Slice 2 key decision, 2026-10-29: Cyan chose comma/period after the legacy `alt-[` probe failed. `/tmp/ship-slice2-key-probe.py` ran the real client with scratch bindings and isolated server state: `ESC ,` and `ESC .` both triggered the intended actions. No keyboard-protocol changes are needed. The original failure report is `/tmp/ship-slice2-keys.l_u7jw5_/report.json`; the replacement-key report is `/tmp/ship-slice2-keys.yqwhg56u/report.json`. Physical Ghostty/Terminal input remains unverified because desktop automation timed out.
 
 - Slice 1 cleanup, 2026-10-29: removed the legacy leaf adapter and conversion from `ship-core/src/layout.rs`; `Layout` now derives serde directly. Tasks 1.1 and 1.4 are complete under the revised plan. On macOS, core all-features check, formatting, workspace Clippy with warnings denied, cargo-deny, debug/release builds and strict OpenSpec validation passed. `/tmp/ship-slice1.wVxhy7/current-format-workflow.py` passed against both binaries: current-format nested-tab restore, live client rendering/input, split/swap/resize/zoom/close, pane exit, empty-tab creation and save/restart; all 10 layout/geometry/zoom checkpoints matched the previously verified slice-1 reference. The throwaway `current_layout` binary in `mitsein-probe` verified slot extraction, non-empty serde, nested slot roundtrips, traversal/mutation and schema. Linux is unverified. No slice-2 work began.
 
