@@ -256,7 +256,7 @@ pub struct Move {
     #[cfg_attr(feature = "clap", command(flatten))]
     pub pane: PaneTarget,
     /// Put the pane in front of this pane's stack
-    #[cfg_attr(feature = "clap", arg(long, value_name = "ID"))]
+    #[cfg_attr(feature = "clap", arg(long, value_name = "ID", conflicts_with = "direction"))]
     pub onto: Option<IdOf<Pane>>,
     /// Split this pane's slot and put the pane alone on the --direction side
     #[cfg_attr(feature = "clap", arg(long, value_name = "ID", requires = "direction"))]
@@ -408,12 +408,13 @@ check id != at, else InvalidStructure "cannot move pane X onto or beside itself"
 pane = layout::take(source tab, id)        // source slot may collapse; zoom per take
 Place::Stack            -> layout::stack(dest tab, Some(at), pane)
 Place::Split(direction) -> layout::split(dest tab, Some(at), direction, pane)
+if a client has id selected and destination zoom would hide id -> unzoom destination
 answer: the destination tab
 ```
 
 That's the same `match` on `Place` as `CreatePane`'s commit.
 
-`retain_runtimes` keeps the program because the pane's ID is in the tree after the commit. Selections on the moved pane stay on it, since it's a front in both forms.
+`retain_runtimes` keeps the program because the pane's ID is in the tree after the commit. Selections on the moved pane stay on it, since it is a front in both forms and the destination unzooms if its zoom would otherwise hide that selected pane. This exception applies within a tab too; an unselected move otherwise keeps the existing zoom rules.
 
 #### `crates/ship-server/src/routes.rs` and `lib.rs` (slices 2 and 4)
 
@@ -645,6 +646,10 @@ Each slice builds and passes `cargo fmt --check`, `cargo clippy --all-targets` a
    Done when: `alt-e` on a pane that printed `seq 1 5000` opens the editor with all 5000 lines; quitting returns to the pane with the layout unchanged; `EDITOR="code --wait"` style values work; the temp file is mode 0600 while open and gone after; a file left by a killed run is removed by the next run while a concurrent run's file is not; running it in a pane alone in its slot fails with the "no pane behind" message; with `EDITOR=/nonexistent` the pane stays open showing the error.
 
 ## Deviation log
+
+- Slice 4 verified, 2026-10-29: tasks 4.1 to 4.4 are complete. The CLI and HTTP move route reuse `Place`, the existing `take`/`stack`/`split` helpers and one server commit; no runtime or screen is recreated. `/tmp/ship-slice4-workflow.py` passed 22 checkpoints against debug (`/tmp/ship-slice4-2mzy8de4/`) and release (`/tmp/ship-slice4-mwuwvdes/`) on macOS, using two full-screen PTY clients and isolated temporary servers. Checks covered same-tab, cross-tab, nested-tab and same-stack moves; right/down placement; empty-slot collapse; live `top` PID continuity; a live probe's PID, destination terminal size and post-move input; colored contents and status of an exited kept pane; source/destination zoom and the approved selection exception; CLI and HTTP errors without edits; `SHIP_PANE_ID`; stack/cycle keys and close repair; and moved layout save/restart. Both every-revision streams captured 63 published replicas without a missing or duplicated moved pane. Captured PTY frames confirmed moved content and unzoomed splits. Verification found that Clap's `requires = "beside"` within the exclusive destination group did not reject `--onto` with `--direction`; an explicit conflict on `onto` now rejects that combination with exit 2. Core all-features check, formatting, workspace Clippy with warnings denied, cargo-deny, debug/release builds, strict OpenSpec validation and diff checks passed. Linux and physical Ghostty/Terminal interaction remain unverified. No permanent tests, coding subagents, new dependencies or slice-5 work were added.
+
+- Slice 4 zoom decision: Cyan approved unzooming the destination when its zoom would otherwise hide a selected moved pane, including a move from a surviving zoomed stack into another slot of the same tab. Selection preservation takes priority over zoom retention in this case. Moves without a selection on the moved pane retain the existing zoom rules. FR-014, FR-015 and FR-020, the move algorithm and the spec deltas record this exception.
 
 - Slice 3 verified, 2026-10-29: tasks 3.1 to 3.5 are complete. Titles and clicks reuse published geometry, `pane_label`, Ratatui cell widths and the existing select command. Drawing and hit testing share the visible title cells; pane navigation visits fronts only, and remembered-pane landing resolves to its current slot front. `/tmp/ship-slice3-workflow.py` passed 13 checkpoints against debug (`/tmp/ship-slice3.7hrdwuh9/`) and release (`/tmp/ship-slice3.0cqom75k/`) on macOS with two real PTY clients and isolated temporary servers. Checks covered bordered and borderless titles, front styling, title clicks without program mouse input, shared-border click priority and dragging, Unicode and clipped title cells, tiny viewports, front-only navigation, returning after another client cycles, empty parent tabs and title-row removal. Captured PTY frames were inspected. A styling defect found during verification was fixed: front titles explicitly clear dim, while behind titles clear inherited border bold and color. The temporary renderer probe in `/tmp/ship-slice3-probe/` passed actual renderer/style, Unicode, clipping, scroll-badge exclusion, title-row lifecycle and selection-memory checks. The 33 slice-2 checkpoints also passed in debug and release. Cycling showed no noticeable lag relative to pane navigation in the PTY workflow; release input-to-render medians were 1.82 ms and 1.99 ms respectively. Formatting, workspace Clippy with warnings denied, cargo-deny, debug/release builds, strict OpenSpec validation and diff checks passed. Linux and physical Ghostty/Terminal interaction remain unverified. No permanent tests, coding subagents or slice-4 work were added.
 

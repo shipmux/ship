@@ -17,8 +17,9 @@ use ship_core::{
     model::*,
     prelude::*,
     protocol::{
-        AttachRequest, Attached, CreatePane, CreateTab, CyclePane, MoveTab, NewPane, PaneAt, Place,
-        Replica, ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput, ViewingRecord,
+        AttachRequest, Attached, CreatePane, CreateTab, CyclePane, MovePane, MoveTab, NewPane,
+        PaneAt, Place, Replica, ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput,
+        ViewingRecord,
     },
     screen::Size,
 };
@@ -401,6 +402,10 @@ pub struct Cycle {
     pub id: IdOf<Pane>,
     pub cycle: CyclePane,
 }
+pub struct PaneMove {
+    pub id: IdOf<Pane>,
+    pub to: MovePane,
+}
 pub struct Swap {
     pub id: IdOf<Pane>,
     pub swap: SwapPane,
@@ -759,6 +764,46 @@ impl Message<Cycle> for ServerState {
         self.commit(|tabs, _| layout::cycle(tree::tab_mut(tabs, owner)?, id, cycle.direction))
             .await?;
         self.published_tab(owner)
+    }
+}
+
+#[named]
+impl Message<PaneMove> for ServerState {
+    type Reply = Result<Tab>;
+
+    /// Take and place in one commit so the pane's runtime never leaves the tree.
+    async fn handle(
+        &mut self,
+        PaneMove { id, to }: PaneMove,
+        _: &mut Context<Self, Self::Reply>,
+    ) -> Self::Reply {
+        if id == to.at {
+            return Err(err!(
+                InvalidStructure,
+                "cannot move pane {} onto or beside itself",
+                id
+            ));
+        }
+        let source = tree::pane_owner(&self.tabs, id)?;
+        let destination = tree::pane_owner(&self.tabs, to.at)?;
+        self.commit(|tabs, viewers| {
+            let pane = layout::take(tree::tab_mut(tabs, source)?, id)?;
+            let tab = tree::tab_mut(tabs, destination)?;
+            match to.place {
+                Place::Split(direction) => layout::split(tab, Some(to.at), direction, pane)?,
+                Place::Stack => layout::stack(tab, Some(to.at), pane)?,
+            }
+            if tab.zoomed.is_some_and(|zoomed| zoomed != id)
+                && viewers
+                    .values()
+                    .any(|record| record.selection == Some(NodeId::Pane(id)))
+            {
+                tab.zoomed = None;
+            }
+            Ok(())
+        })
+        .await?;
+        self.published_tab(destination)
     }
 }
 

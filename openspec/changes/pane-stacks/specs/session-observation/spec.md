@@ -47,7 +47,7 @@ The server SHALL publish each viewed tab's size and visible pane frame/content r
 - **THEN** subsequent publications and tab inspection omit that tab's geometry while its programs retain their last terminal sizes
 
 ### Requirement: Shared zoom
-A tab's zoomed slot, set as session-structure's Tab zoom describes, SHALL fill the tab for all viewers, showing its front, while other programs keep running. Pane focus or next from the zoomed pane SHALL unzoom before moving, and a directional client swap SHALL unzoom before resolving its neighbor, even when none is found. Splitting, swapping or resizing in a tab SHALL unzoom it before the edit, as SHALL removing the zoomed slot. Cycling, stacking onto the zoomed slot, and closing or moving out a pane SHALL keep the zoom, with `zoomed` naming the zoomed slot's new front. Selecting another tab SHALL leave zoom unchanged.
+A tab's zoomed slot, set as session-structure's Tab zoom describes, SHALL fill the tab for all viewers, showing its front, while other programs keep running. Pane focus or next from the zoomed pane SHALL unzoom before moving, and a directional client swap SHALL unzoom before resolving its neighbor, even when none is found. Splitting, swapping or resizing in a tab SHALL unzoom it before the edit, as SHALL removing the zoomed slot. Cycling, stacking onto the zoomed slot, and closing or moving out a pane SHALL keep the zoom, with `zoomed` naming the zoomed slot's new front. A move SHALL instead unzoom its destination if that zoom would hide the moved pane and any client has that pane selected, including a move within one tab. Selecting another tab SHALL leave zoom unchanged.
 
 #### Scenario: Two viewers zoom together
 - **WHEN** one client zooms its selected pane

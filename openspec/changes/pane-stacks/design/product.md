@@ -113,8 +113,8 @@ Tested independently by saving stacked tabs and restarting the server.
 ### Zoom
 
 - **FR-013** Zoom MUST belong to a slot: the zoomed tab shows that slot's front pane.
-- **FR-014** Zoom MUST stay through cycling, stacking a new pane onto the zoomed slot, and closing or moving out any pane of the zoomed slot while others remain.
-- **FR-015** Zoom MUST stay when a pane in another slot of the same tab closes or moves away. This changes today's behavior, where any close unzooms.
+- **FR-014** Zoom MUST stay through cycling, stacking a new pane onto the zoomed slot, and closing or moving out any pane of the zoomed slot while others remain, except when preserving a moved pane's selection requires unzooming under FR-020.
+- **FR-015** Zoom MUST stay when a pane in another slot of the same tab closes or moves away, except when preserving a moved pane's selection requires unzooming under FR-020. This changes today's behavior, where any close unzooms.
 - **FR-016** Zoom MUST clear when the zoomed slot is removed, and on any split in the tab (including `move --beside`), swap or resize, as today.
 
 ### Swap and move
@@ -122,7 +122,7 @@ Tested independently by saving stacked tabs and restarting the server.
 - **FR-017** Swap MUST exchange two panes' places, slot and position in the stack, leaving the layout's shape and sizes unchanged. Directional swap MUST target the neighboring slot's front pane.
 - **FR-018** `ship pane move --pane X --onto Y` MUST take `X` out of its slot and put it in front of `Y`'s slot.
 - **FR-019** `ship pane move --pane X --beside Y --direction right|down` MUST take `X` out of its slot and split `Y`'s slot, putting `X` alone in the new slot on that side.
-- **FR-020** A move MUST keep `X`'s program, terminal contents and ID. `Y` MAY be in any tab. If `X`'s old slot is left empty, it MUST be removed as in FR-012. Selections on `X` MUST stay on `X`.
+- **FR-020** A move MUST keep `X`'s program, terminal contents and ID. `Y` MAY be in any tab. If `X`'s old slot is left empty, it MUST be removed as in FR-012. Selections on `X` MUST stay on `X`. If the destination tab's zoom would hide `X` and any client has `X` selected, the destination MUST unzoom in the same edit, including a move within that tab. Otherwise moving onto a stack MUST preserve its zoom.
 - **FR-021** Moving a pane onto or beside itself MUST fail with an error and change nothing.
 
 ### Edit-scrollback

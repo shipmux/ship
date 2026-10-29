@@ -16,8 +16,8 @@ use ship_core::{
     model::{NodeId, Pane, Tab},
     prelude::*,
     protocol::{
-        CreatePane, CreateTab, CyclePane, MoveTab, MoveTabBody, NewPane, NewTab, PaneAt, Place,
-        ReadPane, ResizePane, ScrollPane, SetPane, SetTab, SwapPane,
+        CreatePane, CreateTab, CyclePane, MovePane, MoveTab, MoveTabBody, NewPane, NewTab, PaneAt,
+        Place, ReadPane, ResizePane, ScrollPane, SetPane, SetTab, SwapPane,
     },
     tree::{self, Tabs},
 };
@@ -163,6 +163,31 @@ impl Client {
                 PaneCommand::Cycle(pane::Cycle { pane, direction }) => {
                     let id = Self::pane_target(pane, scope)?;
                     Outcome::Tab(self.cycle(id, &CyclePane { direction }).await?)
+                }
+                PaneCommand::Move(pane::Move {
+                    pane,
+                    onto,
+                    beside,
+                    direction,
+                }) => {
+                    let to = match (onto, beside, direction) {
+                        (Some(at), None, None) => MovePane {
+                            at,
+                            place: Place::Stack,
+                        },
+                        (None, Some(at), Some(direction)) => MovePane {
+                            at,
+                            place: Place::Split(direction),
+                        },
+                        _ => {
+                            return Err(err!(
+                                Validation,
+                                "move requires either --onto or --beside with --direction"
+                            ));
+                        }
+                    };
+                    let id = Self::pane_target(pane, scope)?;
+                    Outcome::Tab(self.move_pane(id, &to).await?)
                 }
                 PaneCommand::Get(pane::Get { pane }) => {
                     Outcome::Pane(self.get::<Pane>(Self::pane_target(pane, scope)?).await?)

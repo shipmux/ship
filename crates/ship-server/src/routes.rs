@@ -202,6 +202,29 @@ pub(crate) async fn cycle_pane(
 }
 
 #[utoipa::path(
+    post,
+    path = "/api/v0/panes/{id}/move",
+    operation_id = "move_pane",
+    params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
+    request_body = MovePane,
+    responses(
+        (status = 200, description = "The destination tab", body = Tab),
+        (status = 400, description = "Malformed pane ID or request validation failed", body = AppError),
+        (status = 404, description = "Source or destination pane not found", body = AppError),
+        (status = 422, description = "Move onto or beside itself", body = AppError),
+        (status = 503, body = AppError),
+    ),
+)]
+pub(crate) async fn move_pane(
+    State(app): App,
+    Path(id): Path<IdOf<Pane>>,
+    Body(body): Body<MovePane>,
+) -> Result<Response> {
+    let tab = app.state.ask(PaneMove { id, to: body }).await?;
+    Ok(Json(tab).into_response())
+}
+
+#[utoipa::path(
     get,
     path = "/api/v0/panes/{id}",
     operation_id = "get_pane",

@@ -159,6 +159,14 @@ pub struct CyclePane {
     pub direction: CycleDirection,
 }
 
+/// POST /panes/{id}/move body. Places an existing pane relative to another pane.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MovePane {
+    pub at: IdOf<Pane>,
+    pub place: Place,
+}
+
 /// The new tab, as a subset of Tab.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]

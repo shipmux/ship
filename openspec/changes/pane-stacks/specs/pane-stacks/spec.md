@@ -76,6 +76,21 @@ Closing a pane SHALL remove it from its slot. If other panes remain, the next on
 - **WHEN** a user runs `ship pane move --pane X --onto X`
 - **THEN** it fails with 422 `invalid_structure`, exits 1, and `ship tab get` shows the layout unchanged
 
+### Requirement: Keeping moved selections visible
+If any client has the moved pane selected and the destination tab's zoom would hide it, the move SHALL unzoom the destination in that same edit, including a move within one tab. Otherwise moving onto a stack SHALL preserve zoom under the existing slot rules.
+
+#### Scenario: Selected pane moves out of a surviving zoomed stack
+- **WHEN** X is selected in zoomed stack `[X, A]` and moves onto Y in another slot of the same tab
+- **THEN** the stacks hold `[A]` and `[X, Y]`, the tab unzooms and X stays selected
+
+#### Scenario: Selected pane enters a tab zoomed on another slot
+- **WHEN** selected X moves onto Y in another tab zoomed on a different slot Z
+- **THEN** X stays selected in front of Y, and the destination tab unzooms
+
+#### Scenario: Unselected move preserves zoom
+- **WHEN** no client has X selected and X moves onto Y in a tab zoomed on another surviving slot Z
+- **THEN** Z remains zoomed and X is in front of Y's slot
+
 ### Requirement: Move requests
 `POST /api/v0/panes/{id}/move` SHALL take `{"at": <pane>, "place": "stack" | {"split": "right" | "down"}}`, with no default for `place`, and answer with the destination tab. The CLI SHALL require exactly one of `--onto` and `--beside`, and `--direction` only with `--beside`.
 

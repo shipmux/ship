@@ -41,6 +41,15 @@ ship tab get --tab "$TAB" | jq .layout
 ship tab close --tab "$TAB"
 ```
 
+Move a pane onto another stack or into a new split without restarting its program:
+
+```sh
+ship pane move --pane "$PANE" --onto "$OTHER"
+ship pane move --pane "$PANE" --beside "$OTHER" --direction right
+```
+
+`OTHER` can be in another tab, or in the same stack when taking a pane out into its own split. Use `--direction down` to put it below instead. The pane keeps its ID, output and running program. Clients with it selected follow it; the destination unzooms if needed to keep it visible. An emptied old slot disappears, but its tab stays.
+
 ## When a program exits
 
 | Exit behavior | Does |

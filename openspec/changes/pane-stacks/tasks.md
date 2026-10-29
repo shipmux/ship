@@ -44,10 +44,10 @@ Use an owned temporary server on a scratch name, with `XDG_RUNTIME_DIR`, `XDG_ST
 
 ## 4. Move panes
 
-- [ ] 4.1 Add `MovePane` to `protocol.rs` and `Move` to `command.rs`, with exactly one of `--onto` and `--beside`, and `--direction` only with `--beside`.
-- [ ] 4.2 Add the `PaneMove` message in `state.rs`: refuse `at == id` with `invalid_structure`, `take` the pane, place it with the same `Place` match as create, and answer with the destination tab. Add `POST /api/v0/panes/{id}/move` in `routes.rs` and `lib.rs`.
-- [ ] 4.3 Wire `move_pane` through `api.rs` and `execute.rs`, and describe moving in `docs/site/panes.md`.
-- [ ] 4.4 Verify: `ship pane move --onto` and `--beside --direction right` behave as in P4 within a tab and across tabs; `top` running in the moved pane keeps running with the same pane ID; an emptied slot is gone; moving onto or beside itself fails and `ship tab get` is unchanged.
+- [x] 4.1 Add `MovePane` to `protocol.rs` and `Move` to `command.rs`, with exactly one of `--onto` and `--beside`, and `--direction` only with `--beside`.
+- [x] 4.2 Add the `PaneMove` message in `state.rs`: refuse `at == id` with `invalid_structure`, `take` the pane, place it with the same `Place` match as create, and answer with the destination tab. Unzoom the destination if needed to keep a selected moved pane visible, including a same-tab move. Add `POST /api/v0/panes/{id}/move` in `routes.rs` and `lib.rs`.
+- [x] 4.3 Wire `move_pane` through `api.rs` and `execute.rs`, and describe moving in `docs/site/panes.md`.
+- [x] 4.4 Verify: `ship pane move --onto` and `--beside --direction right` behave as in P4 within a tab and across tabs; `top` running in the moved pane keeps running with the same pane ID; an emptied slot is gone; moving onto or beside itself fails and `ship tab get` is unchanged; selected panes follow their move and unzoom the destination only when needed to remain visible.
 
 ## 5. Edit-scrollback
 

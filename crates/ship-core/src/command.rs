@@ -20,7 +20,7 @@ pub enum Command {
     /// List, create, inspect, set attributes, close or move tabs
     #[cfg_attr(feature = "clap", command(subcommand))]
     Tab(tab::TabCommand),
-    /// Create, inspect, set attributes, close, resize, swap or cycle panes
+    /// Create, inspect, set attributes, close, resize, swap, cycle or move panes
     #[cfg_attr(feature = "clap", command(subcommand))]
     Pane(pane::PaneCommand),
 }
@@ -286,6 +286,9 @@ pub mod pane {
         Swap(Swap),
         /// Rotate a pane's stack one step and print its tab as JSON
         Cycle(Cycle),
+        /// Move a pane onto or beside another pane and print the destination tab as JSON
+        #[serde(skip)]
+        Move(Move),
     }
 
     #[derive(Clone, Debug, Default, Deserialize)]
@@ -525,6 +528,30 @@ pub mod pane {
         /// next brings the pane behind the front forward; prev brings the back forward
         #[cfg_attr(feature = "clap", arg(long))]
         pub direction: CycleDirection,
+    }
+
+    /// CLI only: a key cannot name the destination pane.
+    #[derive(Clone, Debug, Default, Deserialize)]
+    #[cfg_attr(feature = "clap", derive(Args))]
+    #[cfg_attr(feature = "clap", command(group(
+        clap::ArgGroup::new("to").required(true).args(["onto", "beside"])
+    )))]
+    #[serde(deny_unknown_fields)]
+    pub struct Move {
+        #[cfg_attr(feature = "clap", command(flatten))]
+        pub pane: PaneTarget,
+        /// Put the pane in front of this pane's stack
+        #[cfg_attr(
+            feature = "clap",
+            arg(long, value_name = "ID", conflicts_with = "direction")
+        )]
+        pub onto: Option<IdOf<Pane>>,
+        /// Split this pane's slot and put the pane alone on the --direction side
+        #[cfg_attr(feature = "clap", arg(long, value_name = "ID", requires = "direction"))]
+        pub beside: Option<IdOf<Pane>>,
+        /// With --beside: which side
+        #[cfg_attr(feature = "clap", arg(long, requires = "beside"))]
+        pub direction: Option<SplitDirection>,
     }
 
     /// Directional swap is `client.pane.swap`, a key action with no CLI form.
