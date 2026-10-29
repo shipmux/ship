@@ -124,10 +124,12 @@ def run_processes(home):
 
 
 def mux_processes(home, names):
-    """(pid, rss_kib, cpu_s) for this run's processes named in `names`."""
+    """(pid, rss_kib, cpu_s) for this run's processes named in `names`. On
+    Linux tmux renames its processes "tmux: client" and "tmux: server", so
+    only the part before a colon has to match."""
     found = []
     for proc in psutil.process_iter(["name"]):
-        if proc.info["name"] not in names:
+        if (proc.info["name"] or "").split(":")[0] not in names:
             continue
         try:
             if proc.environ().get("HOME") != home:
