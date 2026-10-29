@@ -7,7 +7,7 @@ Bring a server's tabs, splits and directories back after it stops, whether throu
 ## Requirements
 
 ### Requirement: Saved tabs contents
-The saved tabs SHALL hold the tab tree with its order and nesting, tab and pane IDs and names, each tab's split layout, proportions and zoomed pane, and each pane's `right_click_passthrough` setting and current directory, else its starting directory. A shared tab or pane attribute added later SHALL be saved unless its change says otherwise.
+The saved tabs SHALL hold the tab tree with its order and nesting, tab and pane IDs and names, each tab's split layout, proportions and zoomed pane, each slot's panes in order with its front first, and each pane's `right_click_passthrough` setting and current directory, else its starting directory. A shared tab or pane attribute added later SHALL be saved unless its change says otherwise.
 
 #### Scenario: Current directory is saved
 - **WHEN** a pane's shell started in `~` changes directory to `~/projects/ship` and the saved tabs are written
@@ -96,25 +96,6 @@ Before a server's first save replaces an existing saved file, the server SHALL c
 - **WHEN** a server saves three times in one run
 - **THEN** `<name>.json.prev` holds the file as it was before the first of those saves
 
-### Requirement: Restore on startup
-On startup, before it accepts any connection, the server SHALL rebuild the saved tabs with the same IDs, names, structure, proportions, zoom and each pane's `right_click_passthrough`, `exit_behavior` and `scrollback_bytes`. A missing saved file SHALL start with no restored tabs.
-
-#### Scenario: Structure comes back
-- **WHEN** a server with nested tabs, named tabs and panes, custom proportions and a zoomed pane restarts
-- **THEN** `ship tab list` shows the same IDs, names, nesting, proportions and zoom
-
-#### Scenario: Pane settings come back
-- **WHEN** a pane with `exit_behavior: keep` and `scrollback_bytes: 50000000` is saved and the server restarts
-- **THEN** the restored pane, a fresh shell, shows the same two values
-
-#### Scenario: Saved before pane settings existed
-- **WHEN** a saved file from before exit behavior and per-pane history size is restored
-- **THEN** its panes get `exit_behavior: close` and `scrollback_bytes: 10000000`, the built-in defaults
-
-#### Scenario: Reconnecting client
-- **WHEN** a client stays open while the server stops and starts again
-- **THEN** after reconnecting it keeps the tab or pane it had selected
-
 ### Requirement: Restored pane programs
 Each restored pane SHALL run `[server.defaults.pane] shell`, else the login shell, as configured at restore time, in its saved directory, which SHALL be its starting directory for `ship pane get`. It SHALL NOT run the pane's earlier program.
 
@@ -171,3 +152,22 @@ Each server name SHALL have its own saved file at `$XDG_STATE_HOME/ship/tabs/<na
 #### Scenario: Second server with the same name
 - **WHEN** a server named `scratch` is running and another `ship server --name scratch` starts
 - **THEN** the second exits saying a server is already running, without reading or writing `tabs/scratch.json`
+
+### Requirement: Restore slot-format tabs on startup
+On startup, before it accepts any connection, the server SHALL rebuild the saved tabs with the same IDs, names, structure, slots and their order, proportions, zoom and each pane's `right_click_passthrough`, `exit_behavior` and `scrollback_bytes`. Every pane in every slot SHALL be restarted. A missing saved file SHALL start with no restored tabs.
+
+#### Scenario: Structure comes back
+- **WHEN** a server with nested tabs, named tabs and panes, custom proportions and a zoomed pane restarts
+- **THEN** `ship tab list` shows the same IDs, names, nesting, proportions and zoom
+
+#### Scenario: Stack comes back
+- **WHEN** a tab with a slot holding `[A, X]` is saved and the server restarts
+- **THEN** the slot holds A then X, with A in front, each running a fresh shell
+
+#### Scenario: Pane settings come back
+- **WHEN** a pane with `exit_behavior: keep` and `scrollback_bytes: 50000000` is saved and the server restarts
+- **THEN** the restored pane, a fresh shell, shows the same two values
+
+#### Scenario: Reconnecting client
+- **WHEN** a client stays open while the server stops and starts again
+- **THEN** after reconnecting it keeps the tab or pane it had selected
