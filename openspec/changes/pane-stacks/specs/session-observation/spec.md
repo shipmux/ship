@@ -1,5 +1,20 @@
 ## MODIFIED Requirements
 
+### Requirement: Independent optional selection
+Each attached client SHALL have its own selection: a tab, a pane, or nothing. A newly opened client SHALL select nothing, except as "First tab from server startup" describes. A client SHALL be able to select an empty tab or a pane. Changing one client's selection SHALL NOT change another's except through server selection repair, including shared-front and zoom repair. Each client SHALL show its own selection. Sidebar folds and pane-selection history SHALL stay client-local.
+
+#### Scenario: Open with nothing selected
+- **WHEN** a server has three top-level tabs and a user runs `ship`
+- **THEN** the client selects nothing and shows `3 tabs · alt-right to open one`
+
+#### Scenario: Different selections
+- **WHEN** two clients are on front panes of different slots in an unzoomed tab and one presses `alt-tab`
+- **THEN** only that client's selection changes, and both still see all visible panes
+
+#### Scenario: Shared front repairs another selection
+- **WHEN** one client selects B behind X in their shared slot while another client has X selected
+- **THEN** B becomes the shared front and both clients have B selected
+
 ### Requirement: Selection repair
 When a client's selected pane is removed, its selection SHALL move to the next pane in its slot if any remain, else into the sibling subtree that takes the slot's space, choosing the leaf toward the closed side on same-axis splits and the first child otherwise. With no own panes left it SHALL fall back to the tab. Removed tabs or ancestors SHALL repair to the nearest surviving ancestor, or nothing. Moved surviving selections SHALL stay selected. A selection on a pane behind its slot's front SHALL repair to that front. A selection hidden by shared zoom SHALL repair to the zoomed pane.
 

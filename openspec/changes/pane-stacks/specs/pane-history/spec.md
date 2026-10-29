@@ -16,7 +16,7 @@
 - **THEN** it fails saying there is no pane behind it, exits 1, and nothing else changes
 
 ### Requirement: Scrollback file lifetime
-The text SHALL be written to a file in a Ship cache directory that only the user can read. The file SHALL be deleted after the editor exits, and files left by a crashed run SHALL be deleted by the next run, without touching a file a running editor still has open. Edits SHALL be discarded.
+The text SHALL be written to a mode-0600 file in a Ship cache directory, readable only by its user. The file SHALL be deleted after the editor exits, and scrollback files left by a crashed run SHALL be deleted by the next run without touching an active run's scrollback file. Cleanup SHALL leave editor-created swap and backup files alone. Edits SHALL be discarded.
 
 #### Scenario: File while open and after
 - **WHEN** the editor is open and the user checks the file, then quits the editor
@@ -25,6 +25,10 @@ The text SHALL be written to a file in a Ship cache directory that only the user
 #### Scenario: Left by a killed run
 - **WHEN** one run was killed leaving its file, another run's editor is still open, and a third run starts
 - **THEN** the killed run's file is deleted and the open run's file is kept
+
+#### Scenario: Editor auxiliary files stay untouched
+- **WHEN** vi has a scrollback file and its swap file open and another edit-scrollback run starts
+- **THEN** both files remain available to the running editor
 
 ### Requirement: Edit-scrollback failures
 `ship pane edit-scrollback` SHALL exit with a non-zero status and a message when it can't read the scrollback or start the editor. Run from the default `alt-e` binding, its pane SHALL stay open showing the error until the user closes it.

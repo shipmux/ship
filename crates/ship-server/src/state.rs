@@ -668,6 +668,9 @@ impl Message<CreatePane> for ServerState {
                 Place::Split(direction) => layout::split(tab, anchor, direction, pane.clone())?,
                 Place::Stack => layout::stack(tab, anchor, pane.clone())?,
             }
+            if create.select.is_some() && tab.zoomed.is_some_and(|zoomed| zoomed != pane.id) {
+                tab.zoomed = None;
+            }
             Ok(pane)
         })
         .await

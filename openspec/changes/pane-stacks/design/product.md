@@ -2,6 +2,8 @@
 
 Status: Locked on 2026-10-29. Written from a design conversation with Cyan on 2026-10-28 for [#85](https://github.com/shipmux/ship/issues/85), then approved in Plannotator review ("LGTM!"). The feature name changed from "edit history" to "edit scrollback" at Cyan's request during that review. Reopened on 2026-10-28 during architecture design to replace `--stack` with `--place right|down|stack` in FR-005 and FR-006 ("sounds good to me"); re-locked with that change. Reopened on 2026-10-29 during program design to replace `--next|--prev` in FR-007 with `--direction next|prev`, because `docs/agents/code.md` rules out meaning carried by bare flags and swap, resize and scroll already take `--direction` ("go for it"). Re-locked on 2026-10-29 with the program paper ("lock it!"). Amended and re-approved in chat on 2026-10-29 ("yes please. g for it") to remove backward-compatibility requirements before Ship's first release. Earlier commitments to legacy saved formats and creation aliases are superseded. Amended and approved in chat on 2026-10-29 to use `alt-,` for previous and `alt-.` for next after the legacy bracket-key probe failed.
 
+Cyan approved the slice-6 selection decisions in chat on 2026-10-29: attach/reconnect selections are passive recovery hints, and selecting creates unzoom when needed to show their new pane. The title wording below clarifies the already-approved whole-label clipping and front-title border priority.
+
 ## Goal
 
 Today a layout position holds exactly one pane, so the only way to open something next to a pane is to split it and give up screen space. This change lets a position hold a stack of panes. You see the front one, the rest are listed in the border, and you can cycle through them. Editing a pane's scrollback ([#85](https://github.com/shipmux/ship/issues/85)) is then a small command built on stacks: it opens your editor on top of the pane, in the same place and at the same size, and closing the editor brings the pane back.
@@ -101,10 +103,10 @@ Tested independently by saving stacked tabs and restarting the server.
 
 ### Selection
 
-- **FR-008** Selecting a pane behind the front MUST rotate its slot until that pane is in front, keeping the order of the others.
+- **FR-008** Explicitly selecting a pane behind the front MUST rotate its slot until that pane is in front, keeping the order of the others. An attach or reconnect selection is a recovery hint and MUST follow the current front and shared zoom without rotating a stack or changing zoom.
 - **FR-009** When a pane stops being the front, every selection on it MUST move to the slot's new front.
-- **FR-010** Clicking a pane's title in a slot's border MUST select that pane.
-- **FR-011** Selecting a pane in a different slot of a zoomed tab MUST unzoom the tab, as today. Selecting a pane in the zoomed slot MUST NOT.
+- **FR-010** Clicking a visible pane title MUST select that pane, except that a front title on a draggable border cell MUST keep the border grab.
+- **FR-011** Explicitly selecting a pane in a different slot of a zoomed tab MUST unzoom the tab. This includes a create that selects its new pane. Selecting a pane in the zoomed slot MUST NOT unzoom it.
 
 ### Closing
 
@@ -139,7 +141,7 @@ Tested independently by saving stacked tabs and restarting the server.
 
 ### Drawing
 
-- **FR-028** A slot's top border MUST list the titles of all its panes, front first, with the front's title marked. Titles MUST be the labels panes show today.
+- **FR-028** A slot's top border MUST list as many complete pane titles as fit, front first, with the front's title marked, stopping at the first title that does not fit. Titles MUST be the labels panes show today.
 - **FR-029** A slot without a border, the only slot in a tab, MUST show the title row only while it holds more than one pane.
 
 ### Defaults and docs

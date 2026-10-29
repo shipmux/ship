@@ -24,7 +24,7 @@ A new split or stacked shell opens in the directory you were working in, so afte
 
 `alt-s` opens a shell in front of the current pane without splitting. The panes behind it keep running. Their titles appear in the border, front first and bold, separated by ` · `. A stack without a border gets a title row instead. Click a title to bring that pane forward, or use `alt-,` and `alt-.` to cycle. Everyone viewing the tab sees the same front pane.
 
-Zoom belongs to the tab, so everyone looking at it sees the zoomed stack's front pane, and its sidebar row shows `Z`. Cycling, stacking and closing the front keep the stack zoomed while it has panes. Moving to another split, splitting, swapping or resizing unzooms first.
+Zoom belongs to the tab, so everyone looking at it sees the zoomed stack's front pane, and its sidebar row shows `Z`. Cycling, stacking and closing the front keep the stack zoomed while it has panes. Moving to another split, splitting, swapping or resizing unzooms first. A create that selects its new pane also unzooms if needed to show it.
 
 The CLI can do the same things. Panes created from the CLI start in your current directory, or in `--cwd`:
 

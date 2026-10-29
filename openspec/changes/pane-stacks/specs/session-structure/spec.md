@@ -1,5 +1,47 @@
 ## MODIFIED Requirements
 
+### Requirement: Creates that select
+`ship tab create` and `ship pane create` SHALL accept `--select`. With it, the create SHALL select for one attachment the new pane, or the new tab when it has no pane, in the same edit that creates it, so no client sees the new tab or pane before that attachment selects it. Without `--select`, a create SHALL NOT explicitly select its result; ordinary front and zoom repair still apply. A selecting create SHALL unzoom if needed to show its new pane. The HTTP create bodies SHALL carry this as an optional `select` holding the attachment ID.
+
+#### Scenario: An agent creates without stealing focus
+- **WHEN** a client has a pane selected and an agent in another pane runs `ship pane create --tab <id> -- cargo test`
+- **THEN** the new pane runs `cargo test` and the client's selection doesn't move
+
+#### Scenario: A script creates for a client
+- **WHEN** a script runs `ship pane create --tab <id> --select --attachment <a> -- sleep 9` while a second client watches `ship view list` in a loop
+- **THEN** client `<a>` lands on the new pane, and no listing shows the new pane without `<a>` selecting it
+
+#### Scenario: A tab with a starter
+- **WHEN** a script runs `ship tab create --starter --select --attachment <a>`
+- **THEN** client `<a>` lands on the new tab's shell pane
+
+#### Scenario: An empty tab
+- **WHEN** a script runs `ship tab create --select --attachment <a>`
+- **THEN** client `<a>` selects the new tab and shows its no-pane hint
+
+#### Scenario: Stack without select repairs selection
+- **WHEN** X is selected and a caller creates N in X's stack without `select`
+- **THEN** the selection repairs to the new front N
+
+#### Scenario: Selecting stack create behind zoom
+- **WHEN** a caller creates N in another slot of X's zoomed tab with `select` naming an attachment
+- **THEN** the tab unzooms and that attachment selects N in the same edit
+
+### Requirement: Tab parents
+Tab creation SHALL accept a tab as the parent, or no parent for the top level. Pane creation SHALL accept `--tab ID` to select the tab or `--pane ID` to anchor placement in that pane's slot, with `--tab` winning when both are given. Inside a pane, `SHIP_PANE_ID` SHALL supply the default pane anchor. `--tab` SHALL reject a pane ID.
+
+#### Scenario: Create at the top level
+- **WHEN** a user runs `ship tab create --name notes`
+- **THEN** a top-level tab named `notes` is appended after the existing top-level tabs
+
+#### Scenario: Pane under a pane
+- **WHEN** a user runs `ship pane create --tab <pane-id>`
+- **THEN** the command fails clearly and the structure is unchanged
+
+#### Scenario: Split the caller's pane
+- **WHEN** a program in a pane runs `ship pane create --place down` without an explicit target
+- **THEN** a new pane is placed below that pane in the same tab, whatever a client's selection is
+
 ### Requirement: Layout order and proportions
 A tab's pane order SHALL be its binary split tree traversed first child before second, with first left in a horizontal split and above in a vertical split, and each slot's panes front first. Splits SHALL retain their stored proportions when the available area changes, subject to whole-cell rounding. Shrinking SHALL fit the existing tree into the available area without removing panes or changing stored proportions.
 

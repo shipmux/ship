@@ -58,5 +58,19 @@ Use an owned temporary server on a scratch name, with `XDG_RUNTIME_DIR`, `XDG_ST
 
 ## 6. Specs and size
 
-- [ ] 6.1 Check the deltas under `specs/` against what slices 1 to 5 built, and update them and `proposal.md` for any deviation.
-- [ ] 6.2 Verify: `openspec validate pane-stacks --type change --strict` passes, and the size report gives implementation Rust and tests separately.
+- [x] 6.1 Check the deltas under `specs/` against what slices 1 to 5 built, and update them and `proposal.md` for any deviation. Record Cyan's passive-reconnect decision and fix the approved selecting-create zoom gap.
+- [x] 6.2 Verify: `openspec validate pane-stacks --type change --strict` passes, and the size report gives implementation Rust and tests separately.
+
+### Size report
+
+Measured after the selecting-create fix with tokei 15.0.0. These are Rust code lines, excluding blanks, comments and documentation examples. Inline tests are counted with tests, not implementation.
+
+| Scope | Implementation Rust | Test Rust |
+| --- | ---: | ---: |
+| Ship crates (`crates/**`) | 13,094 | 0 |
+| Vendored terminal adapter | 1,894 | 1,061 |
+| Workspace total | 14,988 | 1,061 |
+
+Including blanks and comments, the workspace has 17,920 implementation Rust lines and 1,226 test lines. Both implementation measures remain below the roughly 20,000-line ceiling. Experiments, example programs, temporary probes, scripts, docs and generated build output are excluded. The adapter's tests include 988 integration-test code lines and 73 inline-test code lines. The Ship crates have no permanent authored tests; workflow probes live outside the checkout.
+
+Reproduce the code counts with `/tmp/ship-slice6-size-report.py`; its report is `/tmp/ship-slice6-size-3g_5x44r/report.json`.

@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Pane frames and screens
-A tab with two or more slots SHALL draw labeled borders around its visible splits with a visually distinct selected-pane border and shared adjoining edges. A slot's top border SHALL list the labels of all its panes, front first, separated by ` · `, with the front's label marked. A lone or zoomed slot SHALL fill its area without a border, and SHALL show a one-row title row listing its panes the same way only while it holds more than one pane. Each visible pane SHALL display its own faithful screen, with the selected pane's cursor placed inside its content rectangle. A border held by a drag SHALL be drawn in the selected-border color until release.
+A tab with two or more slots SHALL draw labeled borders around its visible splits with a visually distinct selected-pane border and shared adjoining edges. A slot's top border SHALL list as many complete pane labels as fit, front first, separated by ` · `, with the front's label marked. Labels SHALL stop at the first one that does not fit. A lone or zoomed slot SHALL fill its area without a border, and SHALL show a one-row title row listing its panes the same way only while it holds more than one pane. Each visible pane SHALL display its own faithful screen, with the selected pane's cursor placed inside its content rectangle. A border held by a drag SHALL be drawn in the selected-border color until release.
 
 #### Scenario: Editor beside shell and agent
 - **WHEN** a user runs Neovim, a shell and Pi in three splits, types into each and closes one
@@ -22,6 +22,10 @@ A tab with two or more slots SHALL draw labeled borders around its visible split
 #### Scenario: Lone stacked slot
 - **WHEN** a tab's only slot holds `[X, A]`, and later A closes
 - **THEN** a title row reading `X · A` sits above X's screen, then the title row is gone and X fills the area
+
+#### Scenario: Titles do not fit
+- **WHEN** a title row cannot fit the next complete pane label
+- **THEN** that label and later labels are omitted, and cycling still reaches those panes
 
 #### Scenario: Held border
 - **WHEN** a user presses and holds a border between two unselected panes

@@ -1,3 +1,7 @@
+## Purpose
+
+Let users keep several running panes in one layout position, share its front pane across clients, and move panes between stacks and splits without restarting their programs.
+
 ## ADDED Requirements
 
 ### Requirement: Slots hold stacks
@@ -48,11 +52,19 @@ A slot's size SHALL come from the layout alone. The front pane's terminal SHALL 
 - **THEN** the command succeeds and the layout is unchanged
 
 ### Requirement: Selecting a pane behind the front
-Selecting a pane behind its slot's front, by any route, SHALL rotate the slot until that pane is in front, keeping the order of the others, in the same edit as the selection.
+An explicit selection of a pane behind its slot's front SHALL rotate the slot until that pane is in front, keeping the order of the others, in the same edit as the selection. A selection supplied on attach or reconnect SHALL instead be a recovery hint: it follows the current front and shared zoom without rotating a stack or changing zoom.
 
 #### Scenario: Select from a script
 - **WHEN** a slot holds `[X, A, B]` and a script runs `ship view select --attachment <id> B`
 - **THEN** the slot holds `[B, X, A]` and that client has `B` selected
+
+#### Scenario: Reconnect follows the current front
+- **WHEN** a slot holds `[X, A, B]` and a reconnecting client supplies B as its previous selection
+- **THEN** it selects X and the stack order is unchanged
+
+#### Scenario: Reconnect keeps shared zoom
+- **WHEN** X is zoomed and a reconnecting client supplies a pane in another slot as its previous selection
+- **THEN** it selects X without unzooming the tab or rotating either stack
 
 ### Requirement: Closing a stacked pane
 Closing a pane SHALL remove it from its slot. If other panes remain, the next one SHALL become the front. If it was the last pane, the slot SHALL be removed as session-structure's Closing split panes describes.

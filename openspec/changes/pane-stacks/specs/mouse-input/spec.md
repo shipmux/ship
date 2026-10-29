@@ -1,11 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: Stack title clicks
-A left click on a pane's title in a slot's title row SHALL select that pane for that client, bringing it to the front as pane-stacks' Selecting a pane behind the front describes, and SHALL NOT reach any program.
+A left click on a visible title of a pane behind the front SHALL select it for that client, bringing it forward as pane-stacks' Selecting a pane behind the front describes, and SHALL NOT reach any program. A front title on a draggable border cell SHALL retain that cell's border-grab behavior.
 
 #### Scenario: Click a title behind the front
 - **WHEN** a slot holds `[X, A, B]` and the user clicks `B`'s title in its border
 - **THEN** `B` is shown and selected, and the slot holds `[B, X, A]`
+
+#### Scenario: Front title on a shared border
+- **WHEN** another pane is selected and the user presses the front pane's title on a draggable border cell
+- **THEN** the border is grabbed, selection is unchanged and no program receives the press
 
 ## MODIFIED Requirements
 
