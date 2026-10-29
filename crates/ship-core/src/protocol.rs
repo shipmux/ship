@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::{
     command::Direction,
     id::{Attachment, IdOf},
+    layout::CycleDirection,
     model::{ExitBehavior, NodeId, Pane, Switch, Tab, tabs_schema},
     screen::{Screen, Size},
     tree::Tabs,
@@ -21,7 +22,7 @@ use crate::{
 pub const HEALTH_PATH: &str = "/health";
 /// What a Ship server reports as `service` from `/health`.
 pub const SERVICE: &str = "ship";
-pub const PROTOCOL_VERSION: u32 = 19;
+pub const PROTOCOL_VERSION: u32 = 20;
 /// Names the attachment a view or input request controls.
 pub const ATTACHMENT_HEADER: &str = "x-ship-attachment-id";
 /// On every response: the server's revision once the request was handled,
@@ -110,7 +111,7 @@ pub enum Starter {
 pub struct CreatePane {
     pub at: PaneAt,
     #[serde(default)]
-    pub direction: SplitDirection,
+    pub place: Place,
     #[serde(default)]
     pub pane: NewPane,
     /// Select the new pane in the same commit.
@@ -119,7 +120,7 @@ pub struct CreatePane {
     pub select: Option<IdOf<Attachment>>,
 }
 
-/// Split an explicit pane, or the largest pane of a tab (first pane if empty).
+/// Place relative to an explicit pane, or the largest pane of a tab.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -135,6 +136,35 @@ pub enum SplitDirection {
     #[default]
     Right,
     Down,
+}
+
+/// Where a pane goes relative to its anchor.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Place {
+    Split(SplitDirection),
+    Stack,
+}
+
+impl Default for Place {
+    fn default() -> Self {
+        Self::Split(SplitDirection::Right)
+    }
+}
+
+/// POST /panes/{id}/cycle body.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct CyclePane {
+    pub direction: CycleDirection,
+}
+
+/// POST /panes/{id}/move body. Places an existing pane relative to another pane.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MovePane {
+    pub at: IdOf<Pane>,
+    pub place: Place,
 }
 
 /// The new tab, as a subset of Tab.

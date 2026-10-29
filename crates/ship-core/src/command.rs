@@ -20,7 +20,7 @@ pub enum Command {
     /// List, create, inspect, set attributes, close or move tabs
     #[cfg_attr(feature = "clap", command(subcommand))]
     Tab(tab::TabCommand),
-    /// Create, inspect, set attributes, close, resize or swap panes
+    /// Create, inspect, set attributes, close, resize, swap, cycle or move panes
     #[cfg_attr(feature = "clap", command(subcommand))]
     Pane(pane::PaneCommand),
 }
@@ -249,11 +249,12 @@ pub mod pane {
     use super::{Direction, PaneTarget, TabTarget};
     use crate::{
         id::{Attachment, IdOf},
+        layout::CycleDirection,
         model::{ExitBehavior, Pane, ReportedState, Switch},
-        protocol::{ScrollDirection, SplitDirection},
+        protocol::{Place, ScrollDirection, SplitDirection},
     };
 
-    /// `get`, `read`, `send` and `wait` are CLI-only, so the config rejects them.
+    /// Inspection, automation and explicit moves are CLI-only; the config rejects them.
     #[derive(Clone, Debug, Deserialize, strum::IntoStaticStr)]
     #[cfg_attr(feature = "clap", derive(Subcommand))]
     #[serde(rename_all = "snake_case")]
@@ -283,6 +284,29 @@ pub mod pane {
         Wait(Wait),
         /// Exchange a pane with another pane in its tab and print the tab as JSON
         Swap(Swap),
+        /// Rotate a pane's stack one step and print its tab as JSON
+        Cycle(Cycle),
+        /// Move a pane onto or beside another pane and print the destination tab as JSON
+        #[serde(skip)]
+        Move(Move),
+        /// Open a pane's full scrollback in VISUAL, EDITOR or vi; discard edits
+        #[serde(skip)]
+        EditScrollback(EditScrollback),
+    }
+
+    /// CLI only; keys run it through `SHIP_BIN` in a stacked pane.
+    #[derive(Clone, Debug, Default, Deserialize)]
+    #[cfg_attr(feature = "clap", derive(Args))]
+    pub struct EditScrollback {
+        /// Pane to edit; defaults to the pane directly behind this one
+        #[cfg_attr(feature = "clap", arg(long, value_name = "ID"))]
+        pub pane: Option<IdOf<Pane>>,
+        /// The pane this runs in
+        #[cfg_attr(
+            feature = "clap",
+            arg(long = "from", env = "SHIP_PANE_ID", hide = true)
+        )]
+        pub from: Option<IdOf<Pane>>,
     }
 
     #[derive(Clone, Debug, Default, Deserialize)]
@@ -291,16 +315,16 @@ pub mod pane {
     #[cfg_attr(
         feature = "clap",
         command(
-            mut_arg("pane", |arg| arg.help("Split anchor pane ID; defaults to the pane this runs in")),
-            mut_arg("id", |arg| arg.help("Tab ID; splits its largest pane or creates its first pane; overrides --pane"))
+            mut_arg("pane", |arg| arg.help("Anchor pane ID; defaults to the pane this runs in")),
+            mut_arg("id", |arg| arg.help("Tab ID; uses its largest pane or creates its first pane; overrides --pane"))
         )
     )]
     pub struct Create {
         #[cfg_attr(feature = "clap", command(flatten))]
         pub tab: TabTarget,
-        /// Which side of the anchor to split; right by default
+        /// Split right or down, or stack in front of the anchor; right by default
         #[cfg_attr(feature = "clap", arg(long))]
-        pub direction: Option<SplitDirection>,
+        pub place: Option<Placement>,
         /// Pane name; omitted means none
         #[cfg_attr(feature = "clap", arg(long))]
         pub name: Option<String>,
@@ -490,6 +514,62 @@ pub mod pane {
                 ReportedState::Error => Self::Error,
             }
         }
+    }
+
+    /// The flat form of `Place` for flags and bindings.
+    #[derive(Clone, Copy, Debug, Deserialize)]
+    #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+    #[serde(rename_all = "snake_case")]
+    pub enum Placement {
+        Right,
+        Down,
+        Stack,
+    }
+
+    impl From<Placement> for Place {
+        fn from(place: Placement) -> Self {
+            match place {
+                Placement::Right => Self::Split(SplitDirection::Right),
+                Placement::Down => Self::Split(SplitDirection::Down),
+                Placement::Stack => Self::Stack,
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, Deserialize)]
+    #[cfg_attr(feature = "clap", derive(Args))]
+    #[serde(deny_unknown_fields)]
+    pub struct Cycle {
+        #[cfg_attr(feature = "clap", command(flatten))]
+        #[serde(default)]
+        pub pane: PaneTarget,
+        /// next brings the pane behind the front forward; prev brings the back forward
+        #[cfg_attr(feature = "clap", arg(long))]
+        pub direction: CycleDirection,
+    }
+
+    /// CLI only: a key cannot name the destination pane.
+    #[derive(Clone, Debug, Default, Deserialize)]
+    #[cfg_attr(feature = "clap", derive(Args))]
+    #[cfg_attr(feature = "clap", command(group(
+        clap::ArgGroup::new("to").required(true).args(["onto", "beside"])
+    )))]
+    #[serde(deny_unknown_fields)]
+    pub struct Move {
+        #[cfg_attr(feature = "clap", command(flatten))]
+        pub pane: PaneTarget,
+        /// Put the pane in front of this pane's stack
+        #[cfg_attr(
+            feature = "clap",
+            arg(long, value_name = "ID", conflicts_with = "direction")
+        )]
+        pub onto: Option<IdOf<Pane>>,
+        /// Split this pane's slot and put the pane alone on the --direction side
+        #[cfg_attr(feature = "clap", arg(long, value_name = "ID", requires = "direction"))]
+        pub beside: Option<IdOf<Pane>>,
+        /// With --beside: which side
+        #[cfg_attr(feature = "clap", arg(long, requires = "beside"))]
+        pub direction: Option<SplitDirection>,
     }
 
     /// Directional swap is `client.pane.swap`, a key action with no CLI form.

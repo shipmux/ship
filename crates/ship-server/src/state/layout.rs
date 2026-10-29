@@ -1,11 +1,10 @@
-//! Local tree rewrites and old-tree close selection repair. Structural edits
-//! clear the tab's zoom.
+//! Tree rewrites, stack edits and close selection repair. Zoom follows its slot.
 
 use ratatui::layout::Rect;
 use ship_core::{
     command::Direction,
     id::IdOf,
-    layout::{Axis, Layout, Ratio, Split},
+    layout::{Axis, CycleDirection, Layout, Ratio, Slot, Split, Taken},
     model::{Pane, Tab},
     prelude::*,
     protocol::SplitDirection,
@@ -29,16 +28,16 @@ pub(crate) fn split(
 ) -> Result<()> {
     fn insert(layout: &mut Layout, anchor: IdOf<Pane>, axis: Axis, pane: &Pane) -> bool {
         match layout {
-            Layout::Pane(before) if before.id == anchor => {
+            Layout::Slot(before) if before.contains(anchor) => {
                 *layout = Layout::Split(Split {
                     axis,
                     ratio: Ratio::HALF,
-                    first: Box::new(Layout::Pane(before.clone())),
-                    second: Box::new(Layout::Pane(pane.clone())),
+                    first: Box::new(Layout::Slot(before.clone())),
+                    second: Box::new(Layout::Slot(Slot::new(pane.clone()))),
                 });
                 true
             }
-            Layout::Pane(_) => false,
+            Layout::Slot(_) => false,
             Layout::Split(split) => {
                 insert(&mut split.first, anchor, axis, pane)
                     || insert(&mut split.second, anchor, axis, pane)
@@ -46,7 +45,7 @@ pub(crate) fn split(
         }
     }
     match (&mut tab.layout, anchor) {
-        (None, None) => tab.layout = Some(Layout::Pane(pane)),
+        (None, None) => tab.layout = Some(Layout::Slot(Slot::new(pane))),
         (Some(layout), Some(anchor)) => {
             if !insert(layout, anchor, axis(direction), &pane) {
                 return Err(err!(InvalidStructure, "split anchor is not in the tab"));
@@ -58,13 +57,72 @@ pub(crate) fn split(
     Ok(())
 }
 
-pub(crate) fn close(tab: &mut Tab, id: IdOf<Pane>) -> Result<()> {
-    fn remove(layout: Layout, id: IdOf<Pane>) -> Option<Layout> {
+/// Stack in front of the anchor's slot, or start an empty tab.
+pub(crate) fn stack(tab: &mut Tab, anchor: Option<IdOf<Pane>>, pane: Pane) -> Result<()> {
+    let zoomed = tab.zoomed;
+    match (&mut tab.layout, anchor) {
+        (None, None) => tab.layout = Some(Layout::Slot(Slot::new(pane))),
+        (Some(layout), Some(anchor)) => layout
+            .slot_mut(anchor)
+            .ok_or_else(|| err!(InvalidStructure, "stack anchor is not in the tab"))?
+            .push_front(pane),
+        _ => return Err(err!(InvalidStructure, "stack anchor is not in the tab")),
+    }
+    if let Some(was) = zoomed {
+        refocus_zoom(tab, was);
+    }
+    Ok(())
+}
+
+/// Rotate a slot; zoom follows its front.
+pub(crate) fn cycle(tab: &mut Tab, pane: IdOf<Pane>, direction: CycleDirection) -> Result<()> {
+    let zoomed = tab.zoomed;
+    tab.layout
+        .as_mut()
+        .and_then(|layout| layout.slot_mut(pane))
+        .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?
+        .cycle(direction);
+    if let Some(was) = zoomed {
+        refocus_zoom(tab, was);
+    }
+    Ok(())
+}
+
+pub(crate) fn bring_to_front(tab: &mut Tab, pane: IdOf<Pane>) -> Result<()> {
+    let zoomed = tab.zoomed;
+    tab.layout
+        .as_mut()
+        .and_then(|layout| layout.slot_mut(pane))
+        .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?
+        .bring_to_front(pane);
+    if let Some(was) = zoomed {
+        refocus_zoom(tab, was);
+    }
+    Ok(())
+}
+
+fn refocus_zoom(tab: &mut Tab, was: IdOf<Pane>) {
+    tab.zoomed = tab.slot(was).map(|slot| slot.front().id);
+}
+
+/// Takes a pane out, collapsing an emptied slot; zoom stays on a surviving slot.
+pub(crate) fn take(tab: &mut Tab, id: IdOf<Pane>) -> Result<Pane> {
+    fn remove(layout: Layout, id: IdOf<Pane>, taken: &mut Option<Pane>) -> Option<Layout> {
         match layout {
-            Layout::Pane(pane) => (pane.id != id).then_some(Layout::Pane(pane)),
+            Layout::Slot(slot) => match slot.take(id) {
+                Ok(Taken::Pane { pane, rest }) => {
+                    *taken = Some(pane);
+                    Some(Layout::Slot(rest))
+                }
+                Ok(Taken::Last(pane)) => {
+                    *taken = Some(pane);
+                    None
+                }
+                Err(slot) => Some(Layout::Slot(slot)),
+            },
             Layout::Split(split) => {
-                let first = remove(*split.first, id);
-                let second = remove(*split.second, id);
+                let first = remove(*split.first, id, taken);
+                let second = remove(*split.second, id, taken);
                 match (first, second) {
                     (Some(first), Some(second)) => Some(Layout::Split(Split {
                         first: Box::new(first),
@@ -79,24 +137,22 @@ pub(crate) fn close(tab: &mut Tab, id: IdOf<Pane>) -> Result<()> {
     if tab.pane(id).is_none() {
         return Err(err!(NotFound, "pane {} not found", id));
     }
-    tab.layout = tab.layout.take().and_then(|layout| remove(layout, id));
-    tab.zoomed = None;
-    Ok(())
+    let zoomed = tab
+        .zoomed
+        .and_then(|zoomed| tab.slot(zoomed))
+        .and_then(|slot| slot.panes().find(|pane| pane.id != id))
+        .map(|pane| pane.id);
+    let mut taken = None;
+    tab.layout = tab
+        .layout
+        .take()
+        .and_then(|layout| remove(layout, id, &mut taken));
+    tab.zoomed = zoomed;
+    Ok(taken.expect("pane belongs to tab"))
 }
 
-/// Exchanges the leaves of `a` and `b`, which must both be in `tab`.
+/// Exchanges the positions of `a` and `b`, which must both be in `tab`.
 pub(crate) fn swap(tab: &mut Tab, a: IdOf<Pane>, b: IdOf<Pane>) -> Result<()> {
-    fn exchange(layout: &mut Layout, a: &Pane, b: &Pane) {
-        match layout {
-            Layout::Pane(pane) if pane.id == a.id => *pane = b.clone(),
-            Layout::Pane(pane) if pane.id == b.id => *pane = a.clone(),
-            Layout::Pane(_) => {}
-            Layout::Split(split) => {
-                exchange(&mut split.first, a, b);
-                exchange(&mut split.second, a, b);
-            }
-        }
-    }
     let pane = |id| {
         tab.pane(id)
             .cloned()
@@ -110,8 +166,12 @@ pub(crate) fn swap(tab: &mut Tab, a: IdOf<Pane>, b: IdOf<Pane>) -> Result<()> {
             a.id
         ));
     }
-    if let Some(layout) = &mut tab.layout {
-        exchange(layout, &a, &b);
+    for pane in tab.panes_mut() {
+        if pane.id == a.id {
+            *pane = b.clone();
+        } else if pane.id == b.id {
+            *pane = a.clone();
+        }
     }
     tab.zoomed = None;
     Ok(())
@@ -261,11 +321,11 @@ fn split_at<'a>(layout: &'a mut Layout, path: &[bool]) -> &'a mut Split {
     }
 }
 
-/// At same-axis splits descend toward the closed side; otherwise take first.
+/// Prefer the surviving front, else descend into the sibling toward the closed side.
 pub(crate) fn successor(layout: &Layout, closed: IdOf<Pane>) -> Option<IdOf<Pane>> {
     fn edge(layout: &Layout, axis: Axis, closed_first: bool) -> IdOf<Pane> {
         match layout {
-            Layout::Pane(pane) => pane.id,
+            Layout::Slot(slot) => slot.front().id,
             Layout::Split(split) => {
                 let child = if split.axis == axis && !closed_first {
                     &split.second
@@ -276,12 +336,22 @@ pub(crate) fn successor(layout: &Layout, closed: IdOf<Pane>) -> Option<IdOf<Pane
             }
         }
     }
+    if let Some(slot) = layout.slot(closed)
+        && slot.len().get() > 1
+    {
+        return slot
+            .panes()
+            .find(|pane| pane.id != closed)
+            .map(|pane| pane.id);
+    }
     let Layout::Split(split) = layout else {
         return None;
     };
     match (&*split.first, &*split.second) {
-        (Layout::Pane(pane), sibling) if pane.id == closed => Some(edge(sibling, split.axis, true)),
-        (sibling, Layout::Pane(pane)) if pane.id == closed => {
+        (Layout::Slot(slot), sibling) if slot.contains(closed) => {
+            Some(edge(sibling, split.axis, true))
+        }
+        (sibling, Layout::Slot(slot)) if slot.contains(closed) => {
             Some(edge(sibling, split.axis, false))
         }
         _ => successor(&split.first, closed).or_else(|| successor(&split.second, closed)),

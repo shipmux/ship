@@ -9,7 +9,13 @@ A container at the server's top level or within another tab, with its own pane l
 _Avoid_: Session (the former top-level container, replaced by top-level tabs), Workspace (as an entity)
 
 **Pane**:
-A terminal location within a tab's pane layout.
+A terminal running a program within a tab. It belongs to one slot, either in front or behind another pane.
+
+**Slot**:
+A position in a tab's layout that holds a stack of panes. Only its front pane is shown.
+
+**Stack**:
+The ordered panes in a slot, with the first pane in front.
 
 **Saved tabs**:
 The server's tab tree as last saved for its port: every top-level tab and everything under it, without live programs, terminal contents or other live state.

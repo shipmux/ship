@@ -1,15 +1,20 @@
-//! CLI input and waits. Input needs no attachment; waits observe published
-//! replicas without a selection or area and detach when their stream drops.
+//! CLI input, waits and scrollback editing. These need no viewing attachment;
+//! waits observe published replicas without a selection or area.
 
 use std::{
-    io::{self, Read},
+    env,
+    fs::{self, File},
+    io::{self, Read, Write},
+    path::{Path, PathBuf},
     pin::pin,
+    process::ExitStatus as ProcessExitStatus,
     sync::Arc,
     time::Duration,
 };
 
 use crokey::KeyCombination;
 use crossterm::event::KeyEvent;
+use etcetera::BaseStrategy;
 use futures_util::{Stream, StreamExt};
 use ship_core::{
     command::pane::WaitState,
@@ -17,17 +22,22 @@ use ship_core::{
     model::{ExitStatus, Pane, PaneStatus, ReportedState, StatusRecord},
     prelude::*,
     protocol::{
-        AttachRequest, EndReason, Ended, FeedMode, InputFrame, KeyInput, PasteInput, Replica,
-        SseEvent,
+        AttachRequest, EndReason, Ended, FeedMode, InputFrame, KeyInput, PasteInput, ReadPane,
+        Replica, SseEvent,
     },
     tree,
 };
+#[cfg(unix)]
+use tokio::process::Command;
 use tokio::time::timeout;
 
 use crate::Client;
 
 /// How long `send --wait` gives the program to move off its status before the input.
 const STALL: Duration = Duration::from_secs(5);
+
+const SCROLLBACK_PREFIX: &str = "scrollback-";
+const SCROLLBACK_SUFFIX: &str = ".txt";
 
 /// One paste followed by keys, all parsed before writing.
 pub(crate) struct Input {
@@ -67,6 +77,59 @@ impl Input {
 }
 
 impl Client {
+    /// Open the named pane, or the pane directly behind `from`, in the editor.
+    /// The file's lock lasts through the editor and its edits are discarded.
+    pub(crate) async fn edit_scrollback(
+        &self,
+        target: Option<IdOf<Pane>>,
+        from: Option<IdOf<Pane>>,
+    ) -> Result<()> {
+        let target = match target {
+            Some(target) => target,
+            None => {
+                let from = from.ok_or_else(|| {
+                    err!(
+                        Validation,
+                        "edit-scrollback needs --pane or a pane to run in"
+                    )
+                })?;
+                let tabs = self.tabs().await?;
+                let tab = tree::tab(&tabs, tree::pane_owner(&tabs, from)?)?;
+                tab.slot(from)
+                    .and_then(|slot| slot.behind(from))
+                    .map(|pane| pane.id)
+                    .ok_or_else(|| err!(Conflict, "no pane behind pane {}", from))?
+            }
+        };
+        let text = self
+            .read(
+                target,
+                &ReadPane {
+                    lines: Some(u32::MAX),
+                    unwrap: true,
+                    ansi: false,
+                },
+            )
+            .await?;
+        let dir = scrollback_dir()?;
+        sweep(&dir);
+        let mut file = tempfile::Builder::new()
+            .prefix(SCROLLBACK_PREFIX)
+            .suffix(SCROLLBACK_SUFFIX)
+            .tempfile_in(&dir)
+            .map_err(|error| err!(Io, "cannot create scrollback file", @external: error))?;
+        file.as_file()
+            .try_lock()
+            .map_err(|error| err!(Io, "cannot lock scrollback file", @external: error))?;
+        file.write_all(text.as_bytes())
+            .map_err(|error| err!(Io, "cannot write scrollback file", @external: error))?;
+        let status = launch(&editor(), file.path()).await?;
+        if !status.success() {
+            return Err(err!(Io, "editor exited with {}", status));
+        }
+        Ok(())
+    }
+
     /// Check existence, and readiness when asked, then write without attaching.
     pub(crate) async fn send(
         &self,
@@ -158,6 +221,60 @@ impl Client {
         })
         .await
     }
+}
+
+/// A directory for private, short-lived scrollback files.
+fn scrollback_dir() -> Result<PathBuf> {
+    let dir = etcetera::choose_base_strategy()
+        .map_err(|error| err!(Configuration, "cannot find the cache directory", @external: error))?
+        .cache_dir()
+        .join("ship/scrollback");
+    fs::create_dir_all(&dir)
+        .map_err(|error| err!(Io, "cannot create scrollback directory", @external: error))?;
+    Ok(dir)
+}
+
+/// A crashed run releases its lock; files held by another run stay untouched.
+fn sweep(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if !entry.file_name().to_str().is_some_and(|name| {
+            name.starts_with(SCROLLBACK_PREFIX) && name.ends_with(SCROLLBACK_SUFFIX)
+        }) {
+            continue;
+        }
+        if let Ok(file) = File::open(entry.path())
+            && file.try_lock().is_ok()
+        {
+            fs::remove_file(entry.path()).ok();
+        }
+    }
+}
+
+fn editor() -> String {
+    env::var("VISUAL")
+        .or_else(|_| env::var("EDITOR"))
+        .unwrap_or_else(|_| "vi".into())
+}
+
+/// Keep the file separate from the shell program so its path is one argument.
+#[cfg(unix)]
+async fn launch(editor: &str, file: &Path) -> Result<ProcessExitStatus> {
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!("{editor} \"$1\""))
+        .arg("sh")
+        .arg(file)
+        .status()
+        .await
+        .map_err(|error| err!(Io, "cannot start editor", @external: error))
+}
+
+#[cfg(not(unix))]
+async fn launch(_editor: &str, _file: &Path) -> Result<ProcessExitStatus> {
+    Err(err!(Io, "edit-scrollback needs sh"))
 }
 
 /// The next published replica. An observer gets no screens or clipboard.

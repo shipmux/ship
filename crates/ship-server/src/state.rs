@@ -13,12 +13,13 @@ use indexmap::IndexMap;
 use kameo::{error::Infallible, prelude::*};
 use ship_core::{
     id::*,
-    layout::{Layout, Ratio},
+    layout::{Layout, Ratio, Slot},
     model::*,
     prelude::*,
     protocol::{
-        AttachRequest, Attached, CreatePane, CreateTab, MoveTab, NewPane, PaneAt, Replica,
-        ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput, ViewingRecord,
+        AttachRequest, Attached, CreatePane, CreateTab, CyclePane, MovePane, MoveTab, NewPane,
+        PaneAt, Place, Replica, ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput,
+        ViewingRecord,
     },
     screen::Size,
 };
@@ -108,7 +109,6 @@ impl ServerState {
     fn restore_tab(&mut self, mut tab: Tab) -> Tab {
         tab.tabs = self.restore(tab.tabs);
         tab.geometry = None;
-        let zoomed = tab.zoomed;
         let panes: Vec<_> = tab.panes().cloned().collect();
         for saved in panes {
             let cwd = match Self::pane_cwd(Some(saved.cwd.clone())) {
@@ -130,11 +130,10 @@ impl ServerState {
                 Ok(pane) => *tab.pane_mut(saved.id).expect("saved pane belongs to tab") = pane,
                 Err(error) => {
                     tracing::warn!(pane = %saved.id, directory = %saved.cwd, %error, "cannot start restored pane");
-                    layout::close(&mut tab, saved.id).expect("saved pane belongs to tab");
+                    layout::take(&mut tab, saved.id).expect("saved pane belongs to tab");
                 }
             }
         }
-        tab.zoomed = zoomed.filter(|id| tab.pane(*id).is_some());
         tab
     }
 
@@ -188,20 +187,17 @@ impl ServerState {
         Ok(result)
     }
 
-    /// A closed pane lands in the sibling subtree taking its space, using
-    /// the old layout. Removed tabs retain the nearest-ancestor fallback. A
-    /// pane hidden by its tab's zoom then moves to the zoomed pane.
+    /// Closed panes land on a surviving stack front or a neighboring slot.
+    /// Surviving selections follow their slot's front, then the tab's zoom.
     fn repair(old: &Tabs, new: &Tabs, record: ViewingRecord) -> ViewingRecord {
-        let record = Self::repair_removed(old, new, record);
+        let mut record = Self::repair_removed(old, new, record);
         if let Some(NodeId::Pane(pane)) = record.selection
             && let Ok(owner) = tree::pane_owner(new, pane)
             && let Ok(tab) = tree::tab(new, owner)
-            && let Some(zoomed) = tab.zoomed.filter(|zoomed| *zoomed != pane)
+            && let Some(slot) = tab.slot(pane)
         {
-            return ViewingRecord {
-                selection: Some(NodeId::Pane(zoomed)),
-                ..record
-            };
+            let front = slot.front().id;
+            record.selection = Some(NodeId::Pane(tab.zoomed.unwrap_or(front)));
         }
         record
     }
@@ -402,6 +398,14 @@ pub struct Attach {
     pub request: AttachRequest,
 }
 pub struct Detach(pub IdOf<Attachment>);
+pub struct Cycle {
+    pub id: IdOf<Pane>,
+    pub cycle: CyclePane,
+}
+pub struct PaneMove {
+    pub id: IdOf<Pane>,
+    pub to: MovePane,
+}
 pub struct Swap {
     pub id: IdOf<Pane>,
     pub swap: SwapPane,
@@ -457,11 +461,11 @@ impl Message<CreateTab> for ServerState {
     ) -> Self::Reply {
         let id = Id::new();
         let layout = if let Some(Starter::Shell) = create.starter {
-            Some(Layout::Pane(self.start_pane(
+            Some(Layout::Slot(Slot::new(self.start_pane(
                 Id::new(),
                 Size::FALLBACK,
                 NewPane::default(),
-            )?))
+            )?)))
         } else {
             None
         };
@@ -522,6 +526,9 @@ impl Message<Set<Tab, SetTab>> for ServerState {
             self.commit(|tabs, _| {
                 let tab = tree::tab_mut(tabs, id)?;
                 tab.name = name;
+                if let Some(Some(pane)) = set.zoomed {
+                    layout::bring_to_front(tab, pane)?;
+                }
                 tab.zoomed = zoomed;
                 Ok(())
             })
@@ -610,22 +617,39 @@ impl Message<CreatePane> for ServerState {
         let anchor = explicit.or_else(|| geometry.largest());
         let mut start = size;
         if let Some(anchor) = anchor {
-            let frame = geometry.panes[&anchor].frame;
-            let [first, second] =
-                geometry::halves(frame, layout::axis(create.direction), Ratio::HALF);
-            let block = ratatui::widgets::Block::bordered();
-            let first = block.inner(first);
-            let second = block.inner(second);
-            if [first, second].iter().any(|content| {
-                content.width < geometry::MIN_CONTENT.cols
-                    || content.height < geometry::MIN_CONTENT.rows
-            }) {
-                return Err(err!(InvalidStructure, "no space for new pane"));
+            let slot = tab.slot(anchor).expect("anchor belongs to tab");
+            let front = slot.front().id;
+            match create.place {
+                Place::Split(direction) => {
+                    let frame = geometry.panes[&front].frame;
+                    let [first, second] =
+                        geometry::halves(frame, layout::axis(direction), Ratio::HALF);
+                    let block = ratatui::widgets::Block::bordered();
+                    let first = block.inner(first);
+                    let second = block.inner(second);
+                    if [first, second].iter().any(|content| {
+                        content.width < geometry::MIN_CONTENT.cols
+                            || content.height < geometry::MIN_CONTENT.rows
+                    }) {
+                        return Err(err!(InvalidStructure, "no space for new pane"));
+                    }
+                    start = Size {
+                        cols: second.width,
+                        rows: second.height,
+                    };
+                }
+                Place::Stack => {
+                    let visible = geometry::tab(tab, size);
+                    let area = visible.panes.get(&front).unwrap_or(&geometry.panes[&front]);
+                    start = Size {
+                        cols: area.content.width,
+                        rows: area.content.height,
+                    };
+                    if slot.len().get() == 1 && area.content == area.frame {
+                        start.rows = start.rows.saturating_sub(1);
+                    }
+                }
             }
-            start = Size {
-                cols: second.width,
-                rows: second.height,
-            };
         }
         // Keys send no directory: the anchor's current one, else its starting one.
         let mut input = create.pane;
@@ -639,12 +663,14 @@ impl Message<CreatePane> for ServerState {
             if let Some(attachment) = create.select {
                 select_created(viewers, attachment, NodeId::Pane(pane.id))?;
             }
-            layout::split(
-                tree::tab_mut(tabs, owner)?,
-                anchor,
-                create.direction,
-                pane.clone(),
-            )?;
+            let tab = tree::tab_mut(tabs, owner)?;
+            match create.place {
+                Place::Split(direction) => layout::split(tab, anchor, direction, pane.clone())?,
+                Place::Stack => layout::stack(tab, anchor, pane.clone())?,
+            }
+            if create.select.is_some() && tab.zoomed.is_some_and(|zoomed| zoomed != pane.id) {
+                tab.zoomed = None;
+            }
             Ok(pane)
         })
         .await
@@ -721,10 +747,66 @@ impl Message<Remove<Pane>> for ServerState {
     ) -> Self::Reply {
         self.commit(|tabs, _| {
             let owner = tree::pane_owner(tabs, id)?;
-            layout::close(tree::tab_mut(tabs, owner)?, id)?;
+            layout::take(tree::tab_mut(tabs, owner)?, id)?;
             Ok(())
         })
         .await
+    }
+}
+
+#[named]
+impl Message<Cycle> for ServerState {
+    type Reply = Result<Tab>;
+
+    async fn handle(
+        &mut self,
+        Cycle { id, cycle }: Cycle,
+        _: &mut Context<Self, Self::Reply>,
+    ) -> Self::Reply {
+        let owner = tree::pane_owner(&self.tabs, id)?;
+        self.commit(|tabs, _| layout::cycle(tree::tab_mut(tabs, owner)?, id, cycle.direction))
+            .await?;
+        self.published_tab(owner)
+    }
+}
+
+#[named]
+impl Message<PaneMove> for ServerState {
+    type Reply = Result<Tab>;
+
+    /// Take and place in one commit so the pane's runtime never leaves the tree.
+    async fn handle(
+        &mut self,
+        PaneMove { id, to }: PaneMove,
+        _: &mut Context<Self, Self::Reply>,
+    ) -> Self::Reply {
+        if id == to.at {
+            return Err(err!(
+                InvalidStructure,
+                "cannot move pane {} onto or beside itself",
+                id
+            ));
+        }
+        let source = tree::pane_owner(&self.tabs, id)?;
+        let destination = tree::pane_owner(&self.tabs, to.at)?;
+        self.commit(|tabs, viewers| {
+            let pane = layout::take(tree::tab_mut(tabs, source)?, id)?;
+            let tab = tree::tab_mut(tabs, destination)?;
+            match to.place {
+                Place::Split(direction) => layout::split(tab, Some(to.at), direction, pane)?,
+                Place::Stack => layout::stack(tab, Some(to.at), pane)?,
+            }
+            if tab.zoomed.is_some_and(|zoomed| zoomed != id)
+                && viewers
+                    .values()
+                    .any(|record| record.selection == Some(NodeId::Pane(id)))
+            {
+                tab.zoomed = None;
+            }
+            Ok(())
+        })
+        .await?;
+        self.published_tab(destination)
     }
 }
 
@@ -912,11 +994,10 @@ impl Message<Select> for ServerState {
                 tree::path(tabs, node).ok_or_else(|| tree::not_found(node))?;
                 if let NodeId::Pane(pane) = node {
                     let owner = tree::pane_owner(tabs, pane)?;
-                    if tree::tab(tabs, owner)?
-                        .zoomed
-                        .is_some_and(|zoomed| zoomed != pane)
-                    {
-                        tree::tab_mut(tabs, owner)?.zoomed = None;
+                    let tab = tree::tab_mut(tabs, owner)?;
+                    layout::bring_to_front(tab, pane)?;
+                    if tab.zoomed.is_some_and(|zoomed| zoomed != pane) {
+                        tab.zoomed = None;
                     }
                 }
             }
@@ -986,7 +1067,7 @@ impl Message<PaneEvent> for ServerState {
             // Publish the exit before removing the pane so every-feed waits see it.
             self.commit(|tabs, _| {
                 let owner = tree::pane_owner(tabs, id)?;
-                layout::close(tree::tab_mut(tabs, owner)?, id)?;
+                layout::take(tree::tab_mut(tabs, owner)?, id)?;
                 Ok(())
             })
             .await?;

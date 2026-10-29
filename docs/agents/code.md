@@ -32,7 +32,7 @@ An entity's `get` output is its one shape. Every input that describes the entity
 
 - Each entity field has one name, one path and one type in `get` output, PATCH bodies, create bodies and `[server.defaults.*]`. A request field that reuses an entity field's name has that field's type. Config's `shell` is the one exception: it's a path, the default for `command`, an argv.
 - PATCH bodies and create's `pane` and `tab` objects use the entity's own paths.
-- Create bodies put the request's own fields (`at`, `direction`, `starter`, `select`) at the top level and the new entity's fields under `pane` (`NewPane`) or `tab` (`NewTab`). Placing a tab is always `at: MoveTab`, on create and on move.
+- Create bodies put the request's own fields (`at`, `place`, `starter`, `select`) at the top level and the new entity's fields under `pane` (`NewPane`) or `tab` (`NewTab`). Placing a tab is always `at: MoveTab`, on create and on move.
 - Create bodies and config defaults take plain values. Only PATCH bodies and `server.` and `client.` action arguments may also take `"toggle"`, and only on bools, through `Switch`.
 - PATCH follows JSON Merge Patch: an absent field is left alone and `null` clears it.
 - An input field takes `null` only if the entity field can be `null`. Say it one of two ways in `protocol.rs`:

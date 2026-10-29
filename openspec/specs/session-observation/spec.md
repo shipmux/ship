@@ -55,34 +55,55 @@ When bare `ship` starts the local server itself, the server SHALL begin with one
 - **THEN** exactly one tab exists and both clients open on it
 
 ### Requirement: Independent optional selection
-Each attached client SHALL have its own selection: a tab, a pane, or nothing. A newly opened client SHALL select nothing, except as "First tab from server startup" describes. A client SHALL be able to select an empty tab or a pane. Changing one client's selection SHALL NOT change another's, except for the shared zoom repair rule. Each client SHALL show its own selection. Sidebar folds and pane-selection history SHALL stay client-local.
+Each attached client SHALL have its own selection: a tab, a pane, or nothing. A newly opened client SHALL select nothing, except as "First tab from server startup" describes. A client SHALL be able to select an empty tab or a pane. Changing one client's selection SHALL NOT change another's except through server selection repair, including shared-front and zoom repair. Each client SHALL show its own selection. Sidebar folds and pane-selection history SHALL stay client-local.
 
 #### Scenario: Open with nothing selected
 - **WHEN** a server has three top-level tabs and a user runs `ship`
 - **THEN** the client selects nothing and shows `3 tabs · alt-right to open one`
 
 #### Scenario: Different selections
-- **WHEN** two clients are on different panes in an unzoomed tab and one presses `alt-tab`
+- **WHEN** two clients are on front panes of different slots in an unzoomed tab and one presses `alt-tab`
 - **THEN** only that client's selection changes, and both still see all visible panes
 
+#### Scenario: Shared front repairs another selection
+- **WHEN** one client selects B behind X in their shared slot while another client has X selected
+- **THEN** B becomes the shared front and both clients have B selected
+
 ### Requirement: Selection repair
-When a client's selected pane is removed, its selection SHALL move into the sibling subtree that takes the pane's space, choosing the leaf toward the closed side on same-axis splits and the first child otherwise. With no own panes left it SHALL fall back to the tab. Removed tabs or ancestors SHALL repair to the nearest surviving ancestor, or nothing. Moved surviving selections SHALL stay selected. A selection hidden by shared zoom SHALL repair to the zoomed pane.
+When a client's selected pane is removed, its selection SHALL move to the next pane in its slot if any remain, else into the sibling subtree that takes the slot's space, choosing the leaf toward the closed side on same-axis splits and the first child otherwise. With no own panes left it SHALL fall back to the tab.
 
 #### Scenario: Selected pane removed
-- **WHEN** A is selected in `[A | [B / C]]` and A is removed
+- **WHEN** A is selected in `[A | [B / C]]`, alone in its slot, and A is removed
 - **THEN** the client's selection moves to B in the subtree taking A's space
+
+#### Scenario: Selected pane removed from a stack
+- **WHEN** X is selected in a slot holding `[X, A]` and X is removed
+- **THEN** the client's selection moves to A
 
 #### Scenario: Last pane in a tab removed
 - **WHEN** a client's selected pane is the only pane in its tab and is removed
 - **THEN** its selection becomes the tab and the client shows the no-pane hint
 
+### Requirement: Selection repair after tab removal
+Removed tabs or ancestors SHALL repair to the nearest surviving ancestor, or nothing.
+
 #### Scenario: Selected tab's ancestor removed
 - **WHEN** an ancestor of a client's selected tab is removed
 - **THEN** its selection becomes the nearest surviving ancestor, or nothing if none survives
 
+### Requirement: Selection repair after a move
+Moved surviving selections SHALL stay selected.
+
 #### Scenario: Selected tab moved
 - **WHEN** a client's selected pane's tab moves to the top level
 - **THEN** the client keeps that pane selected
+
+### Requirement: Selection repair follows shared visibility
+A selection on a pane behind its slot's front SHALL repair to that front. A selection hidden by shared zoom SHALL repair to the zoomed pane.
+
+#### Scenario: Selected pane pushed behind
+- **WHEN** one client has X selected, X is the front of its slot, and another client stacks a new pane N onto X's slot
+- **THEN** the first client's selection moves to N
 
 #### Scenario: Shared zoom hides selection
 - **WHEN** one client zooms A while another viewing that tab has B selected
@@ -186,11 +207,15 @@ On a folded row or a tab without children, `client.tab.collapse` SHALL select th
 - **THEN** `api` is selected, as if `server` itself were selected
 
 ### Requirement: Published pane geometry
-The server SHALL publish each viewed tab's size and visible pane frame/content rectangles in layout order, relative to the tab area, as optional `geometry` on that tab recursively. Unviewed tabs SHALL omit geometry; a viewed empty tab SHALL include its size and an empty pane map. `Replica` SHALL NOT contain a parallel geometry map.
+The server SHALL publish each viewed tab's size and visible pane frame/content rectangles in layout order, relative to the tab area, as optional `geometry` on that tab recursively. Only each slot's front pane SHALL have an entry. A borderless slot holding more than one pane SHALL keep its top row out of the content rectangle for its title row. Unviewed tabs SHALL omit geometry; a viewed empty tab SHALL include its size and an empty pane map. `Replica` SHALL NOT contain a parallel geometry map.
 
 #### Scenario: Viewed child under unviewed ancestors
 - **WHEN** a viewer selects a pane in the grandchild of an unviewed tab
 - **THEN** the nested grandchild carries its own geometry in the same replica as its layout and viewer record, and its unviewed ancestors omit geometry
+
+#### Scenario: Panes behind have no geometry
+- **WHEN** a viewed tab's only slot holds `[X, A]`
+- **THEN** its geometry has an entry for X only, and X's content rectangle starts one row below its frame
 
 #### Scenario: Last viewer leaves a tab
 - **WHEN** the last viewer of a tab selects another tab or detaches
@@ -222,19 +247,11 @@ PTY sizing SHALL consume the committed published tab geometry. Clients SHALL ren
 - **THEN** the nearest center wins, with equal distances resolved by layout order
 
 ### Requirement: Shared zoom
-A tab's zoomed pane, set as session-structure's Tab zoom describes, SHALL fill the tab for all viewers while other programs keep running. Pane focus or next from the zoomed pane SHALL unzoom before moving, and a directional client swap SHALL unzoom before resolving its neighbor, even when none is found. Creating, closing, swapping or resizing a pane SHALL unzoom that tab before the edit. Selecting another tab SHALL leave zoom unchanged.
+A tab's zoomed slot, set as session-structure's Tab zoom describes, SHALL fill the tab for all viewers, showing its front, while other programs keep running. Selecting another tab SHALL leave zoom unchanged.
 
 #### Scenario: Two viewers zoom together
 - **WHEN** one client zooms its selected pane
 - **THEN** both viewers see that pane alone and hidden selected panes repair to it
-
-#### Scenario: Move out of zoom
-- **WHEN** two clients concurrently request directional focus out of a zoomed pane
-- **THEN** the tab becomes unzoomed, does not toggle back into zoom, and each client moves using unzoomed geometry
-
-#### Scenario: Layout edit ends zoom
-- **WHEN** a valid create, close, swap or resize operation is performed in a zoomed tab
-- **THEN** the tab unzooms and all viewers see the edited layout
 
 #### Scenario: Visit another tab
 - **WHEN** a client leaves a zoomed tab to view a different tab
@@ -243,6 +260,46 @@ A tab's zoomed pane, set as session-structure's Tab zoom describes, SHALL fill t
 #### Scenario: Zoom from a script
 - **WHEN** a script runs `ship tab set --tab <t> --zoomed <p>` for a tab no client is attached to, then attaches a client to it
 - **THEN** the client shows `<p>` filling the tab
+
+### Requirement: Navigation out of shared zoom
+Pane focus or next from the zoomed pane SHALL unzoom before moving, and a directional client swap SHALL unzoom before resolving its neighbor, even when none is found.
+
+#### Scenario: Move out of zoom
+- **WHEN** two clients concurrently request directional focus out of a zoomed pane
+- **THEN** the tab becomes unzoomed, does not toggle back into zoom, and each client moves using unzoomed geometry
+
+### Requirement: Layout edits end shared zoom
+Splitting, swapping or resizing in a tab SHALL unzoom it before the edit, as SHALL removing the zoomed slot.
+
+#### Scenario: Layout edit ends zoom
+- **WHEN** a valid split create, swap or resize operation is performed in a zoomed tab
+- **THEN** the tab unzooms and all viewers see the edited layout
+
+#### Scenario: Zoomed slot removed
+- **WHEN** X is alone in its zoomed slot and X closes
+- **THEN** the tab unzooms
+
+### Requirement: Stack edits retain shared zoom
+Cycling, stacking onto the zoomed slot, and closing or moving out a pane SHALL keep the zoom, with `zoomed` naming the zoomed slot's new front.
+
+#### Scenario: Stack edits keep zoom
+- **WHEN** X's slot is zoomed and the user cycles it, stacks a new pane onto it, or opens edit-scrollback on X
+- **THEN** the tab stays zoomed and shows the slot's new front
+
+#### Scenario: Front closes in a zoomed stack
+- **WHEN** a slot holding `[X, A]` is zoomed and X closes
+- **THEN** the tab stays zoomed on A
+
+#### Scenario: Another slot closes
+- **WHEN** X's slot is zoomed and a pane in another slot of the same tab closes
+- **THEN** the tab stays zoomed
+
+### Requirement: Moved selections remain visible through zoom
+A move SHALL instead unzoom its destination if that zoom would hide the moved pane and any client has that pane selected, including a move within one tab.
+
+#### Scenario: Move a selected pane into a zoomed destination
+- **WHEN** a client has M selected and M moves into another tab's slot while a different slot in that destination tab is zoomed
+- **THEN** the destination tab unzooms and M stays selected and visible
 
 ### Requirement: Who changes a selection
 The server SHALL hold each attachment's selection. It SHALL change only through its own client's navigation and clicks, a select naming that attachment, a create that selects for it, and Selection repair. A client SHALL show a selection set by someone else as it shows its own, within a frame of the server publishing it.
@@ -301,11 +358,15 @@ The server SHALL hold each attachment's selection. It SHALL change only through 
 - **THEN** the command fails with a not-found error, exits 1 and nothing changes
 
 ### Requirement: Select behind a zoom
-Selecting a pane hidden by its tab's zoom, through the views route or `ship view select`, SHALL unzoom that tab for every viewer and select the pane, in one edit.
+Selecting a pane in another slot of a zoomed tab, through the views route or `ship view select`, SHALL unzoom that tab for every viewer and select the pane, in one edit. Selecting a pane in the zoomed slot SHALL bring it to the front and keep the zoom.
 
 #### Scenario: Script selects a hidden pane
-- **WHEN** A is zoomed in a tab with B, two clients view the tab, and a script selects B for one of them
+- **WHEN** A is zoomed in a tab with B in another slot, two clients view the tab, and a script selects B for one of them
 - **THEN** both clients see the tab unzoomed, and the script's client has B selected
+
+#### Scenario: Select within the zoomed slot
+- **WHEN** a zoomed slot holds `[X, A]` and a script selects A
+- **THEN** the tab stays zoomed, now on A, and the script's client has A selected
 
 ### Requirement: Published screen rows
 Each published pane screen SHALL carry `rows`, top to bottom. A row's `text` SHALL hold one char per cell from the left through the last cell that isn't a default-style blank; later cells SHALL be such blanks. A wide character's trailing cell SHALL be a blank of its own. A cell whose grapheme is more than one char SHALL have a space in `text` and appear in `multi` as `{col, symbol}`. Empty text and lists SHALL be omitted. Clients SHALL place cells as described, not by character width.

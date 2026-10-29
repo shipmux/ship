@@ -15,6 +15,7 @@ use super::{
     Scene,
     lane::{Edge, EdgeAt, TabMove},
     menu::{self, Target},
+    panes,
     sidebar::{
         Gap, Hit, Scroll, movable,
         tabs::{self, Row},
@@ -279,6 +280,9 @@ impl Mouse {
                     }
                 }
                 if kind == MouseEventKind::Down(MouseButton::Left) {
+                    if let Some(pane) = title_at(scene, at) {
+                        return Some(Clicked::Select(NodeId::Pane(pane)));
+                    }
                     let edges = edges_at(geometry, relative);
                     if !edges.is_empty() {
                         self.gesture = Some(Gesture::Border(
@@ -315,6 +319,21 @@ impl Mouse {
             }
         }
     }
+}
+
+/// A pane behind the front whose visible title covers `at`.
+fn title_at(scene: &Scene, at: Position) -> Option<IdOf<Pane>> {
+    let relative = Position::new(
+        at.x.checked_sub(scene.panes.x)?,
+        at.y.checked_sub(scene.panes.y)?,
+    );
+    let front = owner(scene.geometry?, relative)?;
+    let slot = scene.tab?.slot(front)?;
+    let row = panes::title_row(scene, front)?;
+    panes::titles(slot, row)
+        .into_iter()
+        .find(|(pane, cells)| *pane != front && cells.contains(at))
+        .map(|(pane, _)| pane)
 }
 
 /// Shared frame cells, never outer edges or content. Layout order breaks ties

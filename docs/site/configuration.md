@@ -87,7 +87,7 @@ kind = "oneshot"                                    # back to normal after one k
 
 [client.modes.prefix.keys]
 "c"      = { action = { server.tab.create = { starter = "shell", select = true } } }
-"%"      = { action = { server.pane.create = { direction = "right", select = true } } }
+"%"      = { action = { server.pane.create = { place = "right", select = true } } }
 "ctrl-b" = { action = { client.send = "ctrl-b" } }  # a real ctrl-b for the pane
 ```
 

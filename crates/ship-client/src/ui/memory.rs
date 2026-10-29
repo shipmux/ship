@@ -33,10 +33,15 @@ impl Memory {
     }
 
     /// Where selecting `tab` lands: its zoomed pane, else this client's last
-    /// pane there, else its first pane, else the tab.
+    /// pane's current slot front there, else its first pane, else the tab.
     pub fn landing(&self, tab: &Tab) -> NodeId {
         tab.zoomed
-            .or_else(|| self.last.get(&tab.id).copied())
+            .or_else(|| {
+                self.last
+                    .get(&tab.id)
+                    .and_then(|pane| tab.slot(*pane))
+                    .map(|slot| slot.front().id)
+            })
             .or_else(|| tab.panes().next().map(|pane| pane.id))
             .map_or(NodeId::Tab(tab.id), NodeId::Pane)
     }

@@ -8,7 +8,7 @@ use crate::{
     AppError, config, err,
     geometry::TabGeometry,
     id::{Id, IdOf, Identified, Prefixed},
-    layout::Layout,
+    layout::{Layout, Slot},
     tree::Tabs,
 };
 
@@ -197,6 +197,10 @@ impl Tab {
 
     pub fn pane_mut(&mut self, id: IdOf<Pane>) -> Option<&mut Pane> {
         self.layout.as_mut()?.pane_mut(id)
+    }
+
+    pub fn slot(&self, pane: IdOf<Pane>) -> Option<&Slot> {
+        self.layout.as_ref()?.slot(pane)
     }
 }
 

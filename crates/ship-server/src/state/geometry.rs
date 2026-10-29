@@ -10,7 +10,7 @@ use ratatui::{
 use ship_core::{
     geometry::{PaneGeometry, TabGeometry},
     id::IdOf,
-    layout::{Axis, Layout, Ratio},
+    layout::{Axis, Layout, Ratio, Slot},
     model::{Pane, Tab},
     screen::Size,
     tree::Tabs,
@@ -102,13 +102,9 @@ pub(crate) fn tab(tab: &Tab, size: Size) -> TabGeometry {
         panes: &mut IndexMap<IdOf<Pane>, PaneGeometry>,
     ) {
         match layout {
-            Layout::Pane(pane) => {
-                let content = if bordered {
-                    Block::bordered().inner(frame)
-                } else {
-                    frame
-                };
-                panes.insert(pane.id, PaneGeometry { frame, content });
+            Layout::Slot(slot) => {
+                let content = content(frame, bordered, slot);
+                panes.insert(slot.front().id, PaneGeometry { frame, content });
             }
             Layout::Split(split) => {
                 let [first, second] = halves(frame, split.axis, split.ratio);
@@ -119,12 +115,12 @@ pub(crate) fn tab(tab: &Tab, size: Size) -> TabGeometry {
     }
     let mut panes = IndexMap::new();
     let frame = Rect::new(0, 0, size.cols, size.rows);
-    if let Some(zoomed) = tab.zoomed.filter(|id| tab.pane(*id).is_some()) {
+    if let Some(slot) = tab.zoomed.and_then(|id| tab.slot(id)) {
         panes.insert(
-            zoomed,
+            slot.front().id,
             PaneGeometry {
                 frame,
-                content: frame,
+                content: content(frame, false, slot),
             },
         );
     } else if let Some(layout) = &tab.layout {
@@ -136,4 +132,18 @@ pub(crate) fn tab(tab: &Tab, size: Size) -> TabGeometry {
         );
     }
     TabGeometry { size, panes }
+}
+
+/// Only a borderless stack needs a separate title row.
+fn content(frame: Rect, bordered: bool, slot: &Slot) -> Rect {
+    if bordered {
+        return Block::bordered().inner(frame);
+    }
+    let title = u16::from(slot.len().get() > 1).min(frame.height);
+    Rect::new(
+        frame.x,
+        frame.y.saturating_add(title),
+        frame.width,
+        frame.height - title,
+    )
 }

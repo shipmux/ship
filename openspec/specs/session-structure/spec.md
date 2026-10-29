@@ -107,7 +107,7 @@ Panes SHALL NOT move between tabs; same-tab swaps SHALL exchange positions as de
 - **THEN** they cannot move between tabs; same-tab swaps exchange positions as Explicit pane swaps describes
 
 ### Requirement: Tab parents
-Tab creation SHALL accept a tab as the parent, or no parent for the top level. Pane creation SHALL accept `--tab ID` to select the tab or `--pane ID` to anchor a split in that pane, with `--tab` winning when both are given. Inside a pane, `SHIP_PANE_ID` SHALL supply the default pane anchor. `--tab` SHALL reject a pane ID.
+Tab creation SHALL accept a tab as the parent, or no parent for the top level. Pane creation SHALL accept `--tab ID` to select the tab or `--pane ID` to anchor placement in that pane's slot, with `--tab` winning when both are given. Inside a pane, `SHIP_PANE_ID` SHALL supply the default pane anchor. `--tab` SHALL reject a pane ID.
 
 #### Scenario: Create at the top level
 - **WHEN** a user runs `ship tab create --name notes`
@@ -118,7 +118,7 @@ Tab creation SHALL accept a tab as the parent, or no parent for the top level. P
 - **THEN** the command fails clearly and the structure is unchanged
 
 #### Scenario: Split the caller's pane
-- **WHEN** a program in a pane runs `ship pane create --direction down` without an explicit target
+- **WHEN** a program in a pane runs `ship pane create --place down` without an explicit target
 - **THEN** a new pane is placed below that pane in the same tab, whatever a client's selection is
 
 ### Requirement: Optional names
@@ -215,22 +215,29 @@ Commands that act on a tab SHALL also accept `--pane ID`, meaning the tab holdin
 - **THEN** the printed tab holds one pane running the shell
 
 ### Requirement: Layout order and proportions
-A tab's pane order SHALL be its binary split tree traversed first child before second, with first left in a horizontal split and above in a vertical split. Splits SHALL retain their stored proportions when the available area changes, subject to whole-cell rounding. Shrinking SHALL fit the existing tree into the available area without removing panes or changing stored proportions.
+A tab's pane order SHALL be its binary split tree traversed first child before second, with first left in a horizontal split and above in a vertical split, and each slot's panes front first. Splits SHALL retain their stored proportions when the available area changes, subject to whole-cell rounding. Shrinking SHALL fit the existing tree into the available area without removing panes or changing stored proportions.
 
 #### Scenario: Nested tree order
 - **WHEN** a tab's layout is a left subtree containing A above B beside right pane C
 - **THEN** inspection, pane cycling and the first-pane-derived tab label use A, B, C, not geometric row scanning
+
+#### Scenario: Stack order
+- **WHEN** a tab's layout is a slot holding `[A, X]` beside a slot holding C
+- **THEN** inspection lists A, X, C
 
 #### Scenario: Shrink and restore
 - **WHEN** a viewing terminal shrinks until some panes have no visible content and later grows again
 - **THEN** all pane IDs, programs, tree structure and stored proportions survive, and enlarged panes recover their proportions subject to rounding
 
 ### Requirement: Split placement
-Pane creation SHALL split an anchor right or down, defaulting to right. With only a tab target it SHALL split that tab's largest pane by content area, breaking ties by layout order, or create the first pane in an empty tab. A split that would leave either half with less than 1 column and 1 row of content SHALL be refused with "no space for new pane", without starting a program or changing the layout.
+Pane creation SHALL take a place: split the anchor's slot right or down, or stack in front of it, defaulting to right. The CLI SHALL take `--place right|down|stack`. A split SHALL put the new pane alone in its own slot.
 
 #### Scenario: Explicit anchor
-- **WHEN** a user runs `ship pane create --pane <id> --direction down` with enough room for the split
-- **THEN** the original pane is above the new pane in the same tab and existing unrelated splits remain
+- **WHEN** a user runs `ship pane create --pane <id> --place down` with enough room for the split
+- **THEN** the original pane's slot is above the new pane's slot in the same tab and existing unrelated splits remain
+
+### Requirement: Tab-only pane placement
+With only a tab target it SHALL use that tab's largest pane by content area, breaking ties by layout order, or create the first pane in an empty tab.
 
 #### Scenario: Largest pane
 - **WHEN** a user creates a pane with only `--tab` in a viewed tab with differently sized panes
@@ -240,23 +247,30 @@ Pane creation SHALL split an anchor right or down, defaulting to right. With onl
 - **WHEN** a user creates a pane in an empty tab
 - **THEN** it becomes the tab's only pane
 
+### Requirement: Split creation needs content space
+A split that would leave either half with less than 1 column and 1 row of content SHALL be refused with "no space for new pane", without starting a program or changing the layout.
+
 #### Scenario: No space for the split
 - **WHEN** a user splits a pane right whose content is 2 columns wide
 - **THEN** the command fails with "no space for new pane", no program starts, and the layout is unchanged
 
 ### Requirement: Closing split panes
-Closing a split pane SHALL replace its parent split with the sibling subtree, which takes its space; closing the only pane SHALL leave the tab empty.
+Closing the last pane of a slot SHALL replace the slot's parent split with the sibling subtree, which takes its space; closing the last pane of the only slot SHALL leave the tab empty. Closing a pane with others in its slot SHALL leave the layout's shape unchanged, as pane-stacks' Closing a stacked pane describes.
 
 #### Scenario: Close a nested split
-- **WHEN** a user closes A in the layout `[A | [B / C]]`
+- **WHEN** a user closes A in the layout `[A | [B / C]]`, with A alone in its slot
 - **THEN** B above C fills the former tab area, A's program ends under the existing program-lifetime contract, and B and C keep running
 
 ### Requirement: Explicit pane swaps
-The server swap operation SHALL take two explicit pane IDs in the same tab and exchange their positions in one edit, preserving their IDs, programs, screens and split structure. Adjacency SHALL NOT be required. The server SHALL NOT resolve direction or accept selection recency. Missing or cross-tab targets SHALL be rejected without a partial edit.
+The server swap operation SHALL take two explicit pane IDs in the same tab and exchange their places, slot and position in the stack, in one edit, preserving their IDs, programs, screens and the layout's shape and sizes. Adjacency SHALL NOT be required. The server SHALL NOT resolve direction or accept selection recency. Missing or cross-tab targets SHALL be rejected without a partial edit.
 
 #### Scenario: Nonadjacent pair
 - **WHEN** a caller requests a swap of two nonadjacent panes in the same tab
-- **THEN** those panes exchange leaves while their programs and screens remain associated with their IDs
+- **THEN** those panes exchange places while their programs and screens remain associated with their IDs
+
+#### Scenario: Swap with a pane behind
+- **WHEN** a caller swaps C, alone in its slot, with A, behind X in a slot holding `[X, A]`
+- **THEN** the first slot holds `[X, C]` and A is alone in the other slot
 
 #### Scenario: Stale geometry
 - **WHEN** a caller resolves A and B from geometry, the layout changes, and the server then receives the pair while both remain in the same tab
@@ -308,7 +322,7 @@ A request giving both `to` and `amount` SHALL be rejected without changing anyth
 - **THEN** the request is rejected, the CLI exits 2, and nothing changes
 
 ### Requirement: Creates that select
-`ship tab create` and `ship pane create` SHALL accept `--select`. With it, the create SHALL select for one attachment the new pane, or the new tab when it has no pane, in the same edit that creates it, so no client sees the new tab or pane before that attachment selects it. Without `--select`, a create SHALL NOT change any selection. The HTTP create bodies SHALL carry this as an optional `select` holding the attachment ID.
+`ship tab create` and `ship pane create` SHALL accept `--select`. With it, the create SHALL select for one attachment the new pane, or the new tab when it has no pane, in the same edit that creates it, so no client sees the new tab or pane before that attachment selects it. Without `--select`, a create SHALL NOT explicitly select its result; ordinary front and zoom repair still apply. The HTTP create bodies SHALL carry this as an optional `select` holding the attachment ID.
 
 #### Scenario: An agent creates without stealing focus
 - **WHEN** a client has a pane selected and an agent in another pane runs `ship pane create --tab <id> -- cargo test`
@@ -325,6 +339,17 @@ A request giving both `to` and `amount` SHALL be rejected without changing anyth
 #### Scenario: An empty tab
 - **WHEN** a script runs `ship tab create --select --attachment <a>`
 - **THEN** client `<a>` selects the new tab and shows its no-pane hint
+
+#### Scenario: Stack without select repairs selection
+- **WHEN** X is selected and a caller creates N in X's stack without `select`
+- **THEN** the selection repairs to the new front N
+
+### Requirement: Selecting creates remain visible
+A selecting create SHALL unzoom if needed to show its new pane.
+
+#### Scenario: Selecting stack create behind zoom
+- **WHEN** a caller creates N in another slot of X's zoomed tab with `select` naming an attachment
+- **THEN** the tab unzooms and that attachment selects N in the same edit
 
 ### Requirement: The attachment a create selects for
 A selecting create SHALL take its attachment from `--attachment ID`, defaulting to `SHIP_ATTACHMENT_ID`. With `--select` and neither, the command SHALL fail before any request, saying to pass `--attachment` or set `SHIP_ATTACHMENT_ID`, and exit 1. A create naming an attachment that doesn't exist SHALL fail with a not-found error and create nothing, including a starter's program.
@@ -448,7 +473,7 @@ Every field of a tab or pane SHALL have one name, one path and one type in `get`
 - **THEN** each accepts it under the same name with the same value
 
 ### Requirement: Create request bodies
-`POST /api/v0/panes` SHALL take `{ "at", "direction"?, "select"?, "pane"? }` and `POST /api/v0/tabs` SHALL take `{ "at"?, "starter"?, "select"?, "tab"? }`. The request's own fields SHALL sit at the top level, and the new entity's fields SHALL sit under `pane` or `tab`, using the entity's names. An absent `at` on `POST /api/v0/tabs` SHALL mean the end of the top level.
+`POST /api/v0/panes` SHALL take `{ "at", "place"?, "select"?, "pane"? }` and `POST /api/v0/tabs` SHALL take `{ "at"?, "starter"?, "select"?, "tab"? }`. The request's own fields SHALL sit at the top level, and the new entity's fields SHALL sit under `pane` or `tab`, using the entity's names. An absent `at` on `POST /api/v0/tabs` SHALL mean the end of the top level.
 
 #### Scenario: Create a pane with settings
 - **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"tab": "<t>"}, "pane": {"cwd": "/tmp", "exit_behavior": "keep"}}`
@@ -461,6 +486,13 @@ Every field of a tab or pane SHALL have one name, one path and one type in `get`
 #### Scenario: Create a named tab
 - **WHEN** a caller sends `POST /api/v0/tabs` with `{"tab": {"name": "notes"}}`
 - **THEN** a top-level tab named `notes` is appended
+
+### Requirement: HTTP pane creation placement
+`place` SHALL be `{"split": "right"}`, `{"split": "down"}` or `"stack"`, defaulting to `{"split": "right"}`; the body SHALL NOT take `direction`.
+
+#### Scenario: Stack a pane over HTTP
+- **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"pane": "<p>"}, "place": "stack"}`
+- **THEN** the new pane is in front of `<p>`'s slot
 
 ### Requirement: Plain values on create
 Create bodies and config defaults SHALL take plain values only. A create body SHALL reject `"toggle"` on every field, and `null` on every field but `name`, with 400 `validation`.
@@ -485,11 +517,15 @@ Create bodies and config defaults SHALL take plain values only. A create body SH
 - **THEN** it receives 400 `validation` and nothing moves
 
 ### Requirement: Tab zoom
-A tab's `zoomed` attribute SHALL be the pane filling it, or `null`. Setting it to a pane in that tab SHALL zoom that pane, and `null` SHALL unzoom. A pane in another tab SHALL get 422 `invalid_structure`, and a pane that doesn't exist SHALL get 404 `not_found`, changing nothing. `POST /api/v0/panes/{id}/zoom` and `ship pane zoom` SHALL NOT exist.
+A tab's `zoomed` attribute SHALL be the front pane of the slot filling it, or `null`. Setting it to a pane in that tab SHALL bring that pane to its slot's front and zoom the slot, and `null` SHALL unzoom. A pane in another tab SHALL get 422 `invalid_structure`, and a pane that doesn't exist SHALL get 404 `not_found`, changing nothing. `POST /api/v0/panes/{id}/zoom` and `ship pane zoom` SHALL NOT exist.
 
 #### Scenario: Zoom and unzoom over HTTP
 - **WHEN** a caller sends `PATCH /api/v0/tabs/{t}` with `{"zoomed": "<p>"}` for a pane `<p>` in `<t>`, then `{"zoomed": null}`
-- **THEN** `<p>` fills the tab, then the tab shows every pane again
+- **THEN** `<p>` fills the tab, then the tab shows every slot again
+
+#### Scenario: Zoom a pane behind
+- **WHEN** a slot holds `[X, A]` and a script runs `ship tab set --tab <t> --zoomed A`
+- **THEN** the slot holds `[A, X]`, it fills the tab, and `zoomed` is `A`
 
 #### Scenario: Pane from another tab
 - **WHEN** a caller patches `<t>` with `{"zoomed": "<q>"}` for a pane `<q>` in a different tab
@@ -529,8 +565,8 @@ JSON request structs SHALL ignore unknown fields. Tagged enums SHALL retain serd
 A body that doesn't decode SHALL get 400 `validation`, with `data.errors` listing every problem found, each with `detail` and, where it has a location, a JSON Pointer `pointer`. A request that fails validation SHALL change nothing. A body sent without `Content-Type: application/json` SHALL get 400 `validation` with one entry.
 
 #### Scenario: Four mistakes at once
-- **WHEN** a caller sends `POST /api/v0/panes` with `{"direction": "up", "pane": {"exit_behavior": "linger", "scrollback_bytes": "lots", "exitBehavior": "keep"}}`
-- **THEN** one 400 `validation` response lists the missing `at`, the bad `direction`, `linger` and `lots`, each with its pointer, ignoring `exitBehavior`, and no pane is created
+- **WHEN** a caller sends `POST /api/v0/panes` with `{"place": "up", "pane": {"exit_behavior": "linger", "scrollback_bytes": "lots", "exitBehavior": "keep"}}`
+- **THEN** one 400 `validation` response lists the missing `at`, the bad `place`, `linger` and `lots`, each with its pointer, ignoring `exitBehavior`, and no pane is created
 
 #### Scenario: Not JSON
 - **WHEN** a caller sends a body that isn't valid JSON
