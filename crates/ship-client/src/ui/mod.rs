@@ -39,7 +39,7 @@ use ship_core::{
     },
     geometry::TabGeometry,
     id::{Attachment, IdOf},
-    layout::Axis,
+    layout::{Axis, Layout},
     model::{NodeId, Pane, Switch, Tab},
     prelude::*,
     protocol::{
@@ -91,7 +91,7 @@ type Request<'a, T = ()> = Pin<Box<dyn Future<Output = Result<T>> + 'a>>;
 enum Step {
     /// Around the visible sidebar rows.
     Tab { forward: bool },
-    /// Around the viewed tab's panes in layout order.
+    /// Around the viewed tab's slot fronts in layout order.
     Pane { forward: bool },
     /// To the selected pane's neighbor on that side.
     Focus(Direction),
@@ -1051,7 +1051,12 @@ fn navigate(
         Step::Pane { forward } => {
             let from = from?;
             let tab = tree::tab(tabs, tree::viewed_tab(tabs, from)?).ok()?;
-            let panes: Vec<_> = tab.panes().map(|pane| pane.id).collect();
+            let panes: Vec<_> = tab
+                .layout
+                .iter()
+                .flat_map(Layout::slots)
+                .map(|slot| slot.front().id)
+                .collect();
             let index = match from {
                 NodeId::Pane(pane) => self::step(
                     panes.iter().position(|id| *id == pane)?,

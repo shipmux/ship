@@ -4,13 +4,15 @@ use ratatui::{
     Frame,
     buffer::Buffer,
     layout::{Position, Rect},
-    style::{self as tui, Modifier, Style, Stylize},
+    style::{self as tui, Modifier, Style},
     symbols::merge::MergeStrategy,
-    text::Line,
+    text::{Line, Span},
     widgets::{Block, BorderType},
 };
 use ship_core::{
-    layout::Axis,
+    id::IdOf,
+    layout::{Axis, Slot},
+    model::Pane,
     screen::{Attr, Color, Cursor, Run, Screen},
 };
 
@@ -20,9 +22,9 @@ use super::{Scene, draw::pane_label, lane::Edge};
 /// a larger client, or content a lagging screen doesn't reach yet.
 const FILLER: &str = "·";
 
-/// Each visible pane's frame, offset to `area`'s top-left corner. Two or more
-/// panes get merged shared borders with the pane's label on top, the selected
-/// one thick and colored; a lone pane fills its frame unbordered. Each screen
+/// Each visible slot's frame, offset to `area`'s top-left corner. Split slots
+/// get merged shared borders, the selected one thick and colored. Titles list
+/// the stack, front first, on the border or a borderless stack's title row. Each screen
 /// paints into its content rectangle, clipped to it and to `area`, and the
 /// filler marks the rest of `area`. Returns the selected pane's cursor and
 /// where it falls on the frame.
@@ -93,25 +95,38 @@ pub(super) fn draw(
                 frame.buffer_mut()[at].set_style(accent.remove_modifier(Modifier::DIM));
             }
         }
-        // Labels after every border, since a border merges over text.
-        for (id, pane) in &geometry.panes {
-            let label = tab.pane(*id).map(pane_label).unwrap_or_default();
-            let top = offset(pane.frame);
-            let line = Line::from(format!(" {label} "));
-            let line = match Some(*id) == selected {
-                true => line.style(accent),
-                false => line.dim(),
+    }
+    // Titles after every border, since a border merges over text.
+    for id in geometry.panes.keys() {
+        let Some(slot) = tab.slot(*id) else {
+            continue;
+        };
+        let Some(row) = title_row(scene, *id) else {
+            continue;
+        };
+        let behind = Style::new()
+            .fg(tui::Color::Reset)
+            .dim()
+            .remove_modifier(Modifier::BOLD);
+        let mut spans = vec![Span::raw(" ")];
+        for (index, (pane, _)) in slot.panes().zip(titles(slot, row)).enumerate() {
+            if index > 0 {
+                spans.push(Span::styled(" · ", behind));
+            }
+            let style = if index == 0 {
+                if Some(*id) == selected {
+                    accent
+                } else {
+                    Style::new().fg(tui::Color::Reset).bold()
+                }
+                .remove_modifier(Modifier::DIM)
+            } else {
+                behind
             };
-            frame.render_widget(
-                line,
-                Rect::new(
-                    top.x + 1,
-                    top.y,
-                    top.width.saturating_sub(2),
-                    top.height.min(1),
-                ),
-            );
+            spans.push(Span::styled(pane_label(pane), style));
         }
+        spans.push(Span::raw(" "));
+        frame.render_widget(Line::from(spans), row);
     }
     let mut cursor = None;
     for (id, pane) in &geometry.panes {
@@ -157,6 +172,56 @@ pub(super) fn draw(
         }
     }
     cursor
+}
+
+/// The visible title row, leaving the existing scroll badge's cells free.
+pub(super) fn title_row(scene: &Scene, front: IdOf<Pane>) -> Option<Rect> {
+    let geometry = scene.geometry?;
+    let pane = geometry.panes.get(&front)?;
+    let bordered = geometry.panes.len() > 1;
+    if !bordered && pane.content.y == pane.frame.y {
+        return None;
+    }
+    let inset = u16::from(bordered);
+    let mut row = scene.panes.intersection(Rect::new(
+        scene
+            .panes
+            .x
+            .saturating_add(pane.frame.x)
+            .saturating_add(inset),
+        scene.panes.y.saturating_add(pane.frame.y),
+        pane.frame.width.saturating_sub(inset * 2),
+        pane.frame.height.min(1),
+    ));
+    if bordered && let Some(scrolled) = scene.screens.get(&front).and_then(|screen| screen.scrolled)
+    {
+        let badge = Line::from(format!("[{}/{}]", scrolled.offset, scrolled.history)).width();
+        row.width = row
+            .width
+            .saturating_sub(badge.min(usize::from(row.width)) as u16);
+    }
+    Some(row)
+}
+
+/// Whole labels that fit on the row, front first, separated by " · ".
+/// Drawing and clicks share these cell widths, including Unicode labels.
+pub(super) fn titles(slot: &Slot, row: Rect) -> Vec<(IdOf<Pane>, Rect)> {
+    let mut titles = Vec::new();
+    if row.is_empty() {
+        return titles;
+    }
+    let mut x = row.x.saturating_add(1);
+    for (index, pane) in slot.panes().enumerate() {
+        let gap = if index == 0 { 0 } else { 3 };
+        let width = Span::raw(pane_label(pane)).width();
+        if gap + width > usize::from(row.right().saturating_sub(x)) {
+            break;
+        }
+        x += gap as u16;
+        titles.push((pane.id, Rect::new(x, row.y, width as u16, 1)));
+        x += width as u16;
+    }
+    titles
 }
 
 /// The dim filler over `area` outside `shown`.

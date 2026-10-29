@@ -36,11 +36,11 @@ Use an owned temporary server on a scratch name, with `XDG_RUNTIME_DIR`, `XDG_ST
 
 ## 3. Titles and title clicks
 
-- [ ] 3.1 In `ui/panes.rs`, draw every pane's label in the slot's top border, front first and marked, joined with ` · `, and draw the title row of a borderless stacked slot.
-- [ ] 3.2 In `ui/mouse.rs`, add `title_at` and send a select for a clicked title, with a behind pane's title winning over a border grab.
-- [ ] 3.3 Make `Step::Pane` in `ui/mod.rs` walk fronts only, and map the remembered pane to its slot's front in `ui/memory.rs`'s `landing`.
-- [ ] 3.4 Describe stacks and cycling in `docs/site/panes.md`.
-- [ ] 3.5 Verify: a stacked slot's border reads `X · A · B` with the front marked; a lone stacked slot shows the title row and loses it when unstacked; clicking `B`'s title selects `B` and the order becomes `[B, X, A]`; `alt-tab` skips panes behind; cycling feels as quick as moving between split panes, judged in use.
+- [x] 3.1 In `ui/panes.rs`, draw every pane's label in the slot's top border, front first and marked, joined with ` · `, and draw the title row of a borderless stacked slot.
+- [x] 3.2 In `ui/mouse.rs`, add `title_at` and send a select for a clicked title, with a behind pane's title winning over a border grab.
+- [x] 3.3 Make `Step::Pane` in `ui/mod.rs` walk fronts only, and map the remembered pane to its slot's front in `ui/memory.rs`'s `landing`.
+- [x] 3.4 Describe stacks and cycling in `docs/site/panes.md`.
+- [x] 3.5 Verify: a stacked slot's border reads `X · A · B` with the front marked; a lone stacked slot shows the title row and loses it when unstacked; clicking `B`'s title selects `B` and the order becomes `[B, X, A]`; `alt-tab` skips panes behind; cycling feels as quick as moving between split panes, judged in use.
 
 ## 4. Move panes
 
