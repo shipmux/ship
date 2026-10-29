@@ -9,5 +9,6 @@
 - [Config and plugin ownership](config-plugin-ownership.md): config/profile and plugin ownership research.
 - [Prompts and plugins](prompts-and-plugins.md): how the UI could ask for input (rename) without diverging from the CLI, Herdr's rename overlay and program-based plugins, Claude Code hooks, embedded scripting, and process spawn timings. Undecided; renaming from the UI was deferred from the layout change.
 - [Agent state detection](agent-state-detection.md): which agents report state through hooks and which need screen rules, Herdr's manifest format and engine size, and a deferred leaning toward reading Herdr's manifests with a small engine. From Herdr's source and docs; nothing built in Ship.
+- [Edit scrollback](edit-scrollback.md): how Zellij, Herdr, tmux, kitty and WezTerm open a pane's history in an editor (placement, editor lookup, wrapped lines, temp files), what Ship already has, and options for #85. Undecided; leaning toward Herdr's split-and-zoom until floating panes land.
 
 These notes are research evidence, not implicit authorization to adopt a production protocol or change architecture.
