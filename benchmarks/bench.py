@@ -8,7 +8,7 @@
 The harness plays the outer terminal: it spawns each multiplexer's client on
 a PTY, answers the few terminal queries the clients send, types into it, and
 counts and searches every byte the client writes. Each run gets a fresh,
-private HOME/XDG/TMPDIR tree, its own socket or port, and the tool's defaults.
+private HOME/XDG/TMPDIR tree, its own socket, and the tool's defaults.
 See README.md for the workloads and metrics.
 """
 
@@ -31,7 +31,6 @@ import sys
 import termios
 import threading
 import time
-import urllib.request
 from pathlib import Path
 
 import psutil
@@ -48,7 +47,7 @@ SHIP_BIN = os.environ.get("SHIP_BENCH_BIN", str(HERE.parent / "target/release/sh
 HERDR_BIN = os.environ.get("HERDR_BENCH_BIN") or shutil.which("herdr")
 ZELLIJ_BIN = os.environ.get("ZELLIJ_BENCH_BIN") or shutil.which("zellij")
 TMUX_BIN = os.environ.get("TMUX_BENCH_BIN") or shutil.which("tmux")
-SHIP_PORT = 43291  # never Ship's default 43179
+SHIP_NAME = "bench"  # never Ship's default server name
 ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 ESC_RE = re.compile(rb"\x1b\[[0-9;?<=>!$ ]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1bP[^\x1b]*\x1b\\|\x1b[()][0-9A-Za-z]|\x1b[=>78DEHMc]")
 
@@ -142,10 +141,10 @@ def mux_processes(home, names):
 
 
 def net_bytes_in(pid):
-    """Bytes `pid` has received over the network so far, from nettop. Only
-    Ship's client talks to its server over TCP; the others use Unix sockets,
-    which nettop doesn't count. macOS only: Linux has no per-process
-    counter for this, so it's None there."""
+    """Bytes `pid` has received over the network so far, from nettop.
+    nettop counts TCP only, and every tool now talks to its server over a
+    Unix socket, so this finds nothing; it measured Ship back when Ship used
+    TCP. macOS only: Linux has no per-process counter, so it's None there."""
     if sys.platform != "darwin":
         return None
     res = subprocess.run(["nettop", "-P", "-L", "1", "-x", "-p", str(pid), "-J", "bytes_in"],
@@ -316,21 +315,21 @@ class Ship:
     # Ship's client, attached to a server it didn't launch, opens on no tab.
     dialogs = [(r"alt-right\s+to\s+open", b"\x1b[1;3C")]
 
-    def url(self):
-        return f"http://127.0.0.1:{SHIP_PORT}"
-
     def before_client(self, env):
         cfg = env.root / "config/ship/config.toml"
         cfg.parent.mkdir(parents=True, exist_ok=True)
         cfg.touch()
         env.vars["SHIP_CONFIG"] = str(cfg)
         log = open(env.root / "ship-server.log", "wb")
-        self.server = subprocess.Popen([SHIP_BIN, "server", "--port", str(SHIP_PORT), "--starter"],
+        self.server = subprocess.Popen([SHIP_BIN, "server", "--name", SHIP_NAME, "--starter"],
                                        env=env.vars, stdout=log, stderr=log, stdin=subprocess.DEVNULL,
                                        cwd=env.home, start_new_session=True)
+        # Status never starts a server, and it names the socket the client
+        # then connects to with --server-url, which never starts one either.
         for _ in range(100):
             try:
-                urllib.request.urlopen(self.url() + "/health", timeout=0.5)
+                status = json.loads(cli([SHIP_BIN, "server", "status", "--server-name", SHIP_NAME], env, timeout=5))
+                self.url = "unix://" + status["socket"]
                 return
             except Exception:
                 if self.server.poll() is not None:
@@ -339,16 +338,16 @@ class Ship:
         raise RuntimeError("ship server never became healthy")
 
     def client_argv(self, env):
-        return [SHIP_BIN, "--server-url", self.url()]
+        return [SHIP_BIN, "--server-url", self.url]
 
     def side_pane(self, env, cmd):
-        tabs = json.loads(cli([SHIP_BIN, "tab", "list", "--server-url", self.url()], env))
+        tabs = json.loads(cli([SHIP_BIN, "tab", "list", "--server-url", self.url], env))
         tab = next(iter(tabs))
-        cli([SHIP_BIN, "pane", "create", "--server-url", self.url(), "--tab", tab, "--", *cmd], env)
+        cli([SHIP_BIN, "pane", "create", "--server-url", self.url, "--tab", tab, "--", *cmd], env)
 
     def stop(self, env):
         try:
-            cli([SHIP_BIN, "server", "stop", "--server-url", self.url()], env, timeout=10)
+            cli([SHIP_BIN, "server", "stop", "--server-url", self.url], env, timeout=10)
         except Exception:
             pass
         try:

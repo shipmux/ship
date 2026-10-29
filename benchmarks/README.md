@@ -38,7 +38,7 @@ Results go to `results/results-<stamp>.jsonl`: a meta line, then one line per ru
 
 Every run gets a fresh tree under `/tmp/ship-bench-runs/<run>/` and points `HOME`, `XDG_*_HOME`, `XDG_RUNTIME_DIR` and `TMPDIR` into it. On top of that:
 
-- Ship: a foreground `ship server --port 43291 --starter` (never the default 43179), an empty `SHIP_CONFIG`, and the client attached with `--server-url`.
+- Ship: a foreground `ship server --name bench --starter` (never the default name), so its socket lands under the run's `XDG_RUNTIME_DIR`; an empty `SHIP_CONFIG`; and the client attached to that socket with `--server-url unix://...`.
 - Herdr: `HERDR_HOME`, `HERDR_SOCKET_PATH` and `HERDR_CLIENT_SOCKET_PATH` inside the run tree.
 - Zellij: `--config-dir`, `--data-dir`, `ZELLIJ_SOCKET_DIR` and session name `bench`.
 - tmux: `TMUX_TMPDIR` inside the run tree, socket name `bench` (`-L`), `-f /dev/null` and session name `bench`.
@@ -76,7 +76,7 @@ Pane programs live in `pane.py`. Each one is started by typing `exec python3 -I 
 - `cpu_pct`, `cpu_s`: user plus system CPU of every process named `ship`, `herdr`, `zellij` or `tmux` that carries the run's `HOME` (server and client), from `ps` before and after the window. Pane programs and shells are excluded. Floods report CPU seconds; steady workloads report percent of one core.
 - `peak_rss_mb`: highest sum of those processes' RSS, sampled once a second over the whole run.
 - `bytes`, `bytes_s`: bytes the client wrote to the outer terminal during the window, and per second.
-- `wire_bytes`, `wire_bytes_s`: bytes Ship's client received from its server during the window, compressed, from `nettop`. Ship only: the other tools talk over Unix sockets, which `nettop` doesn't count. macOS only: Linux has no per-process counter for it.
+- `wire_bytes`, `wire_bytes_s`: bytes Ship's client received from its server during the window, compressed, from `nettop`. Only results from before Ship moved to a Unix socket have them: `nettop` counts TCP only, so new runs leave these empty for every tool, as Linux always did.
 - `bytes_per_key`, `wire_bytes_per_key`: the same, divided by the keys sent in a typing run.
 - `wall_ms`, `mb_s`: from the moment the flood program starts writing until the harness sees the end marker in the client's output, so it includes rendering. `mb_s` is input bytes over that time. `writer_ms` (raw file only) is how long the program's own write took.
 - `painted_fps`: frame labels the client actually painted, divided by the animation's length. Frames a tool coalesces don't count.
