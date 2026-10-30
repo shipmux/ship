@@ -13,13 +13,14 @@ use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
 use ship_core::{
     HEALTH_PATH, HealthResponse, LogChange, LogFilter,
+    endpoint::Endpoint,
     id::{Attachment, Id, IdOf, Identified, Prefixed},
     model::{Pane, Tab},
     prelude::*,
     protocol::{
         AttachRequest, CreatePane, CreateTab, CyclePane, InputBody, InputFrame, MovePane,
-        MoveTabBody, REVISION_HEADER, ReadPane, ResizePane, ScrollPane, SelectView, SseEvent,
-        SwapPane, ViewInput, ViewingRecord,
+        MoveTabBody, REVISION_HEADER, ReadPane, ResizePane, RunCommand, ScrollPane, SelectView,
+        SseEvent, SwapPane, ViewInput, ViewingRecord,
     },
     tree::Tabs,
 };
@@ -32,6 +33,8 @@ use crate::{NO_BODY, http_error};
 pub struct Client {
     pub http: reqwest::Client,
     pub url: Url,
+    /// Transport address, also used by commands that call Ship back.
+    pub endpoint: Endpoint,
     /// Highest `x-ship-revision` a response carried; 0 before any.
     written: AtomicU64,
     /// The last number taken, while the full-screen client is attached.
@@ -65,10 +68,11 @@ impl Resource for Pane {
 }
 
 impl Client {
-    pub fn new(http: reqwest::Client, url: Url) -> Self {
+    pub fn new(http: reqwest::Client, endpoint: Endpoint) -> Self {
         Self {
             http,
-            url,
+            url: Url::parse("http://localhost/").expect("valid internal HTTP base"),
+            endpoint,
             written: AtomicU64::new(0),
             sequence: Mutex::new(None),
         }
@@ -212,6 +216,18 @@ impl Client {
     /// Move the pane's edge; returns its tab.
     pub async fn resize(&self, pane: IdOf<Pane>, body: &ResizePane) -> Result<Tab> {
         self.pane_edit(pane, "resize", body).await
+    }
+
+    /// Start a command on the server; output and exit go to its log only.
+    pub async fn run(&self, body: &RunCommand) -> Result<()> {
+        self.request(
+            Method::POST,
+            "/api/v0/runs",
+            Some(body),
+            None,
+            StatusCode::ACCEPTED,
+        )
+        .await
     }
 
     /// Scroll the shared viewport, including after program exit.

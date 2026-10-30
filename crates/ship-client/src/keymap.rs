@@ -15,7 +15,7 @@ use serde::{
     de::{Error as _, IgnoredAny},
 };
 use ship_core::{
-    command::{Command, Direction, pane::PaneCommand},
+    command::{Command, Direction, Run, pane::PaneCommand},
     config,
     model::Switch,
     prelude::*,
@@ -248,6 +248,7 @@ impl Action {
     /// The mode, direction or sent chord, otherwise the action's config name.
     pub fn label(&self) -> Cow<'static, str> {
         let name: &'static str = match self {
+            Self::Server(Command::Run(_)) => "run",
             Self::Server(Command::Tab(action)) => action.into(),
             Self::Server(Command::Pane(PaneCommand::Resize(action))) => (&action.direction).into(),
             Self::Server(Command::Pane(action)) => action.into(),
@@ -282,6 +283,7 @@ pub enum ClientAction {
     Sidebar(Sidebar),
     Mode(ModeName),
     Send(KeyCombination),
+    Run(Run),
     Detach {},
     Config(ConfigAction),
     Agents(ClientAgents),

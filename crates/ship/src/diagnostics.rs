@@ -38,6 +38,16 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
+    pub fn run_output(&self) -> impl Fn() -> Result<fs::File> + Send + Sync + 'static {
+        let log = self.log.clone();
+        move || {
+            log.as_ref()
+                .ok_or_else(|| err!(Internal, "process has no run log"))?
+                .output()
+                .map_err(|error| err!(Io, "cannot open run output", @external: error))
+        }
+    }
+
     pub fn server_log(
         &self,
     ) -> impl Fn(Option<LogChange>) -> Result<LogFilter> + Send + Sync + 'static {

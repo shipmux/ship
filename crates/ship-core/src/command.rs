@@ -4,6 +4,7 @@
 
 #[cfg(feature = "clap")]
 use clap::{Args, Subcommand};
+use mitsein::vec1::Vec1;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -23,6 +24,16 @@ pub enum Command {
     /// Create, inspect, set attributes, close, resize, swap, cycle or move panes
     #[cfg_attr(feature = "clap", command(subcommand))]
     Pane(pane::PaneCommand),
+    /// Start a command on the server; only available from keys and menus.
+    #[cfg_attr(feature = "clap", command(skip))]
+    Run(Run),
+}
+
+/// `server.run` and `client.run`: argv without an implicit shell.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Run {
+    pub command: Vec1<String>,
 }
 
 /// `--pane ID`. A missing ID comes from `SHIP_PANE_ID` on the CLI and the

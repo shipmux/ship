@@ -52,6 +52,24 @@ pub(crate) async fn set_server_log(State(app): App, Body(change): Body<LogChange
 }
 
 #[utoipa::path(
+    post,
+    path = "/api/v0/runs",
+    operation_id = "run",
+    request_body = RunCommand,
+    responses(
+        (status = 202, description = "The command started; its exit is only logged"),
+        (status = 400, description = "Invalid command, program cannot start, or no usable directory", body = AppError),
+        (status = 404, description = "Pane not found", body = AppError),
+        (status = 500, description = "Server log or home directory unavailable", body = AppError),
+        (status = 503, body = AppError),
+    ),
+)]
+pub(crate) async fn run(State(app): App, Body(body): Body<RunCommand>) -> Result<StatusCode> {
+    app.state.ask(body).await?;
+    Ok(StatusCode::ACCEPTED)
+}
+
+#[utoipa::path(
     get,
     path = "/api/v0/tabs",
     operation_id = "list_tabs",

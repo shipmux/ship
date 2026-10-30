@@ -3425,6 +3425,7 @@ dependencies = [
  "etcetera",
  "futures-util",
  "indexmap 2.14.2",
+ "mitsein",
  "notify-debouncer-mini",
  "ratatui",
  "reqwest",

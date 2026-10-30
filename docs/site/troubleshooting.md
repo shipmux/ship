@@ -15,7 +15,7 @@ tail -F ~/.local/state/ship/logs/default/current.log
 
 Windows log to `~/.local/state/ship/logs/client/`. Problems that don't show up on screen end up in one of these: a saved directory that disappeared is in the server log, and a sound file that wouldn't load is in the client log. Old logs are cleaned up automatically.
 
-Logs don't record what you type or what programs print, but error messages can include program names and paths, so look them over before sharing.
+Logs don't record pane input or output, but programs started by [run actions](configuration.md#running-programs-from-keys) write their output here. Error messages can also include program names and paths, so look logs over before sharing.
 
 ## More detail
 

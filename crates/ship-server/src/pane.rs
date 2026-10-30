@@ -4,7 +4,8 @@
 use std::{
     collections::HashMap,
     env,
-    path::PathBuf,
+    ffi::OsStr,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
     thread,
     time::Duration,
@@ -29,12 +30,13 @@ use ship_core::{
     id::{Attachment, IdOf},
     model::{ExitStatus, Pane, StatusRecord},
     prelude::*,
-    protocol::{MouseInput, ReadPane, ScrollDirection, ScrollPane},
+    protocol::{MouseInput, ReadPane, RunCommand, ScrollDirection, ScrollPane},
     relay::{Publish, RelayBus},
     screen::{Attr, Color, Cursor, CursorShape, Multi, Row, Run, Screen, Scrolled, Size},
 };
 use ship_macros::traced;
 use tokio::{
+    process::Command,
     sync::{Notify, mpsc, oneshot, watch},
     time::{Instant, sleep_until},
 };
@@ -100,6 +102,32 @@ pub(crate) struct PaneEnv {
     config: PathBuf,
 }
 
+/// The same pane environment applies to a PTY child or a background run.
+pub(crate) trait ChildEnv {
+    fn set(&mut self, key: &str, value: impl AsRef<OsStr>);
+    fn remove(&mut self, key: &str);
+}
+
+impl ChildEnv for CommandBuilder {
+    fn set(&mut self, key: &str, value: impl AsRef<OsStr>) {
+        self.env(key, value);
+    }
+
+    fn remove(&mut self, key: &str) {
+        self.env_remove(key);
+    }
+}
+
+impl ChildEnv for Command {
+    fn set(&mut self, key: &str, value: impl AsRef<OsStr>) {
+        self.env(key, value);
+    }
+
+    fn remove(&mut self, key: &str) {
+        self.env_remove(key);
+    }
+}
+
 impl PaneEnv {
     pub fn new(endpoint: &Endpoint, config: PathBuf) -> Result<Self> {
         let bin = env::current_exe()
@@ -123,11 +151,11 @@ impl PaneEnv {
     /// program talks to, and drops the launching client's terminal,
     /// multiplexer and agent identities. Then tells the program how to reach
     /// this server about its own pane.
-    fn apply(&self, builder: &mut CommandBuilder, pane: IdOf<Pane>) {
-        builder.env("TERM", "xterm-256color");
-        builder.env("COLORTERM", "truecolor");
-        builder.env("TERM_PROGRAM", "ship");
-        builder.env("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
+    fn apply(&self, child: &mut impl ChildEnv, pane: Option<IdOf<Pane>>) {
+        child.set("TERM", "xterm-256color");
+        child.set("COLORTERM", "truecolor");
+        child.set("TERM_PROGRAM", "ship");
+        child.set("TERM_PROGRAM_VERSION", env!("CARGO_PKG_VERSION"));
         for key in [
             "ITERM_SESSION_ID",
             "LC_TERMINAL",
@@ -149,11 +177,27 @@ impl PaneEnv {
             "CODEX_THREAD_ID",
             "OMPCODE",
         ] {
-            builder.env_remove(key);
+            child.remove(key);
         }
-        builder.env("SHIP_SERVER_URL", &self.server_url);
-        builder.env("SHIP_BIN", &self.bin);
-        builder.env("SHIP_PANE_ID", pane.to_string());
+        child.set("SHIP_SERVER_URL", &self.server_url);
+        child.set("SHIP_BIN", &self.bin);
+        match pane {
+            Some(pane) => child.set("SHIP_PANE_ID", pane.to_string()),
+            None => child.remove("SHIP_PANE_ID"),
+        }
+    }
+
+    /// A run uses the pane environment, with the triggering attachment's ID.
+    pub(crate) fn run_command(&self, run: &RunCommand, cwd: &Path) -> Command {
+        let (program, args) = run.command.split_first();
+        let mut child = Command::new(program);
+        child.args(args).current_dir(cwd).env("PWD", cwd);
+        self.apply(&mut child, run.pane);
+        match run.attachment {
+            Some(attachment) => child.env("SHIP_ATTACHMENT_ID", attachment.to_string()),
+            None => child.env_remove("SHIP_ATTACHMENT_ID"),
+        };
+        child
     }
 }
 
@@ -312,7 +356,7 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
     builder.cwd(&cwd);
     // portable-pty leaves PWD as the server's; programs that read it see that.
     builder.env("PWD", &cwd);
-    env.apply(&mut builder, pane);
+    env.apply(&mut builder, Some(pane));
     let argv = if builder.is_default_prog() {
         vec![builder.get_shell()]
     } else {

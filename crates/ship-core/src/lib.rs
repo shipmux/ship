@@ -1,4 +1,4 @@
-//! Shared contextual diagnostics. No HTTP or process ownership.
+//! Shared types, contextual diagnostics and feature-gated mechanisms.
 
 use tokio::task::JoinHandle;
 
@@ -12,6 +12,8 @@ pub mod layout;
 pub mod model;
 #[cfg(feature = "kameo")]
 pub mod relay;
+#[cfg(feature = "run")]
+pub mod run;
 pub mod screen;
 pub mod tree;
 

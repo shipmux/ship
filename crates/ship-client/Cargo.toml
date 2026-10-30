@@ -8,7 +8,7 @@ license.workspace = true
 description = "HTTP client library and full-screen client for Ship"
 
 [dependencies]
-ship-core.workspace = true
+ship-core = { workspace = true, features = ["run"] }
 ship-macros.workspace = true
 tracing.workspace = true
 
@@ -17,6 +17,7 @@ crossterm = { workspace = true, features = ["bracketed-paste", "event-stream", "
 etcetera.workspace = true
 futures-util.workspace = true
 indexmap.workspace = true
+mitsein.workspace = true
 notify-debouncer-mini.workspace = true
 ratatui.workspace = true
 reqwest = { workspace = true, features = ["query"] }

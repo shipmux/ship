@@ -9,12 +9,14 @@ use std::{io, process::ExitCode, time::Duration};
 use clap::{CommandFactory, Parser};
 use cli::{Cli, Command, Target};
 use reqwest::redirect::Policy;
-use ship_client::{Client, ui};
+use ship_client::{
+    Client,
+    ui::{self, InitialSelection},
+};
 use ship_core::{
     HealthResponse, PROTOCOL_VERSION, SERVICE, config, endpoint::Endpoint, prelude::*,
 };
 use tokio::runtime::Builder;
-use url::Url;
 
 fn main() -> ExitCode {
     match run(Cli::parse()) {
@@ -133,6 +135,7 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
                 !args.no_restore,
                 diagnostics::shutdown()?,
                 diagnostics.server_log(),
+                diagnostics.run_output(),
             )
             .await
             // stderr is gone for a background server, so the run log is the only record.
@@ -172,17 +175,22 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
             // the starter.
             let target = cli.target()?;
             let endpoint = target.endpoint()?;
-            let (client, open_first) = match target {
-                Target::Url(_) => (checked(&endpoint, true).await?.0, false),
+            let (client, initial_selection) = match target {
+                Target::Url(_) => (checked(&endpoint, true).await?.0, InitialSelection::None),
                 Target::Named(name) => {
                     let client = client(&endpoint, true)?;
                     let launched = local::ensure_running(&client, &name, &cli.config_path()?)
                         .await
                         .context(format!("server at {endpoint}"))?;
-                    (client, launched)
+                    let initial_selection = if launched {
+                        InitialSelection::FirstPane
+                    } else {
+                        InitialSelection::None
+                    };
+                    (client, initial_selection)
                 }
             };
-            ui::run(&client, open_first, &cli.config_path()?)
+            ui::run(&client, initial_selection, &cli.config_path()?, diagnostics.run_output())
                 .await
                 // The client log has no stderr layer, so this doesn't repeat main's message.
                 .inspect_err(|error| tracing::error!(%error, "client failed"))
@@ -234,7 +242,6 @@ async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<(Client, 
 }
 
 fn client(endpoint: &Endpoint, http2: bool) -> Result<Client> {
-    let url = Url::parse("http://localhost/").expect("valid internal HTTP base");
     let builder = reqwest::Client::builder()
         .redirect(Policy::none())
         .connect_timeout(Duration::from_secs(1));
@@ -250,5 +257,5 @@ fn client(endpoint: &Endpoint, http2: bool) -> Result<Client> {
     let http = builder
         .build()
         .map_err(|error| err!(Configuration, "cannot initialize HTTP client for {}", endpoint, @external: error.without_url()))?;
-    Ok(Client::new(http, url))
+    Ok(Client::new(http, endpoint.clone()))
 }
