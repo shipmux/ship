@@ -352,4 +352,6 @@ Both slices are verified on macOS, where this work happens. Linux is reported as
 
 ## Deviation log
 
-Empty.
+- Slice 1 follow-up, approved by Cyan in chat: `Run.command` and `ui::run::start` use the existing `mitsein::vec1::Vec1<String>` instead of `Vec<String>` plus a custom deserializer. The config stays an argv array and rejects empty commands with line/column diagnostics; process construction uses `split_first()` without indexing. `ui::run` also replaces its pre-existing `open_first: bool` with `InitialSelection::{None, FirstPane}`. Live checks confirmed unchanged startup selection for a newly launched server, an existing named server and an explicit server URL. The complete slice 1 probe and debug/release builds passed again on macOS.
+
+- Slice 1: the live environment probe found that `Client.url` is the internal HTTP base (`http://localhost/`), not a usable `SHIP_SERVER_URL`. `Client::new` now takes and retains the existing `Endpoint` and builds the internal HTTP base itself. `ui/run.rs` exports `client.endpoint.url()`. This changes constructor plumbing, not the locked environment behavior, and lets a run call Ship back over the same socket.

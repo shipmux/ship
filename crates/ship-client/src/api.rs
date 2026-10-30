@@ -13,6 +13,7 @@ use reqwest::{Method, StatusCode};
 use serde::de::DeserializeOwned;
 use ship_core::{
     HEALTH_PATH, HealthResponse, LogChange, LogFilter,
+    endpoint::Endpoint,
     id::{Attachment, Id, IdOf, Identified, Prefixed},
     model::{Pane, Tab},
     prelude::*,
@@ -32,6 +33,8 @@ use crate::{NO_BODY, http_error};
 pub struct Client {
     pub http: reqwest::Client,
     pub url: Url,
+    /// Transport address, also used by commands that call Ship back.
+    pub endpoint: Endpoint,
     /// Highest `x-ship-revision` a response carried; 0 before any.
     written: AtomicU64,
     /// The last number taken, while the full-screen client is attached.
@@ -65,10 +68,11 @@ impl Resource for Pane {
 }
 
 impl Client {
-    pub fn new(http: reqwest::Client, url: Url) -> Self {
+    pub fn new(http: reqwest::Client, endpoint: Endpoint) -> Self {
         Self {
             http,
-            url,
+            url: Url::parse("http://localhost/").expect("valid internal HTTP base"),
+            endpoint,
             written: AtomicU64::new(0),
             sequence: Mutex::new(None),
         }

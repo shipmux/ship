@@ -10,6 +10,7 @@ description = "Shared data and contextual errors for Ship"
 [features]
 axum = ["dep:axum"]
 clap = ["dep:clap"]
+run = ["tokio/process", "tokio/rt", "tokio/sync"]
 kameo = ["dep:kameo", "dep:ship-macros", "tokio/sync"]
 
 [dependencies]

@@ -15,7 +15,7 @@ use serde::{
     de::{Error as _, IgnoredAny},
 };
 use ship_core::{
-    command::{Command, Direction, pane::PaneCommand},
+    command::{Command, Direction, Run, pane::PaneCommand},
     config,
     model::Switch,
     prelude::*,
@@ -282,6 +282,7 @@ pub enum ClientAction {
     Sidebar(Sidebar),
     Mode(ModeName),
     Send(KeyCombination),
+    Run(Run),
     Detach {},
     Config(ConfigAction),
     Agents(ClientAgents),

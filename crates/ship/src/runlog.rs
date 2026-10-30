@@ -112,6 +112,11 @@ impl RunLog {
         self.part_path(self.part.lock().unwrap().number)
     }
 
+    /// Run output bypasses rotation accounting and keeps this part open.
+    pub fn output(&self) -> io::Result<File> {
+        self.part.lock().unwrap().file.try_clone()
+    }
+
     fn part_path(&self, number: u32) -> PathBuf {
         let suffix = if number == 1 {
             String::new()

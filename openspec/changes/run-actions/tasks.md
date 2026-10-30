@@ -13,13 +13,22 @@ Use an owned temporary server on a scratch name, with `XDG_RUNTIME_DIR`, `XDG_ST
 
 ## 1. Runner, `client.run` and the scrollback name
 
-- [ ] 1.1 Add `Run` with the non-empty argv check in `ship-core/src/command.rs`, and verify with `ship config check` that `client.run = { command = [] }`, `command = "ls"` and an unknown field each fail with the field's line and column while an argv binding passes.
-- [ ] 1.2 Add the `run` feature and `ship-core/src/run.rs` (`Runner`, `OnExit`, `Ended`, `detach`), and verify the workspace builds with and without the feature.
-- [ ] 1.3 Add `RunLog::output` and `Diagnostics::run_output`, pass it from `main.rs` to `ui::run`, and verify a run's output lands in the client's current log part.
-- [ ] 1.4 Add `ClientAction::Run`, the client runner and exit channel in `ui/mod.rs`, and `ui/run.rs` (`start`, `describe`), and verify the `client.run` scenarios in P1, P2 and P3 in a running client: the directory, `SHIP_*` variables, start failure and `exit 3` messages, and output kept off the screen.
-- [ ] 1.5 Verify SC-003 for the client: bind the `tick` loop under `client.run`, quit the client, and confirm with `pgrep -f "echo tick"` after 5 seconds that it's running and the client log is still growing; repeat by closing the client's terminal window.
-- [ ] 1.6 Add `name = "scrollback"` to both `alt-e` defaults in `defaults.toml`, and verify `ship config defaults` shows it and pressing `alt-e` opens a pane labeled `scrollback` (P4).
-- [ ] 1.7 Document `client.run` in `docs/site/configuration.md`, with an argv example and a `["sh", "-c", ...]` example, where output goes, how failures show, and that Ship never stops a run; verify the documented binding works as written.
+- [x] 1.1 Add `Run` with the non-empty argv check in `ship-core/src/command.rs`, and verify with `ship config check` that `client.run = { command = [] }`, `command = "ls"` and an unknown field each fail with the field's line and column while an argv binding passes.
+- [x] 1.2 Add the `run` feature and `ship-core/src/run.rs` (`Runner`, `OnExit`, `Ended`, `detach`), and verify the workspace builds with and without the feature.
+- [x] 1.3 Add `RunLog::output` and `Diagnostics::run_output`, pass it from `main.rs` to `ui::run`, and verify a run's output lands in the client's current log part.
+- [x] 1.4 Add `ClientAction::Run`, the client runner and exit channel in `ui/mod.rs`, and `ui/run.rs` (`start`, `describe`), and verify the `client.run` scenarios in P1, P2 and P3 in a running client: the directory, `SHIP_*` variables, start failure and `exit 3` messages, and output kept off the screen.
+- [x] 1.5 Verify SC-003 for the client: bind the `tick` loop under `client.run`, quit the client, and confirm with `pgrep -f "echo tick"` after 5 seconds that it's running and the client log is still growing; repeat by closing the client's terminal window.
+- [x] 1.6 Add `name = "scrollback"` to both `alt-e` defaults in `defaults.toml`, and verify `ship config defaults` shows it and pressing `alt-e` opens a pane labeled `scrollback` (P4).
+- [x] 1.7 Document `client.run` in `docs/site/configuration.md`, with an argv example and a `["sh", "-c", ...]` example, where output goes, how failures show, and that Ship never stops a run; verify the documented binding works as written.
+
+### Slice 1 verification
+
+Verified on macOS on 2026-10-30. Linux and Windows are unverified.
+
+- Passed workspace debug and release builds, core builds with no default features and with `run`, formatting, Clippy with `-D warnings`, `cargo deny check`, and strict OpenSpec validation.
+- A temporary probe drove a real client in an isolated tmux terminal against the scratch `run-slice1` server, with all three XDG directories under `/tmp/ship-slice1.lOwbqe/`. Evidence is in that directory's `evidence.json`, config error results, status-line captures and client logs. No permanent tests were added.
+- Checked config rejection with line/column; argv and explicit shells; both documented bindings; actual menu execution; three concurrent runs and responsive typing; selected and absent pane environment (including stale inherited IDs); Ship callback; starting directory; empty stdin; output in the current client log and absent from the screen; named start, non-zero and signal errors; and the real `alt-e` editor pane's `scrollback` name.
+- After both `alt-q` and closing the terminal PTY, `pgrep -f "echo tick"` still found the run after five seconds and its client log grew. The probe stopped its own server and process groups afterward; a process inspection found no remaining scratch server, tick loops or sleep runs.
 
 ## 2. `server.run`
 

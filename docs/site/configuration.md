@@ -94,13 +94,29 @@ kind = "oneshot"                                    # back to normal after one k
 There are two kinds of actions:
 
 - `server.` actions are CLI commands. `server.tab.create = { starter = "shell" }` does the same as `ship tab create --starter shell`, so `ship <command> --help` documents its options.
-- `client.` actions change only your window, like `client.pane.focus`, `client.sidebar.toggle`, `client.mode` and `client.detach`.
+- `client.` actions work in your window, like `client.pane.focus`, `client.sidebar.toggle`, `client.mode` and `client.detach`. `client.run` starts a program on your machine.
 
 A `oneshot` mode takes one key and returns to normal. A `sticky` mode stays until a binding leaves it. `clear_defaults = true` starts a mode with none of Ship's bindings. Add `label = "..."` to a binding to change how it's shown in the hints.
 
 When you're in a mode other than normal, a hint bar shows at the bottom with that mode's keys, wrapping into aligned columns when they don't fit on one line. The same bar shows errors and when a pane's program has exited.
 
 The default keys are in [`defaults.toml`](../../crates/ship-core/src/defaults.toml). Key names like `ctrl-alt-x` and `shift-tab` follow [crokey](https://docs.rs/crokey).
+
+## Running programs from keys
+
+```toml
+[client.modes.normal.keys]
+"alt-u" = { action = { client.run = { command = ["touch", "/tmp/ship-hit"] } } }
+"alt-i" = { action = { client.run = { command = ["sh", "-c", "echo hello; echo error >&2"] } } }
+```
+
+`client.run` starts a program in the background on the client's machine, in the directory you started the client from. Each press starts another run without waiting for earlier ones. Menus accept the same action.
+
+`command` must be a non-empty array of strings. The first string is the program and the rest are its arguments. There is no shell expansion unless you name a shell, as the second example does.
+
+The program gets `SHIP_BIN`, `SHIP_SERVER_URL` and `SHIP_ATTACHMENT_ID` so it can call Ship back, plus `SHIP_PANE_ID` when a pane is selected. It gets no input, and its output goes to the [client log](troubleshooting.md), never onto the screen. A program that can't start, exits non-zero or is killed by a signal shows an error naming it in the status line.
+
+Ship never stops a run, even when you quit the client or close its terminal. Put a program that should end with Ship in a pane instead.
 
 ## Menus
 

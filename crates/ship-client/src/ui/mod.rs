@@ -11,12 +11,14 @@ mod mouse;
 mod observer;
 mod outbox;
 mod panes;
+mod run;
 mod sidebar;
 mod terminal;
 
 use std::{
     cell::RefCell,
     collections::HashMap,
+    fs::File,
     future::{Future, pending, poll_fn},
     mem,
     path::Path,
@@ -33,7 +35,7 @@ use futures_util::{Stream, StreamExt};
 use ratatui::layout::Rect;
 use ship_core::{
     command::{
-        Command, Direction, PaneTarget, TabTarget,
+        Command, Direction, PaneTarget, Run, TabTarget,
         pane::{self, PaneCommand},
         tab::{self, TabCommand},
     },
@@ -46,11 +48,15 @@ use ship_core::{
         AttachRequest, ClipboardText, EndReason, Ended, InputFrame, KeyInput, MoveTab, MoveTabBody,
         PasteInput, ResizePane, SelectView, SseEvent, ViewInput,
     },
+    run::{Ended as RunEnded, OnExit, Runner},
     screen::{Screen, Size},
     tree::{self, Tabs},
 };
 use ship_macros::traced;
-use tokio::time::{self, MissedTickBehavior};
+use tokio::{
+    sync::mpsc,
+    time::{self, MissedTickBehavior},
+};
 
 use self::{
     attention::Attention,
@@ -113,9 +119,16 @@ enum Exit {
     Signaled,
 }
 
+/// Selection requested when the client first attaches.
+pub enum InitialSelection {
+    None,
+    /// Select the first tab's landing pane when this client started the server.
+    FirstPane,
+}
+
 /// Bare `ship`. Opens the attach stream at the terminal's tab area, then takes
-/// over the terminal. Nothing is selected unless `open_first` says this `ship`
-/// launched the server: then the attach asks for the first tab's pane. On
+/// over the terminal. `initial_selection` selects nothing or the first tab's
+/// pane when this client launched the server. On
 /// every `Attached` it numbers its requests for that attachment. Keys go
 /// through the keymap loaded from `config`, or the defaults with the error on
 /// the status line, and reloaded when the file is saved; a bad save keeps the
@@ -130,7 +143,12 @@ enum Exit {
 /// Returns Ok after detach or `Ended(ServerShutdown)`, printing why after
 /// the terminal is restored. SIGTERM, SIGHUP and SIGINT restore the terminal
 /// and return.
-pub async fn run(client: &Client, open_first: bool, config: &Path) -> Result<()> {
+pub async fn run(
+    client: &Client,
+    initial_selection: InitialSelection,
+    config: &Path,
+    run_output: impl Fn() -> Result<File> + Send + Sync + 'static,
+) -> Result<()> {
     let signaled = signaled()?;
     let loaded = match ClientSettings::load(config) {
         Ok(settings) => (settings, None),
@@ -141,15 +159,15 @@ pub async fn run(client: &Client, open_first: bool, config: &Path) -> Result<()>
     };
     let (cols, rows) = terminal_size()?;
     let area = draw::tab_area(cols, rows, loaded.0.sidebar_width);
-    let selection = match open_first {
-        true => navigate(
+    let selection = match initial_selection {
+        InitialSelection::FirstPane => navigate(
             &client.tabs().await?,
             &Memory::default(),
             &Sidebar::new(loaded.0.sidebar_width),
             None,
             Step::Tab { forward: true },
         ),
-        false => None,
+        InitialSelection::None => None,
     };
     let request = AttachRequest {
         selection,
@@ -170,6 +188,7 @@ pub async fn run(client: &Client, open_first: bool, config: &Path) -> Result<()>
             config,
             loaded,
             &connection,
+            run_output,
         ));
         poll_fn(|cx| {
             let span = connection.borrow().clone();
@@ -187,6 +206,10 @@ pub async fn run(client: &Client, open_first: bool, config: &Path) -> Result<()>
     Ok(())
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "UI startup inputs and run output"
+)]
 async fn drive(
     client: &Client,
     mut request: AttachRequest,
@@ -195,6 +218,7 @@ async fn drive(
     config: &Path,
     loaded: (ClientSettings, Option<String>),
     connection: &RefCell<tracing::Span>,
+    run_output: impl Fn() -> Result<File> + Send + Sync + 'static,
 ) -> Result<Exit> {
     let guard = &mut TerminalGuard::enter()?;
     tokio::pin!(signaled);
@@ -203,6 +227,7 @@ async fn drive(
     let mut backoff = FIRST_BACKOFF;
     let (settings, message) = loaded;
     guard.set_mouse(settings.mouse)?;
+    let (sender, ended) = mpsc::unbounded_channel();
     let mut local = Local {
         observer: Observer::default(),
         memory: Memory::default(),
@@ -215,6 +240,8 @@ async fn drive(
         attention: Attention::default(),
         speaker: Speaker::start(),
         agents: settings.agents,
+        runner: Runner::new(run_output, OnExit::Report(sender)),
+        ended,
     };
     let mut saves: Option<Saves> = match watch::changes(config) {
         Ok(saves) => Some(Box::pin(saves)),
@@ -321,6 +348,10 @@ async fn drive(
                     Err(error) => local.message = Some(error.to_string()),
                     Ok(()) => {}
                 }
+                true
+            }
+            Some(ended) = local.ended.recv() => {
+                local.message = Some(run::describe(&ended));
                 true
             }
             save = next(&mut saves) => {
@@ -521,6 +552,9 @@ struct Local<'a> {
     speaker: Speaker,
     /// Replaced whole on reload; readers take the piece they need.
     agents: AgentSettings,
+    /// Runs outlive this client, including its terminal.
+    runner: Runner,
+    ended: mpsc::UnboundedReceiver<RunEnded>,
 }
 
 /// Published geometry shared by the router and pane painter.
@@ -881,6 +915,9 @@ impl<'a> Local<'a> {
                         return self.select(client, NodeId::Pane(pane));
                     }
                     Ok(())
+                }
+                ClientAction::Run(Run { command }) => {
+                    run::start(&self.runner, client, &self.observer, command)
                 }
                 ClientAction::Detach {} => return Turn::Detach,
                 _ => unreachable!("press-time actions and navigation handled before the lane"),
