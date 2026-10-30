@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crossterm::event::{KeyEvent, KeyModifiers, MouseEventKind};
 use indexmap::IndexMap;
+use mitsein::vec1::Vec1;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::rust::double_option;
 use utoipa::{
@@ -22,7 +23,7 @@ use crate::{
 pub const HEALTH_PATH: &str = "/health";
 /// What a Ship server reports as `service` from `/health`.
 pub const SERVICE: &str = "ship";
-pub const PROTOCOL_VERSION: u32 = 20;
+pub const PROTOCOL_VERSION: u32 = 21;
 /// Names the attachment a view or input request controls.
 pub const ATTACHMENT_HEADER: &str = "x-ship-attachment-id";
 /// On every response: the server's revision once the request was handled,
@@ -74,6 +75,21 @@ pub struct LogFilter {
     pub active: String,
     pub startup: String,
     pub file: String,
+}
+
+/// `POST /api/v0/runs`: start argv in the selected pane's context.
+#[serde_with::skip_serializing_none]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RunCommand {
+    #[schema(value_type = Vec<String>, min_items = 1)]
+    pub command: Vec1<String>,
+    #[serde(default, deserialize_with = "present")]
+    #[schema(nullable = false)]
+    pub pane: Option<IdOf<Pane>>,
+    #[serde(default, deserialize_with = "present")]
+    #[schema(schema_with = attachment_schema, nullable = false)]
+    pub attachment: Option<IdOf<Attachment>>,
 }
 
 /// POST /tabs body, e.g. `{"at": {"after": "tab:…"}, "starter": "shell"}`.

@@ -53,7 +53,7 @@ impl Runner {
         detach(&mut command);
         let mut child = command
             .spawn()
-            .map_err(|error| err!(Io, "cannot start `{}`", label, @external: error))?;
+            .map_err(|error| err!(Validation, "cannot start `{}`", label, @external: error))?;
         tracing::info!(%label, pid = child.id(), "run started");
         let on_exit = self.on_exit.clone();
         crate::spawn_traced(async move {

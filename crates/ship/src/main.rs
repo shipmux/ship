@@ -135,6 +135,7 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
                 !args.no_restore,
                 diagnostics::shutdown()?,
                 diagnostics.server_log(),
+                diagnostics.run_output(),
             )
             .await
             // stderr is gone for a background server, so the run log is the only record.

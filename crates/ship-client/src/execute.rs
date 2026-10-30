@@ -8,7 +8,7 @@ use std::{
 use serde::Serialize;
 use ship_core::{
     command::{
-        Command, PaneTarget, TabTarget,
+        Command, PaneTarget, Run, TabTarget,
         pane::{self, PaneCommand},
         tab::{self, TabCommand},
     },
@@ -17,7 +17,7 @@ use ship_core::{
     prelude::*,
     protocol::{
         CreatePane, CreateTab, CyclePane, MovePane, MoveTab, MoveTabBody, NewPane, NewTab, PaneAt,
-        Place, ReadPane, ResizePane, ScrollPane, SetPane, SetTab, SwapPane,
+        Place, ReadPane, ResizePane, RunCommand, ScrollPane, SetPane, SetTab, SwapPane,
     },
     tree::{self, Tabs},
 };
@@ -55,6 +55,8 @@ pub enum Outcome {
     Tab(Tab),
     Pane(Pane),
     Closed,
+    /// A server command started; its exit is only logged.
+    Started,
     Text(String),
 }
 
@@ -63,6 +65,25 @@ impl Client {
     /// naming the flag), calls the API and returns what it produced.
     pub async fn execute(&self, command: Command, scope: &Scope) -> Result<Outcome> {
         Ok(match command {
+            Command::Run(Run { command }) => {
+                let Scope::Keys(keys) = scope else {
+                    return Err(err!(
+                        Validation,
+                        "run is only available from keys and menus"
+                    ));
+                };
+                let pane = match keys.selection {
+                    Some(NodeId::Pane(pane)) => Some(pane),
+                    _ => None,
+                };
+                self.run(&RunCommand {
+                    command,
+                    pane,
+                    attachment: keys.attachment,
+                })
+                .await?;
+                Outcome::Started
+            }
             Command::Tab(command) => match command {
                 TabCommand::List => Outcome::Tabs(self.tabs().await?),
                 TabCommand::Create(tab::Create {

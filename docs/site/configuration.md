@@ -93,7 +93,7 @@ kind = "oneshot"                                    # back to normal after one k
 
 There are two kinds of actions:
 
-- `server.` actions are CLI commands. `server.tab.create = { starter = "shell" }` does the same as `ship tab create --starter shell`, so `ship <command> --help` documents its options.
+- `server.` actions normally have a CLI command. `server.tab.create = { starter = "shell" }` does the same as `ship tab create --starter shell`, so `ship <command> --help` documents its options. The exception is `server.run`, which starts a program on the server's machine and has no CLI form.
 - `client.` actions work in your window, like `client.pane.focus`, `client.sidebar.toggle`, `client.mode` and `client.detach`. `client.run` starts a program on your machine.
 
 A `oneshot` mode takes one key and returns to normal. A `sticky` mode stays until a binding leaves it. `clear_defaults = true` starts a mode with none of Ship's bindings. Add `label = "..."` to a binding to change how it's shown in the hints.
@@ -108,15 +108,22 @@ The default keys are in [`defaults.toml`](../../crates/ship-core/src/defaults.to
 [client.modes.normal.keys]
 "alt-u" = { action = { client.run = { command = ["touch", "/tmp/ship-hit"] } } }
 "alt-i" = { action = { client.run = { command = ["sh", "-c", "echo hello; echo error >&2"] } } }
+"alt-b" = { action = { server.run = { command = ["sh", "-c", "\"$SHIP_BIN\" pane set --name picked"] } } }
 ```
 
-`client.run` starts a program in the background on the client's machine, in the directory you started the client from. Each press starts another run without waiting for earlier ones. Menus accept the same action.
+`client.run` starts a program on the client's machine, in the directory you started the client from. Use it for things that need your desktop or login session, like opening a URL.
+
+`server.run` starts a program on the server's machine, with the same environment and starting directory as a new pane created from the selected pane. With nothing selected, it starts in the server's home directory. The example renames the selected pane to `picked` by calling Ship back.
+
+Both run in the background. Each press starts another run without waiting for earlier ones, and you can keep typing while they run. Menus accept the same actions.
 
 `command` must be a non-empty array of strings. The first string is the program and the rest are its arguments. There is no shell expansion unless you name a shell, as the second example does.
 
-The program gets `SHIP_BIN`, `SHIP_SERVER_URL` and `SHIP_ATTACHMENT_ID` so it can call Ship back, plus `SHIP_PANE_ID` when a pane is selected. It gets no input, and its output goes to the [client log](troubleshooting.md), never onto the screen. A program that can't start, exits non-zero or is killed by a signal shows an error naming it in the status line.
+The program gets `SHIP_BIN`, `SHIP_SERVER_URL` and `SHIP_ATTACHMENT_ID` so it can call Ship back, plus `SHIP_PANE_ID` when a pane is selected. It gets no input, and its output goes to that side's [log](troubleshooting.md), never onto the screen.
 
-Ship never stops a run, even when you quit the client or close its terminal. Put a program that should end with Ship in a pane instead.
+A program that can't start shows an error naming it in the status line. A non-zero exit or signal also shows there for `client.run`, but is only logged for `server.run`.
+
+Ship never stops a run, even when you quit the client, close its terminal or stop the server. Put a program that should end with Ship in a pane instead.
 
 ## Menus
 

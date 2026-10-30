@@ -18,9 +18,10 @@ use ship_core::{
     prelude::*,
     protocol::{
         AttachRequest, Attached, CreatePane, CreateTab, CyclePane, MovePane, MoveTab, NewPane,
-        PaneAt, Place, Replica, ResizePane, SetPane, SetTab, Starter, SwapPane, ViewInput,
-        ViewingRecord,
+        PaneAt, Place, Replica, ResizePane, RunCommand, SetPane, SetTab, Starter, SwapPane,
+        ViewInput, ViewingRecord,
     },
+    run::Runner,
     screen::Size,
 };
 use ship_macros::{Actor, named, traced};
@@ -63,6 +64,8 @@ pub struct ServerState {
     /// so streams find every pane of a replica they hold.
     live: watch::Sender<LivePanes>,
     pane_env: PaneEnv,
+    /// Fire-and-forget runs never participate in pane teardown.
+    runner: Runner,
     bus: ActorRef<RelayBus>,
 }
 
@@ -72,6 +75,7 @@ impl ServerState {
         live: watch::Sender<LivePanes>,
         pane_env: PaneEnv,
         saved: Saved,
+        runner: Runner,
     ) -> Self {
         let mut state = Self {
             incarnation: Uuid::now_v7(),
@@ -82,6 +86,7 @@ impl ServerState {
             runtimes: HashMap::new(),
             live,
             pane_env,
+            runner,
             bus,
         };
         state.tabs = state.restore(saved.into_tabs());
@@ -591,6 +596,31 @@ impl Message<Move> for ServerState {
     }
 }
 
+/// A new pane or run follows the anchor's tracked directory, else its start.
+fn anchor_dir(tab: &Tab, anchor: IdOf<Pane>) -> Option<String> {
+    tab.pane(anchor)
+        .map(|pane| pane.dir.clone().unwrap_or_else(|| pane.cwd.clone()))
+}
+
+#[named]
+impl Message<RunCommand> for ServerState {
+    type Reply = Result<()>;
+
+    async fn handle(&mut self, run: RunCommand, _: &mut Context<Self, Self::Reply>) -> Self::Reply {
+        let label = run.command.join(" ");
+        let cwd = match run.pane {
+            Some(pane) => {
+                let owner = tree::pane_owner(&self.tabs, pane)?;
+                anchor_dir(tree::tab(&self.tabs, owner)?, pane)
+            }
+            None => None,
+        };
+        let cwd = Self::pane_cwd(cwd).context(format!("cannot start `{label}`"))?;
+        self.runner
+            .spawn(label, self.pane_env.run_command(&run, &cwd))
+    }
+}
+
 #[named]
 impl Message<CreatePane> for ServerState {
     type Reply = Result<Pane>;
@@ -654,9 +684,7 @@ impl Message<CreatePane> for ServerState {
         // Keys send no directory: the anchor's current one, else its starting one.
         let mut input = create.pane;
         if input.cwd.is_none() {
-            input.cwd = anchor
-                .and_then(|anchor| tab.pane(anchor))
-                .map(|anchor| anchor.dir.clone().unwrap_or_else(|| anchor.cwd.clone()));
+            input.cwd = anchor.and_then(|anchor| anchor_dir(tab, anchor));
         }
         let pane = self.start_pane(Id::new(), start, input)?;
         self.commit(|tabs, viewers| {

@@ -32,13 +32,23 @@ Verified on macOS on 2026-10-30. Linux and Windows are unverified.
 
 ## 2. `server.run`
 
-- [ ] 2.1 Add `Command::Run` skipped by clap, `RunCommand` and `PROTOCOL_VERSION` 21, and verify `ship --help` lists no `run` command and `ship server status` reports `protocol_version` 21.
-- [ ] 2.2 Add `ChildEnv` and change `PaneEnv::apply` to take it, and verify `env` in a new pane is unchanged against a pane from before the change.
-- [ ] 2.3 Factor `anchor_dir` out of pane creation, add `Message<RunCommand>` with the server runner and `run_output` from `serve`, and the `/api/v0/runs` route, and verify `server.run` starts in the selected pane's directory with the pane environment and `SHIP_PANE_ID` (P2).
-- [ ] 2.4 Add `Outcome::Started`, `Client::run` and the `execute` branch, and verify the `server.run` scenarios in P1 and P3: start failure in the status line, output and `exit 3` only in the server log.
-- [ ] 2.5 Verify SC-001 by typing into a pane straight after a `["sleep", "30"]` run, with no delay compared to typing without it.
-- [ ] 2.6 Verify SC-003 for the server: run the `tick` loop under `server.run`, run `ship server stop`, and confirm with `pgrep` after 5 seconds that it's still running; repeat with a foreground `ship server` stopped by Ctrl-C.
-- [ ] 2.7 Document `server.run` in `docs/site/configuration.md`, including its directory, environment and that its exits are only logged, and verify the documented binding works as written.
+- [x] 2.1 Add `Command::Run` skipped by clap, `RunCommand` and `PROTOCOL_VERSION` 21, and verify `ship --help` lists no `run` command and `ship server status` reports `protocol_version` 21.
+- [x] 2.2 Add `ChildEnv` and change `PaneEnv::apply` to take it, and verify `env` in a new pane is unchanged against a pane from before the change.
+- [x] 2.3 Factor `anchor_dir` out of pane creation, add `Message<RunCommand>` with the server runner and `run_output` from `serve`, and the `/api/v0/runs` route, and verify `server.run` starts in the selected pane's directory with the pane environment and `SHIP_PANE_ID` (P2).
+- [x] 2.4 Add `Outcome::Started`, `Client::run` and the `execute` branch, and verify the `server.run` scenarios in P1 and P3: start failure in the status line, output and `exit 3` only in the server log.
+- [x] 2.5 Verify SC-001 by typing into a pane straight after a `["sleep", "30"]` run, with no delay compared to typing without it.
+- [x] 2.6 Verify SC-003 for the server: run the `tick` loop under `server.run`, run `ship server stop`, and confirm with `pgrep` after 5 seconds that it's still running; repeat with a foreground `ship server` stopped by Ctrl-C.
+- [x] 2.7 Document `server.run` in `docs/site/configuration.md`, including its directory, environment and that its exits are only logged, and verify the documented binding works as written.
+
+### Slice 2 verification
+
+Verified on macOS on 2026-10-30. Linux, Windows and physical-terminal interaction are unverified.
+
+- Passed debug and release workspace builds, a workspace build without default features, core feature checks, a standalone server check without default features, formatting, Clippy with `-D warnings`, `cargo deny check`, strict OpenSpec validation and `git diff --check`. The complete 12-checkpoint slice 1 client probe passed again.
+- Passed 18 live checkpoints in both debug and release builds, using isolated tmux terminals and the scratch `run-slice2` and `run-slice2-fg` servers. All XDG paths are under `/tmp/ship-slice2.kKVfPw/`. The successful evidence files are `debug-2y26eqd2/evidence.json` and `release-phdzfltr/evidence.json` there, alongside HTTP errors, status-line captures, configs and logs. No permanent tests were added.
+- Checked config rejection with line/column, absent CLI command, protocol 21, HTTP 202 with no body, HTTP 400 for empty argv, null context and spawn errors, and 404 for a missing pane. Tested unset and tab-only selections, inherited-ID removal, tracked pane directory and `PWD`, empty stdin, full pane/run environment parity, the documented Ship callback, argv without expansion, explicit shells, server-only output and exits, named start errors, no tab/pane state changes, and real right-click menu execution.
+- Compared the complete environment of a new pane before and after the refactor with `pane_env.py`; it is unchanged after normalizing its fresh pane ID and the copied pre-change binary's path. Checked that key-created panes use the same anchor directory as runs.
+- Three independent `sleep 30` runs stayed alive while typing latency remained comparable to the baseline. A separate five-second command did not delay typing. After normal server stop and real Ctrl-C on a foreground server, `pgrep -f "echo tick"` still found each loop after five seconds and its server log kept growing. The probe stopped its owned run groups, servers and terminals afterward.
 
 ## Workflow follow-up
 

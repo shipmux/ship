@@ -17,6 +17,7 @@ mod state;
 mod views;
 
 use std::{
+    fs::File,
     future::{Future, IntoFuture},
     path::PathBuf,
     process,
@@ -43,6 +44,7 @@ use ship_core::{
     prelude::*,
     protocol::{CreateTab, MoveTab, NewTab, Problem, Replica, Starter, ViewingRecord},
     relay,
+    run::{OnExit, Runner},
 };
 use tokio::{
     sync::{mpsc, watch},
@@ -100,6 +102,7 @@ fn api_router() -> OpenApiRouter<AppState> {
         routes::resize_pane,
         routes::scroll_pane,
         routes::read_pane,
+        routes::run,
         attach::attach,
         input::input,
         attach::view,
@@ -156,6 +159,10 @@ async fn wrong_method() -> Response {
 /// Binds, restores the saved tabs, spawns the actors, and creates the starter
 /// tab when `starter` is set and nothing was restored, then serves. A failed starter stops the actors and returns its error
 /// before any connection is accepted.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "server startup inputs and run output"
+)]
 pub async fn serve(
     endpoint: Endpoint,
     starter: bool,
@@ -164,6 +171,7 @@ pub async fn serve(
     restore: bool,
     shutdown: impl Future<Output = Result<()>> + Send + 'static,
     log: impl Fn(Option<LogChange>) -> Result<LogFilter> + Send + Sync + 'static,
+    run_output: impl Fn() -> Result<File> + Send + Sync + 'static,
 ) -> Result<()> {
     let (claim, listener) = claim::Claim::take(endpoint)?;
     tracing::info!(socket = %claim.endpoint(), pid = process::id(), protocol_version = ship_core::PROTOCOL_VERSION, config = %config.display(), save = %save.display(), restore, "server listening");
@@ -189,6 +197,7 @@ pub async fn serve(
         live_tx,
         pane::PaneEnv::new(claim.endpoint(), config)?,
         saved,
+        Runner::new(run_output, OnExit::Log),
     );
     let (replicas, replica_sink) = replicas::Replicas::new(state.replica());
     // The starter is a saved change, so take the baseline before creating it.

@@ -24,6 +24,9 @@ pub enum Command {
     /// Create, inspect, set attributes, close, resize, swap, cycle or move panes
     #[cfg_attr(feature = "clap", command(subcommand))]
     Pane(pane::PaneCommand),
+    /// Start a command on the server; only available from keys and menus.
+    #[cfg_attr(feature = "clap", command(skip))]
+    Run(Run),
 }
 
 /// `server.run` and `client.run`: argv without an implicit shell.
