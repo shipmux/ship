@@ -7,7 +7,7 @@ Let users exercise Ship through a real, observable health request with predictab
 ## Requirements
 
 ### Requirement: Health contract and result
-A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing `service` equal to `ship`, `protocol_version` equal to 20, informational string `version`, `log`, the path of the log part the server is writing, and `socket`, the path of the socket or pipe the server listens on. Health response JSON field names SHALL use snake case. `ship server status` SHALL print one health JSON line on stdout only on success, and SHALL never start a server.
+A compatible server SHALL answer GET `/health` with HTTP 200 and JSON containing `service` equal to `ship`, `protocol_version` equal to 21, informational string `version`, `log`, the path of the log part the server is writing, and `socket`, the path of the socket or pipe the server listens on. Health response JSON field names SHALL use snake case. `ship server status` SHALL print one health JSON line on stdout only on success, and SHALL never start a server.
 
 #### Scenario: Compatible health
 - **WHEN** `ship server status` contacts a compatible server

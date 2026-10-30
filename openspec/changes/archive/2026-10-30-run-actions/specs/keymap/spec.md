@@ -14,7 +14,7 @@ Every binding SHALL name one action, under `server.` or `client.`. A `server.` a
 - **THEN** the binding works from its key, and `ship run` is reported as an unknown command
 
 ### Requirement: Client actions
-A `client.` action SHALL change only that client's view and SHALL be reachable only from keys and the mouse, except `client.pane.swap`, which SHALL resolve direction locally and submit the explicit server swap pair, `client.pane.zoom`, which SHALL resolve its switch locally and submit the tab's zoomed pane, `client.tab.move`, which SHALL resolve its direction locally and submit one explicit tab move, and `client.run`, which SHALL start a command on the client's machine (see run-actions). None of them SHALL have a CLI form.
+`client.` actions SHALL have no CLI form and SHALL be reachable only from keys and the mouse. They SHALL change only that client's view, except: `client.pane.swap` SHALL resolve direction locally and submit the explicit server swap pair; `client.pane.zoom` SHALL resolve its switch locally and submit the tab's zoomed pane; `client.tab.move` SHALL resolve direction locally and submit one explicit tab move; `client.run` SHALL start a command on the client's machine (see run-actions).
 
 #### Scenario: Local resolution submits shared swap
 - **WHEN** a user invokes `client.pane.swap` right in an unzoomed tab
