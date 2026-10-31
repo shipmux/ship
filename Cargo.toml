@@ -74,6 +74,10 @@ redundant_clone = "warn"
 dbg_macro = "warn"
 undocumented_unsafe_blocks = "warn"
 clone_on_ref_ptr = "warn"
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+let_underscore_untyped = "warn"
+unwrap_used = "warn"
 
 [profile.dev]
 opt-level = 0

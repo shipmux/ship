@@ -17,7 +17,7 @@ use tokio::time::{Instant, sleep, timeout_at};
 pub async fn ensure_running(client: &Client, name: &ServerName, config: &Path) -> Result<bool> {
     match crate::health(client).await {
         Ok(_) => return Ok(false),
-        Err(error) if *error.code() == ErrorCode::ConnectionRefused => {}
+        Err(error) if error.code() == ErrorCode::ConnectionRefused => {}
         Err(error) => return Err(error),
     }
 
@@ -83,7 +83,7 @@ pub async fn ensure_running(client: &Client, name: &ServerName, config: &Path) -
                 .map_err(|_| err!(Network, "local server readiness exceeded five seconds"))?
             {
                 Ok(response) => return Ok(response),
-                Err(error) if *error.code() == ErrorCode::ConnectionRefused => {
+                Err(error) if error.code() == ErrorCode::ConnectionRefused => {
                     if let Some(status) = exited {
                         return Err(err!(
                             Internal,

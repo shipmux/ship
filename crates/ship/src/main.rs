@@ -15,7 +15,9 @@ use ship_client::{
 };
 use ship_core::{
     HealthResponse, PROTOCOL_VERSION, SERVICE, config, endpoint::Endpoint, prelude::*,
+    protocol::Starter,
 };
+use ship_server::{SavedTabs, ServeOptions};
 use tokio::runtime::Builder;
 
 fn main() -> ExitCode {
@@ -128,11 +130,17 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
             let tabs = runlog::state_dir()?.join("tabs");
             runlog::create_private_dir(&tabs)?;
             ship_server::serve(
-                Endpoint::named(&args.name)?,
-                args.starter,
-                cli.config_path()?,
-                tabs.join(format!("{}.json", args.name)),
-                !args.no_restore,
+                ServeOptions {
+                    endpoint: Endpoint::named(&args.name)?,
+                    starter: args.starter.then_some(Starter::Shell),
+                    config: cli.config_path()?,
+                    save: tabs.join(format!("{}.json", args.name)),
+                    saved: if args.no_restore {
+                        SavedTabs::Ignore
+                    } else {
+                        SavedTabs::Restore
+                    },
+                },
                 diagnostics::shutdown()?,
                 diagnostics.server_log(),
                 diagnostics.run_output(),
@@ -225,7 +233,7 @@ async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<(Client, 
         .await
         .context(format!("server at {endpoint}"))
     {
-        Err(error) if explicit_target && *error.code() == ErrorCode::Network => {
+        Err(error) if explicit_target && error.code() == ErrorCode::Network => {
             tracing::debug!(%error, "HTTP/2 health check failed; retrying over HTTP/1.1");
             let http1 = client(endpoint, false)?;
             let response = health(&http1)

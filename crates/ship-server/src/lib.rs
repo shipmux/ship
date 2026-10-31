@@ -156,25 +156,44 @@ async fn wrong_method() -> Response {
     response
 }
 
+/// What `serve` starts from.
+pub struct ServeOptions {
+    pub endpoint: Endpoint,
+    /// What a new tab starts with when nothing was restored; `None` creates
+    /// no tab.
+    pub starter: Option<Starter>,
+    pub config: PathBuf,
+    /// Where saved tabs are read and written.
+    pub save: PathBuf,
+    pub saved: SavedTabs,
+}
+
+/// Whether startup restores the saved tabs.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SavedTabs {
+    Restore,
+    /// `--no-restore`: start empty; the first save replaces the file.
+    Ignore,
+}
+
 /// Binds, restores the saved tabs, spawns the actors, and creates the starter
-/// tab when `starter` is set and nothing was restored, then serves. A failed starter stops the actors and returns its error
-/// before any connection is accepted.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "server startup inputs and run output"
-)]
+/// tab when there is a starter and nothing was restored, then serves. A failed
+/// starter stops the actors and returns its error before any connection is
+/// accepted.
 pub async fn serve(
-    endpoint: Endpoint,
-    starter: bool,
-    config: PathBuf,
-    save: PathBuf,
-    restore: bool,
+    ServeOptions {
+        endpoint,
+        starter,
+        config,
+        save,
+        saved,
+    }: ServeOptions,
     shutdown: impl Future<Output = Result<()>> + Send + 'static,
     log: impl Fn(Option<LogChange>) -> Result<LogFilter> + Send + Sync + 'static,
     run_output: impl Fn() -> Result<File> + Send + Sync + 'static,
 ) -> Result<()> {
     let (claim, listener) = claim::Claim::take(endpoint)?;
-    tracing::info!(socket = %claim.endpoint(), pid = process::id(), protocol_version = ship_core::PROTOCOL_VERSION, config = %config.display(), save = %save.display(), restore, "server listening");
+    tracing::info!(socket = %claim.endpoint(), pid = process::id(), protocol_version = ship_core::PROTOCOL_VERSION, config = %config.display(), save = %save.display(), restore = saved == SavedTabs::Restore, "server listening");
     // Ghostty drops its own logs unless given a logger.
     // SAFETY: No pane exists yet, so no other thread is inside libghostty.
     if let Err(error) = unsafe { libghostty_vt::set_logger(Some(Box::new(GhosttyLogger))) } {
@@ -185,11 +204,12 @@ pub async fn serve(
     let (result_tx, mut result_rx) = watch::channel(None);
     let bus = relay::RelayBus::spawn_with_mailbox(relay::RelayBus::default(), mailbox::bounded(64));
     let events = subscribe_pane_events(&bus).await?;
-    let saved = if restore {
-        saver::load(&save)
-    } else {
-        tracing::info!("not restoring, --no-restore");
-        saver::Saved::default()
+    let saved = match saved {
+        SavedTabs::Restore => saver::load(&save),
+        SavedTabs::Ignore => {
+            tracing::info!("not restoring, --no-restore");
+            saver::Saved::default()
+        }
     };
     let (live_tx, live) = watch::channel(pane::LivePanes::new());
     let state = state::ServerState::new(
@@ -213,15 +233,16 @@ pub async fn serve(
     forward_pane_events(events, state.clone());
     // Bound but not accepting: a health probe waits in the backlog until the
     // starter tab exists.
-    let starter_tab = CreateTab {
-        at: MoveTab::top(),
-        tab: NewTab::default(),
-        starter: Some(Starter::Shell),
-        select: None,
-    };
-    if starter
+    if let Some(starter) = starter
         && !restored
-        && let Err(error) = state.ask(starter_tab).await
+        && let Err(error) = state
+            .ask(CreateTab {
+                at: MoveTab::top(),
+                tab: NewTab::default(),
+                starter: Some(starter),
+                select: None,
+            })
+            .await
     {
         stop_actors(&state, &bus).await;
         return Err(AppError::from(error).context("cannot create the starter tab"));

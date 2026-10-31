@@ -116,18 +116,22 @@ impl AppError {
         })
     }
 
-    pub fn code(&self) -> &ErrorCode {
+    pub fn code(&self) -> ErrorCode {
         match self {
-            Self::Internal(error) => &error.code,
-            Self::External(error) => &error.code,
+            Self::Internal(error) => error.code,
+            Self::External(error) => error.code,
+        }
+    }
+
+    fn data_mut(&mut self) -> &mut Option<Value> {
+        match self {
+            Self::Internal(error) => &mut error.data,
+            Self::External(error) => &mut error.data,
         }
     }
 
     pub fn with_data(mut self, data: Value) -> Self {
-        match &mut self {
-            Self::Internal(error) => error.data = Some(data),
-            Self::External(error) => error.data = Some(data),
-        }
+        *self.data_mut() = Some(data);
         self
     }
 
@@ -141,7 +145,7 @@ impl AppError {
 
     /// Preserve the category and complete original error beneath a new message.
     pub fn context(self, message: impl Into<Cow<'static, str>>) -> Self {
-        Self::internal(*self.code(), message).with_cause(self)
+        Self::internal(self.code(), message).with_cause(self)
     }
 }
 
@@ -272,11 +276,7 @@ pub fn __with_object_data(
 }
 
 fn with_serialized_data(mut error: AppError, data: serde_json::Result<Value>) -> AppError {
-    let data = data.ok();
-    match &mut error {
-        AppError::Internal(error) => error.data = data,
-        AppError::External(error) => error.data = data,
-    }
+    *error.data_mut() = data.ok();
     error
 }
 
@@ -306,47 +306,37 @@ macro_rules! err {
     (@apply $err:expr, @external: $source:expr $(, $($rest:tt)*)?) => {
         $crate::err!(@apply {
             let error = $err;
-            let code = *error.code();
+            let code = error.code();
             error.with_cause($crate::error::AppError::external(code, $source))
         } $(, $($rest)*)?)
     };
 
-    (@external $code:expr, $source:expr) => {{
-        #[allow(unused_imports)]
-        use $crate::error::ErrorCode::*;
-        $crate::error::AppError::external($code, $source)
-    }};
+    // A bare variant becomes a path once, here, so callers need no import.
+    ($code:ident, $($rest:tt)+) => {
+        $crate::err!(@code $crate::error::ErrorCode::$code, $($rest)+)
+    };
 
-    (@external $code:expr, $source:expr, @data: $data:expr) => {{
-        #[allow(unused_imports)]
-        use $crate::error::ErrorCode::*;
-        $crate::error::__with_data($crate::error::AppError::external($code, $source), $data)
-    }};
-
-    ($code:expr, $msg:expr, @$($mods:tt)+) => {{
-        #[allow(unused_imports)]
-        use $crate::error::ErrorCode::*;
+    (@code $code:expr, $msg:expr, @$($mods:tt)+) => {
         $crate::err!(@apply $crate::error::AppError::internal($code, $msg), @$($mods)+)
-    }};
+    };
 
-    ($code:expr, $fmt:expr, $($arg:expr),+, @$($mods:tt)+) => {{
-        #[allow(unused_imports)]
-        use $crate::error::ErrorCode::*;
+    (@code $code:expr, $fmt:expr, $($arg:expr),+, @$($mods:tt)+) => {
         $crate::err!(@apply
             $crate::error::AppError::internal($code, ::std::format!($fmt, $($arg),+)),
             @$($mods)+
         )
-    }};
+    };
 
-    ($code:expr, $msg:expr) => {{
-        #[allow(unused_imports)]
-        use $crate::error::ErrorCode::*;
+    (@code $code:expr, $msg:expr) => {
         $crate::error::AppError::internal($code, $msg)
-    }};
+    };
 
-    ($code:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {{
-        #[allow(unused_imports)]
-        use $crate::error::ErrorCode::*;
+    (@code $code:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
         $crate::error::AppError::internal($code, ::std::format!($fmt, $($arg),+))
-    }};
+    };
+
+    // `err!(ErrorCode::UpstreamHttpStatus(..), ..)` and other expressions.
+    ($code:expr, $($rest:tt)+) => {
+        $crate::err!(@code $code, $($rest)+)
+    };
 }

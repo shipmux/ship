@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use utoipa::{
     __dev::ComposeSchema,
+    PartialSchema,
     openapi::{
-        RefOr, Type,
+        Object, Ref, RefOr, Type,
         schema::{ObjectBuilder, Schema},
     },
 };
@@ -20,7 +21,7 @@ use crate::{AppError, err};
 
 /// Stable external kind prefix, e.g. `tab` in `tab:3f2a...`.
 pub trait Prefixed {
-    fn prefix() -> &'static str;
+    const PREFIX: &'static str;
 }
 
 /// Associates an entity, or a choice of entities, with its typed identity.
@@ -40,8 +41,8 @@ pub struct Id<T> {
 }
 
 impl<T: Prefixed> Id<T> {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    /// No `Default`: a default ID would hide that it's random.
+    pub fn random() -> Self {
         Self {
             uuid: Uuid::new_v4(),
             kind: PhantomData,
@@ -51,7 +52,7 @@ impl<T: Prefixed> Id<T> {
 
 impl<T: Prefixed> fmt::Display for Id<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}", T::prefix(), self.uuid.simple())
+        write!(f, "{}:{}", T::PREFIX, self.uuid.simple())
     }
 }
 
@@ -59,7 +60,7 @@ impl<T: Prefixed> FromStr for Id<T> {
     type Err = AppError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let expected = T::prefix();
+        let expected = T::PREFIX;
         let Some((prefix, hex)) = value.split_once(':') else {
             return Err(err!(
                 Validation,
@@ -109,7 +110,7 @@ impl<T: Prefixed> fmt::Debug for Id<T> {
 /// entity's schema for `IdOf<T>`; an ID's schema does not depend on it.
 impl<T: Prefixed> ComposeSchema for Id<T> {
     fn compose(_: Vec<RefOr<Schema>>) -> RefOr<Schema> {
-        let prefix = T::prefix();
+        let prefix = T::PREFIX;
         ObjectBuilder::new()
             .schema_type(Type::String)
             .pattern(Some(format!("^{prefix}:[0-9a-f]{{32}}$")))
@@ -121,13 +122,20 @@ impl<T: Prefixed> ComposeSchema for Id<T> {
 // The default name is `Id`; Utoipa appends the entity, e.g. `Id_Tab`.
 impl<T: Prefixed> utoipa::ToSchema for Id<T> {}
 
+/// A JSON object keyed by a `K` ID, with `$ref`s to `V` as values. The derive
+/// would inline the key's entity schema, recursing without end for `Tab`.
+pub(crate) fn id_map_schema<K: Prefixed, V: utoipa::ToSchema>() -> Object {
+    ObjectBuilder::new()
+        .property_names(Some(Id::<K>::schema()))
+        .additional_properties(Some(Ref::from_schema_name(V::name())))
+        .build()
+}
+
 /// Marker for stream attachments; never instantiated.
 pub enum Attachment {}
 
 impl Prefixed for Attachment {
-    fn prefix() -> &'static str {
-        "attachment"
-    }
+    const PREFIX: &'static str = "attachment";
 }
 
 impl Identified for Attachment {

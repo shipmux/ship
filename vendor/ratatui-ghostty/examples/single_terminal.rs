@@ -99,15 +99,16 @@ fn main() -> anyhow::Result<()> {
 
     let default_hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
-        let _ = terminal::disable_raw_mode();
-        let _ = execute!(
+        terminal::disable_raw_mode().ok();
+        execute!(
             io::stdout(),
             DisableMouseCapture,
             DisableBracketedPaste,
             LeaveAlternateScreen,
             cursor::Show,
             SetCursorStyle::DefaultUserShape
-        );
+        )
+        .ok();
         default_hook(info);
     }));
 
@@ -153,7 +154,7 @@ fn main() -> anyhow::Result<()> {
     let wake_tx = tx;
     let inner = inner_area(term_size);
     let session = spawn_session(inner.width, inner.height, &host_colors, move || {
-        let _ = wake_tx.send(AppEvent::SessionUpdate);
+        wake_tx.send(AppEvent::SessionUpdate).ok();
     })?;
 
     let mut title = String::from("terminal");

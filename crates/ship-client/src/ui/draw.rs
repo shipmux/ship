@@ -8,7 +8,7 @@ use ratatui::{
 use std::{env, path::Path};
 
 use ship_core::{
-    model::{Pane, PaneStatus, Tab},
+    model::{NodeId, Pane, PaneStatus, Tab},
     screen::{Cursor, CursorShape, Size},
     tree,
 };
@@ -16,7 +16,7 @@ use ship_core::{
 use super::{
     Local, Overlay,
     observer::{Observer, Selected},
-    panes, rename,
+    panes,
     sidebar::Sidebar,
 };
 use crate::keymap::ModeName;
@@ -53,10 +53,7 @@ pub(super) fn split(area: Rect, sidebar_width: u16) -> (Rect, Rect) {
 /// sizes panes to it. The status line overlays the tab, so it takes none.
 pub(super) fn tab_area(cols: u16, rows: u16, sidebar_width: u16) -> Size {
     let (_, tab) = split(Rect::new(0, 0, cols, rows), sidebar_width);
-    Size {
-        cols: tab.width,
-        rows: tab.height,
-    }
+    Size::from(tab)
 }
 
 /// The selected tab's panes beside the sidebar, or a hint when it has none
@@ -74,8 +71,8 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
             local.mouse.gap(),
             match &local.overlay {
                 Some(Overlay::Rename(rename)) => match rename.target() {
-                    rename::Target::Tab(id) => Some(id),
-                    rename::Target::Pane(_) => None,
+                    NodeId::Tab(id) => Some(id),
+                    NodeId::Pane(_) => None,
                 },
                 _ => None,
             },
@@ -269,11 +266,11 @@ pub(super) fn tab_auto_label(tab: &Tab, position: usize) -> String {
 }
 
 /// Look up the automatic label each frame so title and directory changes show.
-fn placeholder(observer: &Observer, target: rename::Target) -> Option<String> {
+fn placeholder(observer: &Observer, target: NodeId) -> Option<String> {
     let tabs = &observer.replica.as_ref()?.tabs;
     match target {
-        rename::Target::Pane(id) => Some(pane_auto_label(tree::pane(tabs, id).ok()?).to_owned()),
-        rename::Target::Tab(id) => {
+        NodeId::Pane(id) => Some(pane_auto_label(tree::pane(tabs, id).ok()?).to_owned()),
+        NodeId::Tab(id) => {
             let siblings = tree::siblings(tabs, id)?;
             Some(tab_auto_label(
                 siblings.get(&id)?,

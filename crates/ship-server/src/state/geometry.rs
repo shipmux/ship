@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use indexmap::IndexMap;
 use ratatui::{
-    layout::{Constraint, Direction, Layout as TuiLayout, Rect, Spacing},
+    layout::{Constraint, Layout as TuiLayout, Rect, Spacing},
     widgets::Block,
 };
 use ship_core::{
@@ -53,10 +53,7 @@ pub(crate) fn halves(area: Rect, axis: Axis, ratio: Ratio) -> [Rect; 2] {
     let first = (f32::from(ratio) * f32::from(TOTAL)).round() as u16;
     let first = first.clamp(1, TOTAL - 1);
     TuiLayout::default()
-        .direction(match axis {
-            Axis::Horizontal => Direction::Horizontal,
-            Axis::Vertical => Direction::Vertical,
-        })
+        .direction(axis.into())
         .constraints([Constraint::Fill(first), Constraint::Fill(TOTAL - first)])
         .spacing(Spacing::Overlap(1))
         .areas(area)
@@ -70,10 +67,7 @@ pub(crate) fn ratio_for(area: Rect, axis: Axis, length: u16) -> Option<Ratio> {
     let first = |weight: u16| {
         let ratio = Ratio::try_from(f32::from(weight) / f32::from(TOTAL)).ok()?;
         let [first, _] = halves(area, axis, ratio);
-        Some(match axis {
-            Axis::Horizontal => first.width,
-            Axis::Vertical => first.height,
-        })
+        Some(axis.length(first))
     };
     // The least weight whose first half is at least `length`.
     let least = |length: u16| {

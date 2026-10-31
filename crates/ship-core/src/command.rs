@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     id::IdOf,
+    layout::Axis,
     model::{NodeId, Pane, Tab},
     prelude::*,
     protocol::MoveTab,
@@ -129,6 +130,21 @@ pub enum Direction {
     Down,
     Up,
     Right,
+}
+
+impl Direction {
+    /// Left and right are horizontal; up and down vertical.
+    pub fn axis(self) -> Axis {
+        match self {
+            Self::Left | Self::Right => Axis::Horizontal,
+            Self::Up | Self::Down => Axis::Vertical,
+        }
+    }
+
+    /// Right and down.
+    pub fn forward(self) -> bool {
+        matches!(self, Self::Right | Self::Down)
+    }
 }
 
 pub mod tab {

@@ -18,7 +18,6 @@ use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system}
 use ratatui::{
     buffer::{self, Buffer},
     layout::Rect,
-    style::{self as tui, Modifier},
 };
 use ratatui_ghostty::{
     session::{Pointer, Read, Scroll, SessionConfig, SessionEvent, SessionHandle, SessionIo},
@@ -32,7 +31,7 @@ use ship_core::{
     prelude::*,
     protocol::{MouseInput, ReadPane, RunCommand, ScrollDirection, ScrollPane},
     relay::{Publish, RelayBus},
-    screen::{Attr, Color, Cursor, CursorShape, Multi, Row, Run, Screen, Scrolled, Size},
+    screen::{Attr, Cursor, CursorShape, Multi, Row, Run, Screen, Scrolled, Size},
 };
 use ship_macros::traced;
 use tokio::{
@@ -801,18 +800,6 @@ fn capture(session: &SessionHandle, buffer: &mut Buffer) -> Option<Screen> {
     })
 }
 
-const ATTRS: [(Modifier, Attr); 9] = [
-    (Modifier::BOLD, Attr::Bold),
-    (Modifier::DIM, Attr::Dim),
-    (Modifier::ITALIC, Attr::Italic),
-    (Modifier::UNDERLINED, Attr::Underlined),
-    (Modifier::SLOW_BLINK, Attr::SlowBlink),
-    (Modifier::RAPID_BLINK, Attr::RapidBlink),
-    (Modifier::REVERSED, Attr::Reversed),
-    (Modifier::HIDDEN, Attr::Hidden),
-    (Modifier::CROSSED_OUT, Attr::CrossedOut),
-];
-
 /// One buffer row: text through its last non-blank cell, adjacent cells with
 /// equal styles merged into one run, and no trailing default-style run.
 #[traced(level = "trace")]
@@ -852,42 +839,11 @@ fn row(cells: &[buffer::Cell]) -> Row {
 fn run_of(cell: &buffer::Cell) -> Run {
     Run {
         cells: 1,
-        fg: color(cell.fg),
-        bg: color(cell.bg),
-        underline_color: color(cell.underline_color),
-        attrs: ATTRS
-            .iter()
-            .filter(|(modifier, _)| cell.modifier.contains(*modifier))
-            .map(|(_, attr)| *attr)
-            .collect(),
+        fg: cell.fg.into(),
+        bg: cell.bg.into(),
+        underline_color: cell.underline_color.into(),
+        attrs: Attr::from_modifier(cell.modifier),
     }
-}
-
-/// Named colors are the first sixteen palette entries.
-fn color(color: tui::Color) -> Color {
-    use tui::Color::*;
-    let indexed = match color {
-        Reset => return Color::Default,
-        Rgb(r, g, b) => return Color::Rgb(r, g, b),
-        Indexed(index) => index,
-        Black => 0,
-        Red => 1,
-        Green => 2,
-        Yellow => 3,
-        Blue => 4,
-        Magenta => 5,
-        Cyan => 6,
-        Gray => 7,
-        DarkGray => 8,
-        LightRed => 9,
-        LightGreen => 10,
-        LightYellow => 11,
-        LightBlue => 12,
-        LightMagenta => 13,
-        LightCyan => 14,
-        White => 15,
-    };
-    Color::Indexed(indexed)
 }
 
 /// The child's exit status, fed by a std thread blocked in `program::wait`.

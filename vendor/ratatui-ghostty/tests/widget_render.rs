@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used, reason = "a failed setup should fail the test")]
+
 use libghostty_vt::render::RenderState;
 use libghostty_vt::terminal::{ScrollViewport, Terminal};
 use ratatui::buffer::Buffer;

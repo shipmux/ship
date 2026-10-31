@@ -1,6 +1,5 @@
 //! Tree rewrites, stack edits and close selection repair. Zoom follows its slot.
 
-use ratatui::layout::Rect;
 use ship_core::{
     command::Direction,
     id::IdOf,
@@ -12,13 +11,6 @@ use ship_core::{
 };
 
 use super::geometry;
-
-pub(crate) fn axis(direction: SplitDirection) -> Axis {
-    match direction {
-        SplitDirection::Right => Axis::Horizontal,
-        SplitDirection::Down => Axis::Vertical,
-    }
-}
 
 pub(crate) fn split(
     tab: &mut Tab,
@@ -47,7 +39,7 @@ pub(crate) fn split(
     match (&mut tab.layout, anchor) {
         (None, None) => tab.layout = Some(Layout::Slot(Slot::new(pane))),
         (Some(layout), Some(anchor)) => {
-            if !insert(layout, anchor, axis(direction), &pane) {
+            if !insert(layout, anchor, direction.into(), &pane) {
                 return Err(err!(InvalidStructure, "split anchor is not in the tab"));
             }
         }
@@ -198,12 +190,7 @@ pub(crate) fn resize(
     direction: Direction,
     change: Change,
 ) -> Result<bool> {
-    let (axis, forward) = match direction {
-        Direction::Left => (Axis::Horizontal, false),
-        Direction::Right => (Axis::Horizontal, true),
-        Direction::Up => (Axis::Vertical, false),
-        Direction::Down => (Axis::Vertical, true),
-    };
+    let (axis, forward) = (direction.axis(), direction.forward());
     let layout = tab
         .layout
         .as_ref()
@@ -227,19 +214,12 @@ pub(crate) fn resize(
             .unwrap_or_default()
     };
     let area = frame(&split.first).union(frame(&split.second));
-    let length = |rect: Rect| match axis {
-        Axis::Horizontal => rect.width,
-        Axis::Vertical => rect.height,
-    };
-    let first = length(frame(&split.first));
-    let total = length(area);
+    let first = axis.length(frame(&split.first));
+    let total = axis.length(area);
     let (forward, cells) = match change {
         Change::By(cells) => (forward, cells),
         Change::To(to) => {
-            let origin = match axis {
-                Axis::Horizontal => area.x,
-                Axis::Vertical => area.y,
-            };
+            let origin = axis.start(area);
             // Include the shared border cell in the first side's length.
             let target = (u32::from(to) + 1).saturating_sub(u32::from(origin));
             let current = u32::from(first);

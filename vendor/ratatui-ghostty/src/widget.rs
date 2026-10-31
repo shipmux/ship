@@ -125,7 +125,7 @@ impl Widget for &mut TerminalWidget<'_, '_, '_> {
 
         let every_row = !self.incremental || snapshot.dirty().map_or(true, |d| d == Dirty::Full);
         if self.incremental {
-            let _ = snapshot.set_dirty(Dirty::Clean);
+            snapshot.set_dirty(Dirty::Clean).ok();
         }
 
         // Reused across cells, so filling the buffer doesn't allocate per cell.
@@ -137,7 +137,7 @@ impl Widget for &mut TerminalWidget<'_, '_, '_> {
             }
             if self.incremental {
                 let dirty = row.dirty().unwrap_or(true);
-                let _ = row.set_dirty(false);
+                row.set_dirty(false).ok();
                 if !every_row && !dirty {
                     row_idx += 1;
                     continue;

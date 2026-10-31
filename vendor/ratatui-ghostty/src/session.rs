@@ -342,17 +342,19 @@ impl SessionHandle {
                 match result {
                     Ok(Ok(())) => {}
                     Ok(Err(e)) => {
-                        let _ = event_tx.send(SessionEvent::Error(e));
+                        event_tx.send(SessionEvent::Error(e)).ok();
                         wake();
                     }
                     Err(_) => {
-                        let _ = event_tx.send(SessionEvent::Error(SessionError::Panicked));
+                        event_tx
+                            .send(SessionEvent::Error(SessionError::Panicked))
+                            .ok();
                         wake();
                     }
                 }
 
                 alive_clone.store(false, Ordering::Relaxed);
-                let _ = event_tx.send(SessionEvent::Exited);
+                event_tx.send(SessionEvent::Exited).ok();
                 wake();
             })
             .expect("failed to spawn session thread");
@@ -367,14 +369,14 @@ impl SessionHandle {
 
     /// Send a keyboard event to the terminal.
     pub fn send_key(&self, event: impl IntoKeyInput) {
-        let _ = self
-            .cmd_tx
-            .send(SessionCommand::Key(event.into_key_input()));
+        self.cmd_tx
+            .send(SessionCommand::Key(event.into_key_input()))
+            .ok();
     }
 
     /// Route a pane-relative pointer against the terminal's live modes.
     pub fn send_pointer(&self, pointer: Pointer) {
-        let _ = self.cmd_tx.send(SessionCommand::Pointer(pointer));
+        self.cmd_tx.send(SessionCommand::Pointer(pointer)).ok();
     }
 
     /// Send a mouse event with session-relative coordinates.
@@ -382,7 +384,7 @@ impl SessionHandle {
     /// Returns `false` if the event could not be converted (e.g. unsupported mouse action).
     pub fn send_mouse(&self, event: impl IntoMouseInput) -> bool {
         if let Some(input) = event.into_mouse_input() {
-            let _ = self.cmd_tx.send(SessionCommand::Mouse(input));
+            self.cmd_tx.send(SessionCommand::Mouse(input)).ok();
             true
         } else {
             false
@@ -391,12 +393,12 @@ impl SessionHandle {
 
     /// Notify the terminal of focus gain or loss.
     pub fn send_focus(&self, gained: bool) {
-        let _ = self.cmd_tx.send(SessionCommand::Focus(gained));
+        self.cmd_tx.send(SessionCommand::Focus(gained)).ok();
     }
 
     /// Resize the terminal to the given dimensions.
     pub fn send_resize(&self, cols: u16, rows: u16) {
-        let _ = self.cmd_tx.send(SessionCommand::Resize { cols, rows });
+        self.cmd_tx.send(SessionCommand::Resize { cols, rows }).ok();
     }
 
     /// Scroll the viewport by `delta` lines (negative scrolls up).
@@ -433,17 +435,17 @@ impl SessionHandle {
 
     /// Paste data into the terminal, wrapping in bracketed paste sequences when enabled.
     pub fn send_paste(&self, data: Vec<u8>) {
-        let _ = self.cmd_tx.send(SessionCommand::Paste(data));
+        self.cmd_tx.send(SessionCommand::Paste(data)).ok();
     }
 
     /// Write raw bytes directly to the PTY without any encoding or wrapping.
     pub fn send_raw(&self, data: Vec<u8>) {
-        let _ = self.cmd_tx.send(SessionCommand::Raw(data));
+        self.cmd_tx.send(SessionCommand::Raw(data)).ok();
     }
 
     /// Send a shutdown signal to the session thread.
     pub fn send_shutdown(&self) {
-        let _ = self.cmd_tx.send(SessionCommand::Shutdown);
+        self.cmd_tx.send(SessionCommand::Shutdown).ok();
     }
 
     /// Returns `true` if the session thread is still running.
@@ -914,8 +916,8 @@ impl<'a> SessionState<'a> {
                 && !data.is_empty()
             {
                 let mut w = self.writer.borrow_mut();
-                let _ = w.write_all(&data);
-                let _ = w.flush();
+                w.write_all(&data).ok();
+                w.flush().ok();
             }
             return;
         }
@@ -932,9 +934,9 @@ impl<'a> SessionState<'a> {
             if let Ok(data) = input::encode_key(&mut self.key_encoder, &key, &self.terminal) {
                 let mut w = self.writer.borrow_mut();
                 for _ in 0..self.scroll_delta.unsigned_abs() {
-                    let _ = w.write_all(&data);
+                    w.write_all(&data).ok();
                 }
-                let _ = w.flush();
+                w.flush().ok();
             }
         }
     }
@@ -948,8 +950,8 @@ impl<'a> SessionState<'a> {
                 {
                     let _write = tracing::debug_span!("pty write", bytes = data.len()).entered();
                     let mut w = self.writer.borrow_mut();
-                    let _ = w.write_all(&data);
-                    let _ = w.flush();
+                    w.write_all(&data).ok();
+                    w.flush().ok();
                 }
             }
             SessionCommand::Pointer(pointer) => {
@@ -980,13 +982,13 @@ impl<'a> SessionState<'a> {
                 self.focused = gained;
                 let data = input::encode_focus(gained);
                 let mut w = self.writer.borrow_mut();
-                let _ = w.write_all(data);
-                let _ = w.flush();
+                w.write_all(data).ok();
+                w.flush().ok();
                 *needs_render = true;
             }
             SessionCommand::Resize { cols, rows } => {
-                let _ = self.terminal.resize(cols, rows, 0, 0);
-                let _ = (self.resizer)(cols, rows);
+                self.terminal.resize(cols, rows, 0, 0).ok();
+                (self.resizer)(cols, rows).ok();
                 self.cols = cols;
                 self.rows = rows;
                 // The render this requests replaces the buffer at the new size.
@@ -1028,14 +1030,14 @@ impl<'a> SessionState<'a> {
                 let encoded = input::encode_paste(&data, &self.terminal);
                 if !encoded.is_empty() {
                     let mut w = self.writer.borrow_mut();
-                    let _ = w.write_all(&encoded);
-                    let _ = w.flush();
+                    w.write_all(&encoded).ok();
+                    w.flush().ok();
                 }
             }
             SessionCommand::Raw(data) => {
                 let mut w = self.writer.borrow_mut();
-                let _ = w.write_all(&data);
-                let _ = w.flush();
+                w.write_all(&data).ok();
+                w.flush().ok();
             }
             SessionCommand::Shutdown => return true,
         }
@@ -1177,7 +1179,7 @@ fn session_thread(
     terminal.on_pty_write({
         let writer = Rc::clone(&writer);
         move |_, data| {
-            let _ = writer.borrow_mut().write_all(data);
+            writer.borrow_mut().write_all(data).ok();
         }
     })?;
 
@@ -1297,7 +1299,7 @@ fn session_thread(
             should_wake |= !(render_on_request && !state.renders.is_empty());
         }
         for ev in events_local.borrow_mut().drain(..) {
-            let _ = event_tx.send(ev);
+            event_tx.send(ev).ok();
             should_wake = true;
         }
 
@@ -1381,22 +1383,25 @@ fn init_colors(terminal: &mut Terminal, colors: &HostColors) {
     let mut buf = Vec::new();
     let fg = colors.foreground;
     let bg = colors.background;
-    let _ = write!(
+    write!(
         buf,
         "\x1b]10;rgb:{:02X}/{:02X}/{:02X}\x1b\\",
         fg.r, fg.g, fg.b
-    );
-    let _ = write!(
+    )
+    .ok();
+    write!(
         buf,
         "\x1b]11;rgb:{:02X}/{:02X}/{:02X}\x1b\\",
         bg.r, bg.g, bg.b
-    );
+    )
+    .ok();
     for (i, c) in colors.palette.iter().enumerate() {
-        let _ = write!(
+        write!(
             buf,
             "\x1b]4;{i};rgb:{:02X}/{:02X}/{:02X}\x1b\\",
             c.r, c.g, c.b
-        );
+        )
+        .ok();
     }
     terminal.vt_write(&buf);
 }

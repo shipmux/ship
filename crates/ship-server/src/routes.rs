@@ -42,7 +42,7 @@ pub(crate) async fn get_server_log(State(app): App) -> Result<Json<LogFilter>> {
 pub(crate) async fn set_server_log(State(app): App, Body(change): Body<LogChange>) -> Response {
     match (app.log)(Some(change)) {
         Ok(filter) => Json(filter).into_response(),
-        Err(error) if *error.code() == ship_core::ErrorCode::Validation => {
+        Err(error) if error.code() == ship_core::ErrorCode::Validation => {
             let mut response = error.into_response();
             *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
             response

@@ -179,10 +179,7 @@ impl Mouse {
                     let positions: Vec<_> = grabs
                         .iter_mut()
                         .filter_map(|grab| {
-                            let to = match grab.edge.axis {
-                                Axis::Horizontal => relative.x,
-                                Axis::Vertical => relative.y,
-                            };
+                            let to = grab.edge.axis.along(relative);
                             if to == grab.last {
                                 return None;
                             }
@@ -289,10 +286,7 @@ impl Mouse {
                             edges
                                 .into_iter()
                                 .map(|edge| Grab {
-                                    last: match edge.axis {
-                                        Axis::Horizontal => relative.x,
-                                        Axis::Vertical => relative.y,
-                                    },
+                                    last: edge.axis.along(relative),
                                     edge,
                                 })
                                 .collect(),

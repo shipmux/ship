@@ -13,7 +13,7 @@ use ship_core::{
     id::IdOf,
     layout::{Axis, Slot},
     model::Pane,
-    screen::{Attr, Color, Cursor, Run, Screen},
+    screen::{Attr, Cursor, Run, Screen},
 };
 
 use super::{Scene, draw::pane_label, lane::Edge};
@@ -157,7 +157,7 @@ pub(super) fn draw(
                 Rect::new(content.x, content.y, content.width, content.height.min(1))
             };
             frame.render_widget(
-                Line::from(format!("[{}/{}]", scrolled.offset, scrolled.history))
+                Line::from(scrolled.to_string())
                     .right_aligned()
                     .style(Style::new().bg(tui::Color::Reset).fg(tui::Color::Cyan)),
                 top,
@@ -195,7 +195,7 @@ pub(super) fn title_row(scene: &Scene, front: IdOf<Pane>) -> Option<Rect> {
     ));
     if bordered && let Some(scrolled) = scene.screens.get(&front).and_then(|screen| screen.scrolled)
     {
-        let badge = Line::from(format!("[{}/{}]", scrolled.offset, scrolled.history)).width();
+        let badge = Line::from(scrolled.to_string()).width();
         row.width = row
             .width
             .saturating_sub(badge.min(usize::from(row.width)) as u16);
@@ -261,34 +261,10 @@ fn paint(screen: &Screen, area: Rect, buf: &mut Buffer) {
     }
 }
 
-const MODIFIERS: [(Attr, Modifier); 9] = [
-    (Attr::Bold, Modifier::BOLD),
-    (Attr::Dim, Modifier::DIM),
-    (Attr::Italic, Modifier::ITALIC),
-    (Attr::Underlined, Modifier::UNDERLINED),
-    (Attr::SlowBlink, Modifier::SLOW_BLINK),
-    (Attr::RapidBlink, Modifier::RAPID_BLINK),
-    (Attr::Reversed, Modifier::REVERSED),
-    (Attr::Hidden, Modifier::HIDDEN),
-    (Attr::CrossedOut, Modifier::CROSSED_OUT),
-];
-
 fn style(run: &Run) -> Style {
-    let modifier = MODIFIERS
-        .iter()
-        .filter(|(attr, _)| run.attrs.contains(attr))
-        .fold(Modifier::empty(), |modifier, (_, add)| modifier | *add);
     Style::new()
-        .fg(color(run.fg))
-        .bg(color(run.bg))
-        .underline_color(color(run.underline_color))
-        .add_modifier(modifier)
-}
-
-fn color(color: Color) -> tui::Color {
-    match color {
-        Color::Default => tui::Color::Reset,
-        Color::Indexed(index) => tui::Color::Indexed(index),
-        Color::Rgb(r, g, b) => tui::Color::Rgb(r, g, b),
-    }
+        .fg(run.fg.into())
+        .bg(run.bg.into())
+        .underline_color(run.underline_color.into())
+        .add_modifier(Attr::to_modifier(&run.attrs))
 }

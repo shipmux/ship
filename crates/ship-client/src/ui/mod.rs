@@ -152,7 +152,7 @@ pub async fn run(
     run_output: impl Fn() -> Result<File> + Send + Sync + 'static,
 ) -> Result<()> {
     let signaled = signaled()?;
-    let loaded = match ClientSettings::load(config) {
+    let (settings, message) = match ClientSettings::load(config) {
         Ok(settings) => (settings, None),
         Err(error) => {
             tracing::warn!(config = %config.display(), %error, "config unusable; using defaults");
@@ -160,12 +160,12 @@ pub async fn run(
         }
     };
     let (cols, rows) = terminal_size()?;
-    let area = draw::tab_area(cols, rows, loaded.0.sidebar_width);
+    let area = draw::tab_area(cols, rows, settings.sidebar_width);
     let selection = match initial_selection {
         InitialSelection::FirstPane => navigate(
             &client.tabs().await?,
             &Memory::default(),
-            &Sidebar::new(loaded.0.sidebar_width),
+            &Sidebar::new(settings.sidebar_width),
             None,
             Step::Tab { forward: true },
         ),
@@ -182,16 +182,14 @@ pub async fn run(
         // Every client line names its connection. Each attach swaps in a new
         // span, which every poll enters, as `.instrument` does with a fixed one.
         let connection = RefCell::new(tracing::info_span!("client"));
-        let mut drive = pin!(drive(
+        let startup = Startup {
             client,
-            request,
-            events,
-            signaled,
             config,
-            loaded,
-            &connection,
-            run_output,
-        ));
+            settings,
+            message,
+            connection: &connection,
+        };
+        let mut drive = pin!(drive(startup, request, events, signaled, run_output));
         poll_fn(|cx| {
             let span = connection.borrow().clone();
             let _entered = span.enter();
@@ -208,18 +206,29 @@ pub async fn run(
     Ok(())
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "UI startup inputs and run output"
-)]
+/// What `drive` starts from, besides the first connection.
+struct Startup<'a> {
+    client: &'a Client,
+    config: &'a Path,
+    /// The file's settings, or the defaults when it was unusable.
+    settings: ClientSettings,
+    /// Why the file was unusable, for the status line.
+    message: Option<String>,
+    /// The span every poll enters, swapped on each attach.
+    connection: &'a RefCell<tracing::Span>,
+}
+
 async fn drive(
-    client: &Client,
+    Startup {
+        client,
+        config,
+        settings,
+        message,
+        connection,
+    }: Startup<'_>,
     mut request: AttachRequest,
     events: Events,
     signaled: impl Future<Output = ()>,
-    config: &Path,
-    loaded: (ClientSettings, Option<String>),
-    connection: &RefCell<tracing::Span>,
     run_output: impl Fn() -> Result<File> + Send + Sync + 'static,
 ) -> Result<Exit> {
     let guard = &mut TerminalGuard::enter()?;
@@ -227,7 +236,6 @@ async fn drive(
     let mut events = Some(events);
     let mut reconnect: Option<Request<Events>> = None;
     let mut backoff = FIRST_BACKOFF;
-    let (settings, message) = loaded;
     guard.set_mouse(settings.mouse)?;
     let (sender, ended) = mpsc::unbounded_channel();
     let mut local = Local {
@@ -628,10 +636,8 @@ impl<'a> Local<'a> {
             return false;
         };
         let closed = match rename.target() {
-            rename::Target::Tab(tab) => tree::tab(&replica.tabs, tab).err().map(|_| "tab closed"),
-            rename::Target::Pane(pane) => {
-                tree::pane(&replica.tabs, pane).err().map(|_| "pane closed")
-            }
+            NodeId::Tab(tab) => tree::tab(&replica.tabs, tab).err().map(|_| "tab closed"),
+            NodeId::Pane(pane) => tree::pane(&replica.tabs, pane).err().map(|_| "pane closed"),
         };
         if let Some(message) = closed {
             self.overlay = None;
@@ -640,8 +646,8 @@ impl<'a> Local<'a> {
         }
         let selected = self.observer.selected();
         let moved = match rename.target() {
-            rename::Target::Tab(tab) => selected.map(|selected| selected.tab.id) != Some(tab),
-            rename::Target::Pane(pane) => {
+            NodeId::Tab(tab) => selected.map(|selected| selected.tab.id) != Some(tab),
+            NodeId::Pane(pane) => {
                 selected
                     .and_then(|selected| selected.pane)
                     .map(|pane| pane.id)
@@ -695,13 +701,7 @@ impl<'a> Local<'a> {
                 Ok(())
             }
             ClientAction::Sidebar(SidebarAction::Resize { direction, amount }) => {
-                let amount = amount.unwrap_or(1);
-                match direction {
-                    Direction::Left | Direction::Right => {
-                        self.sidebar.nudge(direction, amount, cols);
-                    }
-                    Direction::Up | Direction::Down => self.sidebar.nudge_split(direction, amount),
-                }
+                self.sidebar.nudge(direction, amount.unwrap_or(1), cols);
                 Ok(())
             }
             ClientAction::Config(ConfigAction::Reload {}) => self.reload(guard, config),
@@ -947,7 +947,7 @@ impl<'a> Local<'a> {
                 ClientAction::Tab(ClientTab::Rename {}) => {
                     if let Some(selected) = self.observer.selected() {
                         self.overlay = Some(Overlay::Rename(Rename::open(
-                            rename::Target::Tab(selected.tab.id),
+                            NodeId::Tab(selected.tab.id),
                             selected.tab.name.as_deref(),
                         )));
                     }
@@ -957,7 +957,7 @@ impl<'a> Local<'a> {
                     if let Some(pane) = self.observer.selected().and_then(|selected| selected.pane)
                     {
                         self.overlay = Some(Overlay::Rename(Rename::open(
-                            rename::Target::Pane(pane.id),
+                            NodeId::Pane(pane.id),
                             pane.name.as_deref(),
                         )));
                     }
@@ -1154,7 +1154,7 @@ fn zoomed_pane(observer: &Observer, selection: Option<NodeId>) -> Option<IdOf<Pa
         return None;
     };
     let tabs = &observer.replica.as_ref()?.tabs;
-    let tab = tree::tab(tabs, tree::pane_owner(tabs, pane).ok()?).ok()?;
+    let tab = tree::pane_tab(tabs, pane).ok()?;
     (tab.zoomed == Some(pane)).then_some(pane)
 }
 
@@ -1165,11 +1165,7 @@ fn collapse(tabs: &Tabs, sidebar: &Sidebar, tab: IdOf<Tab>) -> Option<Hop> {
     if !row.tabs.is_empty() && !sidebar.tabs.folded(tab) {
         return Some(Hop::Fold { collapsed: true });
     }
-    let path = tree::path(tabs, NodeId::Tab(tab))?;
-    let NodeId::Tab(parent) = *path.iter().rev().nth(1)? else {
-        return None;
-    };
-    Some(Hop::Select(parent))
+    tree::parent(tabs, tab).map(Hop::Select)
 }
 
 /// Unfold a folded row, else select its first child. Nothing on a leaf.
@@ -1192,13 +1188,7 @@ fn shift(tabs: &Tabs, tab: IdOf<Tab>, direction: TabDirection) -> Option<MoveTab
         TabDirection::Up => MoveTab::Before(*siblings.get_index(index.checked_sub(1)?)?.0),
         TabDirection::Down => MoveTab::After(*siblings.get_index(index.checked_add(1)?)?.0),
         TabDirection::In => MoveTab::Parent(Some(*siblings.get_index(index.checked_sub(1)?)?.0)),
-        TabDirection::Out => {
-            let path = tree::path(tabs, NodeId::Tab(tab))?;
-            let NodeId::Tab(parent) = *path.iter().rev().nth(1)? else {
-                return None;
-            };
-            MoveTab::After(parent)
-        }
+        TabDirection::Out => MoveTab::After(tree::parent(tabs, tab)?),
     })
 }
 
@@ -1253,7 +1243,7 @@ fn navigate(
             let Some(NodeId::Pane(from)) = from else {
                 return None;
             };
-            let tab = tree::tab(tabs, tree::pane_owner(tabs, from).ok()?).ok()?;
+            let tab = tree::pane_tab(tabs, from).ok()?;
             let to = tab
                 .geometry
                 .as_ref()?

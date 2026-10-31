@@ -242,7 +242,7 @@ impl ServerState {
     /// Drop runtimes whose panes are gone and publish the rest's handles,
     /// before `commit` publishes the replica.
     fn retain_runtimes(&mut self) {
-        let panes: HashSet<_> = tree::pane_ids(&self.tabs).collect();
+        let panes: HashSet<_> = tree::panes(&self.tabs).map(|pane| pane.id).collect();
         self.runtimes.retain(|pane, _| panes.contains(pane));
         self.live.send_replace(
             self.runtimes
@@ -294,10 +294,7 @@ impl ServerState {
             if let Some(geometry) = &tab.geometry {
                 for (pane, geometry) in &geometry.panes {
                     if let Some(runtime) = self.runtimes.get(pane) {
-                        let size = Size {
-                            cols: geometry.content.width,
-                            rows: geometry.content.height,
-                        };
+                        let size = Size::from(geometry.content);
                         runtime.handle.commands.send(PaneCommand::Resize(size)).ok();
                     }
                 }
@@ -464,10 +461,10 @@ impl Message<CreateTab> for ServerState {
         create: CreateTab,
         _: &mut Context<Self, Self::Reply>,
     ) -> Self::Reply {
-        let id = Id::new();
+        let id = Id::random();
         let layout = if let Some(Starter::Shell) = create.starter {
             Some(Layout::Slot(Slot::new(self.start_pane(
-                Id::new(),
+                Id::random(),
                 Size::FALLBACK,
                 NewPane::default(),
             )?)))
@@ -609,10 +606,7 @@ impl Message<RunCommand> for ServerState {
     async fn handle(&mut self, run: RunCommand, _: &mut Context<Self, Self::Reply>) -> Self::Reply {
         let label = run.command.join(" ");
         let cwd = match run.pane {
-            Some(pane) => {
-                let owner = tree::pane_owner(&self.tabs, pane)?;
-                anchor_dir(tree::tab(&self.tabs, owner)?, pane)
-            }
+            Some(pane) => anchor_dir(tree::pane_tab(&self.tabs, pane)?, pane),
             None => None,
         };
         let cwd = Self::pane_cwd(cwd).context(format!("cannot start `{label}`"))?;
@@ -652,8 +646,7 @@ impl Message<CreatePane> for ServerState {
             match create.place {
                 Place::Split(direction) => {
                     let frame = geometry.panes[&front].frame;
-                    let [first, second] =
-                        geometry::halves(frame, layout::axis(direction), Ratio::HALF);
+                    let [first, second] = geometry::halves(frame, direction.into(), Ratio::HALF);
                     let block = ratatui::widgets::Block::bordered();
                     let first = block.inner(first);
                     let second = block.inner(second);
@@ -663,18 +656,12 @@ impl Message<CreatePane> for ServerState {
                     }) {
                         return Err(err!(InvalidStructure, "no space for new pane"));
                     }
-                    start = Size {
-                        cols: second.width,
-                        rows: second.height,
-                    };
+                    start = Size::from(second);
                 }
                 Place::Stack => {
                     let visible = geometry::tab(tab, size);
                     let area = visible.panes.get(&front).unwrap_or(&geometry.panes[&front]);
-                    start = Size {
-                        cols: area.content.width,
-                        rows: area.content.height,
-                    };
+                    start = Size::from(area.content);
                     if slot.len().get() == 1 && area.content == area.frame {
                         start.rows = start.rows.saturating_sub(1);
                     }
@@ -686,7 +673,7 @@ impl Message<CreatePane> for ServerState {
         if input.cwd.is_none() {
             input.cwd = anchor.and_then(|anchor| anchor_dir(tab, anchor));
         }
-        let pane = self.start_pane(Id::new(), start, input)?;
+        let pane = self.start_pane(Id::random(), start, input)?;
         self.commit(|tabs, viewers| {
             if let Some(attachment) = create.select {
                 select_created(viewers, attachment, NodeId::Pane(pane.id))?;
@@ -743,10 +730,7 @@ impl Message<Set<Pane, SetPane>> for ServerState {
         }
         if &pane != before {
             self.commit(|tabs, _| {
-                let owner = tree::pane_owner(tabs, id)?;
-                *tree::tab_mut(tabs, owner)?
-                    .pane_mut(id)
-                    .ok_or_else(|| tree::not_found(NodeId::Pane(id)))? = pane.clone();
+                *tree::pane_mut(tabs, id)? = pane.clone();
                 Ok(())
             })
             .await?;
@@ -774,8 +758,7 @@ impl Message<Remove<Pane>> for ServerState {
         _: &mut Context<Self, Self::Reply>,
     ) -> Self::Reply {
         self.commit(|tabs, _| {
-            let owner = tree::pane_owner(tabs, id)?;
-            layout::take(tree::tab_mut(tabs, owner)?, id)?;
+            layout::take(tree::pane_tab_mut(tabs, id)?, id)?;
             Ok(())
         })
         .await
@@ -1021,8 +1004,7 @@ impl Message<Select> for ServerState {
             if let Some(node) = selection {
                 tree::path(tabs, node).ok_or_else(|| tree::not_found(node))?;
                 if let NodeId::Pane(pane) = node {
-                    let owner = tree::pane_owner(tabs, pane)?;
-                    let tab = tree::tab_mut(tabs, owner)?;
+                    let tab = tree::pane_tab_mut(tabs, pane)?;
                     layout::bring_to_front(tab, pane)?;
                     if tab.zoomed.is_some_and(|zoomed| zoomed != pane) {
                         tab.zoomed = None;
@@ -1073,10 +1055,7 @@ impl Message<PaneEvent> for ServerState {
         }
         let closes = self
             .commit(|tabs, _| {
-                let owner = tree::pane_owner(tabs, id)?;
-                let pane = tree::tab_mut(tabs, owner)?
-                    .pane_mut(id)
-                    .ok_or_else(|| tree::not_found(NodeId::Pane(id)))?;
+                let pane = tree::pane_mut(tabs, id)?;
                 let mut closes = false;
                 match change {
                     PaneChange::Title(title) => pane.title = title,
@@ -1094,8 +1073,7 @@ impl Message<PaneEvent> for ServerState {
         if closes {
             // Publish the exit before removing the pane so every-feed waits see it.
             self.commit(|tabs, _| {
-                let owner = tree::pane_owner(tabs, id)?;
-                layout::take(tree::tab_mut(tabs, owner)?, id)?;
+                layout::take(tree::pane_tab_mut(tabs, id)?, id)?;
                 Ok(())
             })
             .await?;

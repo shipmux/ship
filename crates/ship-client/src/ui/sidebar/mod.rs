@@ -16,6 +16,7 @@ use ratatui::{
 use ship_core::{
     command::Direction,
     id::IdOf,
+    layout::Axis,
     model::{Pane, Tab},
 };
 
@@ -97,18 +98,21 @@ impl Sidebar {
         self.chosen = Some(Self::clamp(width, cols));
     }
 
-    /// Left and right only; `nudge_split` takes up and down.
+    /// Left and right move the width, up and down the divider row.
     pub fn nudge(&mut self, direction: Direction, amount: u16, cols: u16) {
-        if self.shown {
-            let width = Self::clamp(self.width(), cols);
-            self.set_width(
-                match direction {
-                    Direction::Left => width.saturating_sub(amount),
-                    Direction::Right => width.saturating_add(amount),
-                    Direction::Up | Direction::Down => return,
-                },
-                cols,
-            );
+        let step = |value: u16| {
+            if direction.forward() {
+                value.saturating_add(amount)
+            } else {
+                value.saturating_sub(amount)
+            }
+        };
+        match direction.axis() {
+            Axis::Horizontal if self.shown => {
+                self.set_width(step(Self::clamp(self.width(), cols)), cols);
+            }
+            Axis::Horizontal => {}
+            Axis::Vertical => self.set_split(step(self.split_row())),
         }
     }
 
@@ -134,16 +138,6 @@ impl Sidebar {
             let offset = split_clamp(y.saturating_sub(self.area.y), height);
             self.split = Some(f32::from(offset) / f32::from(height));
         }
-    }
-
-    /// Up and down only; `nudge` takes left and right.
-    pub fn nudge_split(&mut self, direction: Direction, amount: u16) {
-        let row = self.split_row();
-        self.set_split(match direction {
-            Direction::Up => row.saturating_sub(amount),
-            Direction::Down => row.saturating_add(amount),
-            Direction::Left | Direction::Right => return,
-        });
     }
 
     /// Sent to the section under `at`.

@@ -3,10 +3,11 @@
 use std::{iter, num::NonZeroUsize};
 
 use mitsein::{iter1::IntoIterator1, vec_deque1::VecDeque1};
+use ratatui_core::layout::{Direction, Position, Rect};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{id::IdOf, model::Pane, prelude::*};
+use crate::{id::IdOf, model::Pane, prelude::*, protocol::SplitDirection};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -123,6 +124,47 @@ pub struct Split {
 pub enum Axis {
     Horizontal,
     Vertical,
+}
+
+impl From<SplitDirection> for Axis {
+    fn from(direction: SplitDirection) -> Self {
+        match direction {
+            SplitDirection::Right => Self::Horizontal,
+            SplitDirection::Down => Self::Vertical,
+        }
+    }
+}
+
+impl From<Axis> for Direction {
+    fn from(axis: Axis) -> Self {
+        match axis {
+            Axis::Horizontal => Self::Horizontal,
+            Axis::Vertical => Self::Vertical,
+        }
+    }
+}
+
+impl Axis {
+    /// Width or height.
+    pub fn length(self, rect: Rect) -> u16 {
+        match self {
+            Self::Horizontal => rect.width,
+            Self::Vertical => rect.height,
+        }
+    }
+
+    /// x or y of the rect's start.
+    pub fn start(self, rect: Rect) -> u16 {
+        self.along(rect.as_position())
+    }
+
+    /// x or y of a position.
+    pub fn along(self, position: Position) -> u16 {
+        match self {
+            Self::Horizontal => position.x,
+            Self::Vertical => position.y,
+        }
+    }
 }
 
 /// A finite first-child share of the total, strictly between zero and one.

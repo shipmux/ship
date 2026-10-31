@@ -14,35 +14,28 @@ use ship_core::{
         pane::{self, PaneCommand},
         tab::{self, TabCommand},
     },
-    id::IdOf,
-    model::{Pane, Tab},
+    model::NodeId,
 };
 use tui_input::{Input, InputRequest, backend::crossterm::EventHandler};
 
 use super::menu::Picked;
 use crate::keymap::Action;
 
-/// Fixed when the field opens, independent of later selection changes.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Target {
-    Tab(IdOf<Tab>),
-    Pane(IdOf<Pane>),
-}
-
 pub(super) struct Rename {
-    target: Target,
+    /// Fixed when the field opens, independent of later selection changes.
+    target: NodeId,
     input: Input,
 }
 
 impl Rename {
-    pub fn open(target: Target, stored: Option<&str>) -> Self {
+    pub fn open(target: NodeId, stored: Option<&str>) -> Self {
         Self {
             target,
             input: Input::from(stored.unwrap_or_default()),
         }
     }
 
-    pub fn target(&self) -> Target {
+    pub fn target(&self) -> NodeId {
         self.target
     }
 
@@ -72,8 +65,8 @@ impl Rename {
     /// Draw the pill and a horizontally scrolled field, leaving room for its cursor.
     pub fn draw(&self, frame: &mut Frame, row: Rect, placeholder: Option<&str>) -> Position {
         let pill = Line::from(match self.target {
-            Target::Tab(_) => " RENAME TAB ",
-            Target::Pane(_) => " RENAME PANE ",
+            NodeId::Tab(_) => " RENAME TAB ",
+            NodeId::Pane(_) => " RENAME PANE ",
         })
         .style(Style::new().black().bg(Color::Cyan).bold());
         let width = pill.width().min(usize::from(row.width.saturating_sub(1))) as u16;
@@ -115,9 +108,9 @@ fn name(text: &str) -> Option<String> {
 }
 
 /// Reuse the CLI's name updates, with an explicit target and no other fields set.
-fn set(target: Target, name: Option<String>) -> Action {
+fn set(target: NodeId, name: Option<String>) -> Action {
     Action::Server(match target {
-        Target::Tab(id) => Command::Tab(TabCommand::Set(tab::Set {
+        NodeId::Tab(id) => Command::Tab(TabCommand::Set(tab::Set {
             tab: TabTarget {
                 id: Some(id),
                 pane: None,
@@ -125,7 +118,7 @@ fn set(target: Target, name: Option<String>) -> Action {
             name: Some(name),
             ..Default::default()
         })),
-        Target::Pane(id) => Command::Pane(PaneCommand::Set(pane::Set {
+        NodeId::Pane(id) => Command::Pane(PaneCommand::Set(pane::Set {
             pane: PaneTarget { id: Some(id) },
             name: Some(name),
             ..Default::default()

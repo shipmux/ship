@@ -208,9 +208,6 @@ fn holds(notice: Notice, state: ReportedState) -> bool {
 /// Each pane with a root record, and its root state.
 fn roots(observer: &Observer) -> impl Iterator<Item = (IdOf<Pane>, ReportedState)> + '_ {
     observer.replica.iter().flat_map(|replica| {
-        tree::pane_ids(&replica.tabs).filter_map(|id| {
-            let pane = tree::pane(&replica.tabs, id).ok()?;
-            Some((id, pane.root_status()?.state))
-        })
+        tree::panes(&replica.tabs).filter_map(|pane| Some((pane.id, pane.root_status()?.state)))
     })
 }

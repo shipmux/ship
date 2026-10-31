@@ -353,9 +353,9 @@ impl Tabs {
 
 /// Shared by drag-time feedback and the lane's turn-time re-check.
 pub(in crate::ui) fn movable(tabs: &TabTree, tab: IdOf<Tab>, to: MoveTab) -> bool {
-    let Some(path) = tree::path(tabs, NodeId::Tab(tab)) else {
+    if tree::tab(tabs, tab).is_err() {
         return false;
-    };
+    }
     let target = match to {
         MoveTab::Parent(None) => None,
         MoveTab::Parent(Some(id)) | MoveTab::Before(id) | MoveTab::After(id) => Some(id),
@@ -368,8 +368,7 @@ pub(in crate::ui) fn movable(tabs: &TabTree, tab: IdOf<Tab>, to: MoveTab) -> boo
     }
     match to {
         MoveTab::Parent(parent) => {
-            let current = path.iter().rev().nth(1).copied();
-            current != parent.map(NodeId::Tab)
+            tree::parent(tabs, tab) != parent
                 || tree::siblings(tabs, tab)
                     .and_then(|tabs| tabs.last())
                     .map(|(id, _)| *id)
