@@ -18,6 +18,8 @@ Behavior stays the same, with three visible differences, all on the wire rather 
 - A commit can no longer fail with `Unavailable` after its edit, since publishing the replica can't fail (KD-1).
 - Reads stop waiting behind queued writes in the actor's mailbox (KD-1). A read issued after a write's response still sees that write.
 
+New shapes follow `docs/agents/code.md`: a flag, default or special case gets a named type or variant (`SavedTabs`, `Reattach`, `Fold`), new tuples become named structs (`Checked`, `Startup`'s fields), and an existing shape is reused where it fits (`Starter` in `ServeOptions`, `PaneStatus` in `PaneEvent`). Two cleanups were dropped for the same reason: deriving `Ord` on `ui::agents::Display` would make its ranking implicit in variant order, so the explicit `rank()` stays, and dropping `Identified` would leave `IdOf<T>` as an alias that only restates `Id<T>`.
+
 Kept on purpose, by Cyan's choice: `#[serde(rename_all = "snake_case")]` on structs, explicit `err!(…, @external: error)` at call sites, wildcard imports, the `RelayBus`, and the two documented `too_many_arguments` expectations on the sidebar draw functions unless open choice O-2 says otherwise.
 
 This is a document-only plan. None of the code below exists in the working tree, and none of it has been compiled. The container this was written in can't build Ship (no Zig for `libghostty-vt-sys`).
@@ -78,8 +80,11 @@ impl<'a> View<'a> {
     /// Was `navigate`.
     pub fn navigate(&self, step: Step) -> Option<NodeId>;
 
-    /// Was `collapse` and `expand`, on the viewed tab.
-    pub fn hop(&self, collapse: bool) -> Option<Hop>;
+    /// Was `collapse`, on the viewed tab.
+    pub fn collapse(&self) -> Option<Hop>;
+
+    /// Was `expand`, on the viewed tab.
+    pub fn expand(&self) -> Option<Hop>;
 
     /// Was `shift`, on the viewed tab.
     pub fn shift(&self, direction: TabDirection) -> Option<TabMove>;
@@ -147,6 +152,16 @@ pub(super) enum Link {
     PutFailed(AppError),
 }
 
+/// What a cut connection reattaches with.
+pub(super) enum Reattach {
+    /// The last record's selection at the current area, from
+    /// `Observer::remembered`.
+    Remembered(AttachRequest),
+    /// The request the connection last sent, as before the first
+    /// `attached` event.
+    Previous,
+}
+
 impl<'a> Connection<'a> {
     pub fn new(client: &'a Client, request: AttachRequest, events: Events) -> Self;
 
@@ -154,9 +169,8 @@ impl<'a> Connection<'a> {
     /// A failed reconnect retries after the doubled backoff with `area`.
     pub async fn next(&mut self, area: Size) -> Link;
 
-    /// Drop the stream, the PUT and numbering, and reattach with
-    /// `remembered` when there is one.
-    pub fn cut(&mut self, remembered: Option<AttachRequest>);
+    /// Drop the stream, the PUT and numbering, and start reattaching.
+    pub fn cut(&mut self, reattach: Reattach);
 
     /// No PUT in flight.
     pub fn idle(&self) -> bool;
@@ -173,7 +187,7 @@ Moves `attach_after`, `refused`, `FIRST_BACKOFF` and `MAX_BACKOFF` here from `ui
 
 ### Moved
 
-- `ui/mod.rs` → `ui/nav.rs`: `Step`, `Hop`, `navigate`, `collapse` and `expand` (as `View::hop`), `shift`, `typing_pane`, `zoomed_pane`, `zoom`, `set_zoom`, `leaves_zoom`, `step` (slice 7).
+- `ui/mod.rs` → `ui/nav.rs`: `Step`, `Hop`, `navigate`, `collapse` and `expand` (as `View` methods), `shift`, `typing_pane`, `zoomed_pane`, `zoom`, `set_zoom`, `leaves_zoom`, `step` (slice 7).
 - `ui/mod.rs` → `ui/connection.rs`: `attach_after`, `refused`, the backoff constants, and the reconnect, cut and PUT handling now inline in `drive` (slice 8).
 
 ### Replaced
@@ -264,10 +278,6 @@ pub trait Prefixed {
     const PREFIX: &'static str;
 }
 
-/// Kept as an alias so call sites don't change. `Identified` goes: every
-/// impl mapped `T` to `Id<T>`.
-pub type IdOf<T> = Id<T>;
-
 impl<T: Prefixed> Id<T> {
     /// Was `new`, which needed `#[allow(clippy::new_without_default)]`; a
     /// default ID would hide that it's random. Four call sites.
@@ -282,7 +292,7 @@ impl Prefixed for Attachment { const PREFIX: &'static str = "attachment"; }
 pub(crate) fn id_map_schema<K: Prefixed>(value: &str) -> utoipa::openapi::Object;
 ```
 
-`ship-client/src/api.rs`'s `Resource: Identified<Id = Id<Self>> + Prefixed + DeserializeOwned` becomes `Resource: Prefixed + DeserializeOwned`.
+`Identified` and `IdOf<T>` stay. Dropping the trait would leave `IdOf<T>` as an alias that only restates `Id<T>`, and replacing it everywhere is churn for no new meaning.
 
 #### `ship-core/src/geometry.rs` (slice 1)
 
@@ -335,11 +345,20 @@ unwrap_used = "warn"                      # `expect("why")`, as the rest of the 
 // ship-server/src/lib.rs: replaces the `too_many_arguments` expectation.
 pub struct ServeOptions {
     pub endpoint: Endpoint,
-    /// Create the starter tab when nothing was restored.
-    pub starter: bool,
+    /// What a new tab starts with when nothing was restored; `None` creates
+    /// no tab. The protocol's own `Starter`, as `CreateTab` takes it.
+    pub starter: Option<Starter>,
     pub config: PathBuf,
+    /// Where saved tabs are read and written.
     pub save: PathBuf,
-    pub restore: bool,
+    pub saved: SavedTabs,
+}
+
+/// Whether startup restores the saved tabs. Was the positional `restore: bool`.
+pub enum SavedTabs {
+    Restore,
+    /// `--no-restore`: start empty; the first save replaces the file.
+    Ignore,
 }
 pub async fn serve(
     options: ServeOptions,
@@ -352,7 +371,11 @@ pub async fn serve(
 struct Startup<'a> {
     client: &'a Client,
     config: &'a Path,
-    loaded: (ClientSettings, Option<String>),
+    /// The file's settings, or the defaults when it was unusable.
+    settings: ClientSettings,
+    /// Why the file was unusable, for the status line. Was the second half
+    /// of the `loaded` tuple.
+    message: Option<String>,
     connection: &'a RefCell<tracing::Span>,
 }
 async fn drive(
@@ -418,10 +441,6 @@ fn pty_size(size: Size) -> PtySize;   // two copies of the four-field literal
 #### Client local cleanups (slice 1 and slice 2)
 
 ```rust
-// ui/agents.rs (slice 1): derive the ranking. Variants in rank order; `rank()` goes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, strum::IntoStaticStr)]
-pub(super) enum Display { Error, Blocked, Unseen, Working, Idle }
-
 // ui/rename.rs (slice 1): `Target` was the same shape as `NodeId`.
 pub fn open(target: NodeId, stored: Option<&str>) -> Self;
 pub fn target(&self) -> NodeId;
@@ -447,7 +466,14 @@ impl Observer {
 ```rust
 // main.rs: three `server` subcommand arms, `connect` and bare `ship`
 // repeat target -> endpoint -> checked.
-async fn checked_target(cli: &Cli) -> Result<(Client, HealthResponse)>;
+async fn checked_target(cli: &Cli) -> Result<Checked>;
+
+/// A client whose health check passed, and that check's answer. Was the
+/// `(Client, HealthResponse)` tuple `checked` returns.
+struct Checked {
+    client: Client,
+    health: HealthResponse,
+}
 
 // cli.rs: the two environment-variable branches of `target`.
 fn env_target<T: FromStr<Err = AppError>>(name: &str) -> Result<Option<T>>;
@@ -511,7 +537,8 @@ Removed messages and their handlers: `ListTabs`, `Get<Tab>`, `Get<Pane>`, `ListV
 
 ```rust
 /// The pane's reported state as it stands, sent after a publish in which
-/// any of it changed, and once with `exited` when the program exits.
+/// any of it changed, and once more when the program exits. The fields are
+/// `Pane`'s own names and types.
 #[derive(Clone, PartialEq)]
 pub(crate) struct PaneEvent {
     pub pane: IdOf<Pane>,
@@ -520,7 +547,8 @@ pub(crate) struct PaneEvent {
     pub dir: Option<String>,
     /// Empty once exited.
     pub program: IndexMap<String, StatusRecord>,
-    pub exited: Option<ExitStatus>,
+    /// `Pane::status`'s own type, not a second way to say "exited".
+    pub status: PaneStatus,
 }
 ```
 
@@ -598,6 +626,9 @@ impl<'a> Local<'a> {
     fn apply(&mut self, event: SseEvent) -> bool;
     /// Was the loop's tail: rename, sidebar and mouse reconciliation. (slice 8)
     fn reconcile(&mut self) -> bool;
+    /// Fold the row or select the landing node, for `client.tab.collapse`
+    /// and `client.tab.expand`. (slice 7)
+    fn hop(&mut self, client: &'a Client, hop: Hop) -> Turn<'a>;
 }
 
 async fn drive(
@@ -608,7 +639,7 @@ async fn drive(
 ) -> Result<Exit>;
 ```
 
-`act`'s Collapse and Expand arms become one arm over `View::hop`. The three `Turn::Wait` blocks that treat `NotFound` (and `InvalidStructure` for moves) as done share one helper:
+`act`'s Collapse and Expand arms each become one line handing their `Hop` to one shared `Local::hop`. The three `Turn::Wait` blocks that treat `NotFound` (and `InvalidStructure` for moves) as done share one helper:
 
 ```rust
 /// Run `request` as a turn, counting the given codes as done: the target
@@ -672,10 +703,16 @@ impl Client {
 struct Row {
     tab: IdOf<Tab>,
     depth: u16,
-    /// Has children, so draws a fold marker.
-    parent: bool,
-    folded: bool,
+    fold: Fold,
     label: Line<'static>,
+}
+
+/// A row's fold marker. Was two flags, one meaningless without the other.
+enum Fold {
+    /// No children, no marker.
+    Leaf,
+    Open,
+    Folded,
 }
 
 pub(in crate::ui) struct Tabs {
@@ -722,7 +759,7 @@ Every slice keeps behavior as it was, so its completion evidence is the regressi
 
 - **Files:** `ship-core`: `tree.rs`, `screen.rs`, `layout.rs`, `command.rs`, `id.rs`, `model.rs`, `geometry.rs`, `error.rs` (`code`, `data_mut`). `ship-server`: `state/tree.rs` and every call site of the replaced helpers. `ship-client`: `api.rs` (`Resource`), `ui/agents.rs`, `ui/rename.rs`, `ui/panes.rs`, `ui/draw.rs`, and call sites.
 - **Delivers:** KD-5's shapes. Screens, styles, schemas and lookups are produced by one definition each.
-- **Done when:** the regression walk passes; a styled program (colors, bold, underline, italics) looks the same in a client; `cargo tree -d` shows one `ratatui-core` (U-3); the OpenAPI document diffs only in the `Rect` maximum and is otherwise byte-identical, checked by saving `ship_server::openapi()` before and after; about 150 code lines fewer.
+- **Done when:** the regression walk passes; a styled program (colors, bold, underline, italics) looks the same in a client; `cargo tree -d` shows one `ratatui-core` (U-3); the OpenAPI document diffs only in the `Rect` maximum and is otherwise byte-identical, checked by saving `ship_server::openapi()` before and after; about 125 code lines fewer.
 
 ### 2. Lints and local cleanups
 
@@ -793,7 +830,7 @@ Every slice keeps behavior as it was, so its completion evidence is the regressi
 - **Delivers:** the tab tree drawn from Ship's own rows.
 - **Done when:** the regression walk passes; side by side with the previous build: indentation, fold markers, the selected band, the rename accent, the zoom flag and rollup icons look the same; clicks on markers and labels, drop gaps at every depth, wheel scrolling to the end, and a newly selected row scrolling into view behave the same; `cargo tree` no longer lists `tui-tree-widget`; about 85 code lines fewer.
 
-Expected size, estimated and not measured: about 795 code lines fewer by `cloc` across slices 1 to 9 (about 5.8% of 13,732), and about 880 with slice 10. No test code, as `docs/agents/code.md` asks.
+Expected size, estimated and not measured: about 770 code lines fewer by `cloc` across slices 1 to 9 (about 5.6% of 13,732), and about 855 with slice 10. No test code, as `docs/agents/code.md` asks.
 
 Proposed pull requests, each large enough to review or revert alone: slices 1 and 2 together as the tidy-up; slice 3; slices 4 and 5; slices 6 to 8, which all reshape `ui/mod.rs`; slice 9; slice 10 if chosen.
 

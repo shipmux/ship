@@ -30,5 +30,5 @@ None modified. No requirement in `openspec/specs/` changes, so this change has n
 - `ship-client`: `lib.rs`, `api.rs`, `execute.rs`, and most of `ui/`, with new `ui/nav.rs` and `ui/connection.rs`.
 - `ship`: `main.rs`, `cli.rs`, `diagnostics.rs`, `runlog.rs`.
 - Workspace `Cargo.toml`: four new Clippy lints. `docs/agents/code.md`: one line naming them.
-- Size: about 795 fewer code lines by `cloc` (about 880 with the optional sidebar slice), estimated, not measured. No tests are planned.
+- Size: about 770 fewer code lines by `cloc` (about 855 with the optional sidebar slice), estimated, not measured. No tests are planned.
 - Proposed pull requests: slices 1 and 2; slice 3; slices 4 and 5; slices 6 to 8; slice 9; slice 10 if chosen.
