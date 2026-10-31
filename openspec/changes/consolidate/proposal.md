@@ -1,6 +1,6 @@
 # Proposal
 
-Status: Draft. `design/program.md` is the only design paper; Cyan chose to skip the product and architecture papers because product behavior stays the same. Once that paper is locked with Cyan's recorded approval, it is the contract, and this proposal is a view assembled from it.
+Status: Locked with `design/program.md` on 2026-10-31. That paper is the only design paper and the contract; Cyan chose to skip the product and architecture papers because product behavior stays the same. This proposal is a view assembled from it.
 
 ## Why
 

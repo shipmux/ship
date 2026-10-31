@@ -1,6 +1,6 @@
 # Consolidate the server and client: program
 
-Status: Draft, awaiting Cyan's review. Cyan chose to skip the product and architecture papers for this change, because it keeps product behavior the same. This paper is the only design paper.
+Status: Locked on 2026-10-31, approved by Cyan in chat when asked to start slice 1 ("Lock it, then build"). O-2 and O-3 stay open until their slices. Cyan chose to skip the product and architecture papers for this change, because it keeps product behavior the same. This paper is the only design paper.
 
 ## Rationale
 
