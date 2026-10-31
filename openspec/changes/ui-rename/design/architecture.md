@@ -2,6 +2,14 @@
 
 Status: Locked on 2026-10-30. Built on the locked `product.md`. Cyan first picked shape C in chat ("sounds good. go for it!"), then, once it was clear the queue interprets keys at press, asked for the queue to interpret input at its turn instead ("perfect! let's update it to work this way then!"). Shape D below replaces C, and was approved in Plannotator review ("LGTM"). Re-opened the same day during program design to narrow KD-5: only clicks close an overlay that opened before their turn, and other queued mouse input is dropped ("alright then let's try that then"), and approved again in Plannotator review ("LGTM").
 
+## Approved amendment: tabs shortcut
+
+Before the slice-4 commit, Cyan approved replacing `alt-g` with `alt-t` in this worktree: `alt-t` enters tabs mode and `alt-g` is unbound by default, with no compatibility alias. This is a defaults-only change; mode behavior and input ordering stay the same. Update the current keymap and terminal-client deltas and the two guide key tables. Earlier `alt-g` examples in these papers now mean `alt-t`; historical verification records remain unchanged. This approval applies to the product, architecture and program papers; the remaining docs slice stays separate.
+
+## Approved amendment: selection changes cancel rename
+
+During slice 4, Cyan approved the selection-cancellation behavior and its implementation in chat ("alright go for it then, i'd ignore the lint for now"), re-approving this paper for the product amendment. Reconciliation also compares the fixed target with this attachment's published selection before queued input runs. A tab field cancels when the viewed tab differs or selection is absent; a pane field cancels when the selected pane differs or is absent. Target deletion keeps its existing message and takes precedence. Other attachments' navigation alone does not cancel the edit, but Cyan explicitly confirmed cancellation when it causes the server to repair this attachment's pane selection to a new stack front. This supersedes the persistent rear-pane edit workflow. While a pane field is open, its target remains selected and is its stack's front, so the existing selected-pane title accent already covers it; no separate pane rename drawing input is needed. No new state or server behavior is needed; the other architecture decisions remain locked.
+
 ## Summary
 
 Renaming needs a field that takes every key while it's open. The trouble is when it opens. A rename key waits its turn in the client's input order, but today each key after it is interpreted as soon as it's pressed: looked up in the active mode and queued as a binding or as a write to the pane's program. So when the lane is behind, the keys typed after `r` are already sorted before the field exists, and `alt-p r foo` can type `foo` into the shell.

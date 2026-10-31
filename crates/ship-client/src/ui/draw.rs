@@ -72,6 +72,13 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
             &local.attention,
             &local.agents.rows,
             local.mouse.gap(),
+            match &local.overlay {
+                Some(Overlay::Rename(rename)) => match rename.target() {
+                    rename::Target::Tab(id) => Some(id),
+                    rename::Target::Pane(_) => None,
+                },
+                _ => None,
+            },
         );
     }
     let scene = local.scene(frame.area());

@@ -40,11 +40,13 @@ pane = [
   { label = "edit scrollback", action = { server.pane.create = { place = "stack", select = true, exit_behavior = "keep_failed", name = "scrollback", command = ["sh", "-c", "exec \"$SHIP_BIN\" pane edit-scrollback"] } } },
   { label = "zoom", action = { client.pane.zoom = { zoomed = "toggle" } } },
   { label = "right-click passthrough", action = { server.pane.set = { right_click_passthrough = "toggle" } } },
+  { label = "rename", action = { client.pane.rename = {} } },
   { label = "close", action = { server.pane.close = {} } },
 ]
 tab = [
   { label = "new tab", action = { server.tab.create = { starter = "shell", select = true } } },
   { label = "new child tab", action = { server.tab.create = { starter = "shell", child = true, select = true } } },
+  { label = "rename", action = { client.tab.rename = {} } },
   { label = "close", action = { server.tab.close = {} } },
 ]
 global = [
@@ -78,7 +80,7 @@ global = [
 "alt-f"       = { action = { client.pane.zoom = { zoomed = "toggle" } } }
 "alt-p"       = { action = { client.mode = "panes" } }
 "alt-b"       = { action = { client.sidebar.toggle = {} } }
-"alt-g"       = { action = { client.mode = "tabs" } }
+"alt-t"       = { action = { client.mode = "tabs" } }
 "alt-r"       = { action = { client.mode = "resize" } }
 "alt-q"       = { action = { client.detach = {} } }
 "alt-a"       = { action = { client.agents.next = {} } }

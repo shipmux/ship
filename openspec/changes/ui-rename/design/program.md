@@ -2,6 +2,14 @@
 
 Status: Locked on 2026-10-30. Built on the locked `product.md` and `architecture.md`. Drafting it narrowed the architecture's KD-5, which was re-opened and approved again first. Then approved in Plannotator review ("LGTM").
 
+## Approved amendment: tabs shortcut
+
+Before the slice-4 commit, Cyan approved replacing `alt-g` with `alt-t` in this worktree: `alt-t` enters tabs mode and `alt-g` is unbound by default, with no compatibility alias. This is a defaults-only change; mode behavior and input ordering stay the same. Update the current keymap and terminal-client deltas and the two guide key tables. Earlier `alt-g` examples in these papers now mean `alt-t`; historical verification records remain unchanged. This approval applies to the product, architecture and program papers; the remaining docs slice stays separate.
+
+## Approved amendment: selection changes cancel rename
+
+During slice 4, Cyan approved the behavior and the proposed extension to `Local::reconcile_rename` in chat ("alright go for it then, i'd ignore the lint for now"), re-approving this paper for the product and architecture amendment. Keep the fixed target, check for deletion first, then cancel without saving if this attachment's viewed tab or selected pane no longer matches it. Run this check before queued input as the implementation already does for deletion. Verify same-tab pane changes, other-client navigation, absent selection, deletion messages and the delayed input path. Cyan subsequently confirmed cancellation on automatic selection repair, superseding the old persistent rear-pane accent check. The existing selected-pane title accent covers the target while the field is open, so the separate `Scene::renaming` field and pane-title branch are unnecessary. Keep the sidebar's rename target input because its ordinary selected-row style is not the rename accent. Style the selected band's foreground directly; the amended invariant makes separate target styling through the recursive `items` function unnecessary. The skeleton below remains the original plan; its reconciliation behavior, separate pane drawing input and persistent rear-pane check are superseded.
+
 ## Summary
 
 Four code slices and a docs slice. The first changes how the client reads input and ships on its own: keys and pastes wait in the lane unread, the menu opens at its turn, and mode, sidebar and reload actions lose their press-time path. Nothing about rename exists yet, and every existing workflow should behave the same on an idle lane. The second is panes mode, which is only `defaults.toml`. The third adds the rename field and its actions on top of slice 1, and the fourth adds the accent and the menu items.
@@ -459,6 +467,10 @@ None. The one found while drafting, whether routed mouse input that isn't a clic
 All checks run on macOS, the machine this is built on. Linux is unverified unless Cyan runs it there. Expected size, estimated and not measured: about 90 lines of implementation Rust for `rename.rs`, 40 to 60 net in `mod.rs`, `keys.rs` and `lane.rs` together, and 30 across drawing, labels and `keymap.rs`. That's roughly 160 to 180 lines, with no test code, as `docs/agents/code.md` asks.
 
 ## Deviation log
+
+- **Pre-commit tabs shortcut.** Cyan approved replacing `alt-g` with `alt-t` in the default normal-mode bindings, without an alias, and updating `docs/site/keys.md`, `docs/site/tabs.md` and the current change records. The keymap delta now modifies `Default view keys`; current delta scenarios use `alt-t`, while earlier evidence is retained as history. Verify normal-mode `alt-g` passthrough, `alt-t` navigation and rename, and delayed input ordering. This does not complete the remaining docs slice.
+
+- **Slice 4, approved selection cancellation.** Cyan approved cancelling a rename when this attachment moves away from its target, superseding FR-002's selection-change clause. The product and architecture amendments above carry the same approval. Extend the existing `reconcile_rename` only; retain fixed IDs for submission and existing deletion feedback. Add corresponding terminal-client delta scenarios and runtime probes. The live stack check established that selecting a different stack member repairs every viewer of that slot to its new front; Cyan explicitly chose cancellation on that repair. Replace the old persistent rear-pane check with this cancellation check and reuse the existing selected-pane accent instead of adding `Scene::renaming`. Cyan also approved ignoring the argument-count lint for now: local documented `#[expect(clippy::too_many_arguments)]` attributes on the two sidebar draw functions preserve the approved signatures without suppressing other warnings.
 
 - **2026-10-30, delta specs written ahead of the slices.** Cyan asked for the OpenSpec artifacts before implementation, so all four deltas were written at once instead of slice by slice. They carry FR-001 to FR-019 and the architecture's KD-1 to KD-6 and KD-12 unchanged, so no paper re-opens. Differences from the skeleton map's list:
   - `context-menus`: "Opening a menu" didn't need a change; opening at the turn is stated in "Selection when a menu opens".

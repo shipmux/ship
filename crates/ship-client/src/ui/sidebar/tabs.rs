@@ -224,6 +224,10 @@ impl Tabs {
 
     /// The tree in `area`, and the drop line on its rows or the blank row
     /// above them.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep the explicit drawing inputs prescribed by the locked UI design"
+    )]
     pub fn draw(
         &mut self,
         frame: &mut Frame,
@@ -232,6 +236,7 @@ impl Tabs {
         selection: Option<NodeId>,
         gap: Option<&Gap>,
         attention: &Attention,
+        renaming: Option<IdOf<Tab>>,
     ) {
         self.area = area;
         self.state.close_all();
@@ -253,6 +258,12 @@ impl Tabs {
         }
         self.rows = self.state.flatten(&items).len();
         let band = Style::new().fg(Color::Reset).on_dark_gray().bold();
+        // The widget applies the selected band's style after the item's text.
+        let band = if renaming.is_some() && self.state.selected().last() == renaming.as_ref() {
+            band.cyan()
+        } else {
+            band
+        };
         let rows = Rect {
             x: self.indent(),
             width: area.width.saturating_sub(GUTTER),

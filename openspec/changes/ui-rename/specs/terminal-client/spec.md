@@ -22,7 +22,7 @@ A client's bound actions, menu items, typed keys, pastes, `client.send`, clicks,
 - **THEN** each key is sent at once and feels no slower than before
 
 #### Scenario: Keys after a mode change
-- **WHEN** 500 ms of delay is added each way, and the user presses `alt-n`, then `alt-g` and `j` at once
+- **WHEN** 500 ms of delay is added each way, and the user presses `alt-n`, then `alt-t` and `j` at once
 - **THEN** `j` moves the tab selection in `tabs` mode and nothing reaches a pane, in ten runs of ten
 
 #### Scenario: Typing into a rename field
@@ -117,13 +117,40 @@ If the field's target closes while the field is open, the field SHALL close, sen
 - **WHEN** the field is open, the server stops, and the user presses Enter
 - **THEN** the field closes and nothing is sent after the client reconnects
 
+### Requirement: Rename selection changes
+A rename field SHALL keep its captured target. It SHALL cancel without saving when this attachment no longer views the target tab or selects the target pane, including absent selection. Changing panes within the target tab SHALL keep a tab field open. Other attachments navigating SHALL NOT cancel it unless this attachment's selection changes. Automatic selection repair SHALL follow the same rule. Target deletion SHALL retain the Rename target goes away feedback.
+
+#### Scenario: Another tab is selected
+- **WHEN** a tab field is open for A and a command selects tab B for this attachment
+- **THEN** the field closes without submitting and both names are unchanged
+
+#### Scenario: Another pane is selected
+- **WHEN** a pane field is open for A and a command selects pane B for this attachment
+- **THEN** the field closes without submitting and both names are unchanged
+
+#### Scenario: Selection is cleared
+- **WHEN** a rename field is open and a command clears this attachment's selection
+- **THEN** the field closes without submitting
+
+#### Scenario: Same tab, different pane
+- **WHEN** a tab field is open and this attachment selects another pane in that tab
+- **THEN** the field and its draft stay open for the original tab
+
+#### Scenario: Another attachment navigates
+- **WHEN** a rename field is open and another attachment changes its selection without changing this attachment's selection
+- **THEN** the field and its draft stay open
+
+#### Scenario: Shared stack front repairs selection
+- **WHEN** a pane field is open for A, another attachment brings B to the stack's front, and the server repairs this attachment's selection from A to B
+- **THEN** the field closes without submitting and A's name is unchanged
+
 ### Requirement: Rename accent
-While the field is open, its target's label SHALL take the accent wherever it's drawn: the sidebar row for a tab, and the title row for a pane, including a pane behind its stack's front.
+While the field is open, its target's label SHALL take the accent wherever it's drawn: the sidebar row for a tab, and the title row for a pane.
 
 #### Scenario: Accented sidebar row
 - **WHEN** the field is open for tab `web` and the sidebar is shown
 - **THEN** `web`'s sidebar row is drawn in the accent
 
 #### Scenario: Accented stacked pane
-- **WHEN** the field is open for a pane behind its stack's front pane
+- **WHEN** the field is open for the selected pane in a stack
 - **THEN** that pane's label on the stack's title row is drawn in the accent

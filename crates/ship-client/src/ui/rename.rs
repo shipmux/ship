@@ -77,12 +77,16 @@ impl Rename {
         })
         .style(Style::new().black().bg(Color::Cyan).bold());
         let width = pill.width().min(usize::from(row.width.saturating_sub(1))) as u16;
+        let padding = row.width.saturating_sub(width + 1).min(1);
         let field = Rect {
-            x: row.x + width,
-            width: row.width - width,
+            x: row.x + width + padding,
+            width: row.width - width - padding,
             ..row
         };
         frame.render_widget(Clear, row);
+        frame
+            .buffer_mut()
+            .set_style(row, Style::new().bg(Color::Black));
         frame.render_widget(Paragraph::new(pill), Rect { width, ..row });
         let scroll = self
             .input
@@ -94,7 +98,7 @@ impl Rename {
         };
         frame.render_widget(
             Paragraph::new(text)
-                .style(Style::new().fg(Color::Reset).bg(Color::Black))
+                .style(Style::new().fg(Color::Reset))
                 .scroll((0, scroll.min(usize::from(u16::MAX)) as u16)),
             field,
         );

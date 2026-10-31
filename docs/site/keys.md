@@ -24,7 +24,7 @@ All of Ship's default keys are Alt chords. Any other key goes to the program in 
 | `alt-shift-h` / `j` / `k` / `l` | Swap the pane with its neighbor in that direction |
 | `alt-f` | Zoom the pane to fill the tab, or unzoom |
 | `alt-r` | Resize mode (below) |
-| `alt-g` | Tabs mode (below) |
+| `alt-t` | Tabs mode (below) |
 | `alt-b` | Hide or show the sidebar |
 | `alt-pageup` / `alt-pagedown` | Scroll the pane up / down a page |
 | `alt-q` | Detach |

@@ -619,7 +619,7 @@ impl<'a> Local<'a> {
         handled
     }
 
-    /// Close a field whose fixed target has disappeared from the published tree.
+    /// Close a field whose target disappeared or is no longer selected by this client.
     fn reconcile_rename(&mut self) -> bool {
         let Some(Overlay::Rename(rename)) = &self.overlay else {
             return false;
@@ -638,7 +638,20 @@ impl<'a> Local<'a> {
             self.message = Some(message.into());
             return true;
         }
-        false
+        let selected = self.observer.selected();
+        let moved = match rename.target() {
+            rename::Target::Tab(tab) => selected.map(|selected| selected.tab.id) != Some(tab),
+            rename::Target::Pane(pane) => {
+                selected
+                    .and_then(|selected| selected.pane)
+                    .map(|pane| pane.id)
+                    != Some(pane)
+            }
+        };
+        if moved {
+            self.overlay = None;
+        }
+        moved
     }
 
     /// Disconnected input is read immediately and never held for reconnect.

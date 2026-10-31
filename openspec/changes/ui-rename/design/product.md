@@ -2,6 +2,16 @@
 
 Status: Locked on 2026-10-30. Written from a design conversation with Cyan on 2026-10-30 for [#84](https://github.com/shipmux/ship/issues/84), which settled the choices below ("perfect! draft it!"), then approved in Plannotator review ("LGTM"). Re-opened the same day to narrow FR-007's editing keys to those that come without extra work, and approved again ("LGTM").
 
+## Approved amendment: tabs shortcut
+
+Before the slice-4 commit, Cyan approved replacing `alt-g` with `alt-t` in this worktree: `alt-t` enters tabs mode and `alt-g` is unbound by default, with no compatibility alias. This is a defaults-only change; mode behavior and input ordering stay the same. Update the current keymap and terminal-client deltas and the two guide key tables. Earlier `alt-g` examples in these papers now mean `alt-t`; historical verification records remain unchanged. This approval applies to the product, architecture and program papers; the remaining docs slice stays separate.
+
+## Approved amendment: selection changes cancel rename
+
+During slice 4, Cyan approved the selection-cancellation behavior explained in chat ("alright go for it then, i'd ignore the lint for now"). This supersedes FR-002 only where it allowed the field to stay open after selection moved away. The rest of this paper remains locked.
+
+Each action still resolves and captures its target at its turn. A tab field cancels without saving when this attachment views another tab or has no selection; changing panes within its tab keeps it open. A pane field cancels without saving when this attachment no longer selects that pane. Another attachment navigating does not itself cancel the edit. Target deletion still takes precedence and shows FR-012's message. Cyan subsequently confirmed that automatic selection repair follows the same cancellation rule: another attachment bringing a different pane to the stack's front cancels a pane field if the server repairs this attachment's selection. The old persistent rear-pane edit workflow is superseded.
+
 ## Goal
 
 You can't rename a tab or pane from the UI. Key bindings and menu items send actions with fixed arguments, so today renaming means running `ship tab set --name ...` from a shell. This change adds a one-line rename field in the mode bar, opened from tabs mode, a new panes mode, or the right-click menus. It's the last item in milestone 5, getting Ship ready to share ([#42](https://github.com/shipmux/ship/issues/42)).
@@ -100,7 +110,7 @@ Tested independently by closing the target from a second shell with `ship pane c
 ### Actions
 
 - **FR-001** `client.tab.rename = {}` MUST open the rename field for the selected tab, or the tab of the selected pane. `client.pane.rename = {}` MUST open it for the selected pane. With nothing to rename selected, they MUST do nothing.
-- **FR-002** Each MUST resolve its target at its turn, as `client.tab.move` does, and the field MUST keep that target while open even if the selection moves.
+- **FR-002 (original; selection-change clause superseded by the approved amendment above)** Each MUST resolve its target at its turn, as `client.tab.move` does, and the field MUST keep that target while open even if the selection moves.
 - **FR-003** Both MUST be usable from any mode's bindings and from menu items.
 
 ### The field

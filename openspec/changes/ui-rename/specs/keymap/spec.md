@@ -2,6 +2,25 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Default view keys
+With no bindings in the file, normal mode SHALL bind `alt-left`/`alt-right` (previous/next visible tab row), `alt-b` (sidebar), `alt-t`/`alt-r` (tabs/resize mode), `alt-pageup`/`alt-pagedown` (scroll the selected pane up/down one page) and `alt-a` (`client.agents.next`). `alt-g` SHALL NOT be bound by default.
+
+#### Scenario: Tabs mode mnemonic
+- **WHEN** a user with no config presses `alt-t`
+- **THEN** the client enters tabs mode
+
+#### Scenario: Former tabs chord reaches the program
+- **WHEN** a pane runs a program that prints its input and the user presses `alt-g` in normal mode
+- **THEN** the client stays in normal mode and the program receives the chord
+
+#### Scenario: Scroll defaults
+- **WHEN** a user with no config presses `alt-pageup` in a shell pane with a long history, then `alt-pagedown`
+- **THEN** the pane scrolls up one page and back down, without either chord reaching the shell
+
+#### Scenario: Jump default
+- **WHEN** a user with no config has a blocked agent in another tab and presses `alt-a`
+- **THEN** the blocked agent's pane is selected, and the chord doesn't reach the program
+
 ### Requirement: Default pane keys
 With no bindings in the file, normal mode SHALL bind `alt--`/`alt-|` (split down/right), `alt-shift-x` (close pane), `alt-h/j/k/l` (pane focus), `alt-tab` (next pane), `alt-f` (`client.pane.zoom = { zoomed = "toggle" }`) and `alt-p` (`client.mode = "panes"`). Normal mode SHALL NOT bind `alt-shift-h/j/k/l`.
 
@@ -36,7 +55,7 @@ A `client.` action SHALL change only that client's view and SHALL be reachable o
 Default `tabs` mode SHALL bind `j`/`k` to `client.tab.next`/`prev`, `h`/`l` to `client.tab.collapse`/`expand`, `r` to `client.tab.rename`, `esc` to normal, and `shift-k`, `shift-j`, `shift-l` and `shift-h` to `client.tab.move` `up`, `down`, `in` and `out`, with the labels `move up`, `move down`, `move in` and `move out`.
 
 #### Scenario: Labels in tabs mode
-- **WHEN** a user with no config presses `alt-g`
+- **WHEN** a user with no config presses `alt-t`
 - **THEN** the status line shows `move up`, `move down`, `move in` and `move out` for the four shifted keys, and `rename` for `r`
 
 ### Requirement: Modes
@@ -70,7 +89,7 @@ A key binding SHALL act on the client's selection as it is at the binding's turn
 - **THEN** the tab is created as usual, and the status line shows `resize` once it has
 
 #### Scenario: Mode change on an idle link
-- **WHEN** nothing is waiting and the user presses `alt-g`
+- **WHEN** nothing is waiting and the user presses `alt-t`
 - **THEN** the status line shows `tabs` at once
 
 ### Requirement: Sidebar resize availability

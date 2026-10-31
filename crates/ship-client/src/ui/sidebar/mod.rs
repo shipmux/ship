@@ -13,7 +13,11 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
-use ship_core::{command::Direction, id::IdOf, model::Pane};
+use ship_core::{
+    command::Direction,
+    id::IdOf,
+    model::{Pane, Tab},
+};
 
 pub(super) use self::{
     agents::Agents,
@@ -178,6 +182,10 @@ impl Sidebar {
 
     /// The heading, tabs on top with rollup icons, the divider row, and
     /// agents below. The tabs and selection come from `observer`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep the explicit drawing inputs prescribed by the locked UI design"
+    )]
     pub fn draw(
         &mut self,
         frame: &mut Frame,
@@ -186,6 +194,7 @@ impl Sidebar {
         attention: &Attention,
         rows: &[Vec<Token>],
         gap: Option<&Gap>,
+        renaming: Option<IdOf<Tab>>,
     ) {
         let Some(replica) = &observer.replica else {
             return;
@@ -228,6 +237,7 @@ impl Sidebar {
             observer.record().and_then(|record| record.selection),
             gap,
             attention,
+            renaming,
         );
         let label = " agents ";
         frame.render_widget(

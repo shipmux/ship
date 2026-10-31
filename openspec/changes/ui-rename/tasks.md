@@ -74,12 +74,36 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 4. Accent and menu items
 
-- [ ] 4.1 Accent the target's row:
+- [x] 4.1 Accent the target's row:
   - Pass the target to `Sidebar::draw` and `Tabs::draw` in `crates/ship-client/src/ui/sidebar/`.
-  - Add `Scene::renaming` for the title row in `crates/ship-client/src/ui/panes.rs`.
-- [ ] 4.2 Add the two `rename` menu items to `defaults.toml`.
+  - Reuse the selected-pane title accent in `crates/ship-client/src/ui/panes.rs`; the approved selection-cancellation amendment supersedes the original `Scene::renaming` plan.
+- [x] 4.2 Add the two `rename` menu items to `defaults.toml`.
 - [x] 4.3 Write `specs/context-menus/spec.md`: MODIFIED "Default pane menu" and "Default tab menu".
-- [ ] 4.4 Verify the accent, including a pane behind its stack's front, both menu items, and SC-001.
+- [x] 4.4 Verify the accent, both menu items, and SC-001. The approved cancellation-on-repair decision supersedes the original persistent rear-pane accent case; verify that a stack-front change cancels a pane edit when the server repairs this attachment's selection.
+  - Also verify Cyan's approved selection-cancellation amendment: leaving the target or clearing selection cancels, same-tab pane changes keep a tab edit, other-client navigation keeps the edit, and deletion messages take precedence.
+
+### Slice-4 evidence
+
+- Added `rename` immediately before `close` in both default menus. The sidebar's selected row takes the bold cyan accent while its tab field is open, including through the tree widget's selected-band styling. Pane fields reuse the existing selected-pane title accent; no separate pane drawing state is needed under the amended selection invariant.
+- Cyan approved cancelling without saving when this attachment leaves the captured tab or pane, including absent selection. Same-tab pane changes preserve a tab field; other attachments navigating preserve an edit unless they change this attachment's relevant selection. Deletion feedback still takes precedence. The product, architecture, program and terminal-client delta record the amendment; the original FR-002 is marked superseded for selection changes.
+- The live shared-stack probe showed the server repairs each viewer's pane selection to the stack's front. Cyan explicitly chose `Cancel on repair`, superseding the old persistent rear-pane edit workflow and its accent check. Verified that another client fronting a different pane cancels the pane field without a PATCH and restores the old target's dim rear label. The corresponding tab edit remains open because its viewed tab is unchanged.
+- On the final build, the slice-4 verifier passed 19 direct and 20 delayed checkpoints through the approved 500 ms each-way Unix-socket proxy. ANSI captures verify the selected tab's bold cyan foreground on the dark-gray band, the selected stack pane's title accent, and clearing the rename accent. Keyboard-only tab and pane name/rename/clear workflows passed SC-001. Both menus preserve their required order and rename the right-clicked unselected item, using a keyboard pick for the tab menu and a mouse pick for the pane menu.
+- Selection probes covered another tab selected by tab or pane ID, another pane in the same or another tab, selecting the owning tab without a pane, clearing selection for both field kinds, reselecting the same pane, same-tab pane changes and second-client navigation. Cancelled drafts left all checked names unchanged and produced no PATCH; pane and tab deletion kept `pane closed` and `tab closed`. Delayed create then `alt-p r foo` Enter passed 10/10 without typing into either shell.
+- The earlier rename verifier, with its superseded fixed-target selection case updated to expect cancellation, passed 21 direct and 24 delayed regression checkpoints on the final build. These cover line editing, paste, placeholders, hidden sidebar, missing targets, capture and click dismissal, Unicode/resize, second-client visibility, concurrent naming, reload, deletion, server rejection and offline/reconnect. Its delayed rapid-typing case also passed 10/10. Eleven idle/offline input regressions and three delayed paste/menu/resize regressions passed: 98 runtime checkpoints total across the six final runs.
+- macOS: formatting, Clippy with warnings denied, workspace tests (80 passed, 1 ignored), build, strict OpenSpec validation and `git diff --check` passed. Cyan approved two local documented `#[expect(clippy::too_many_arguments)]` annotations on the sidebar draw functions; no other warnings are suppressed. No permanent tests added. Linux and physical-terminal interaction remain unverified.
+- Disposable verifiers: `/tmp/ship-ui-slice4-verify.py` and `/tmp/ship-ui-slice4-rename-regression.py`, plus the existing slice-1 idle/extra verifiers. Final slice-4 evidence and captures: `/tmp/ship-ui-s4-pbtntoo0/` (direct), `/tmp/ship-ui-s4-2csle2i2/` (delayed). Rename regressions: `/tmp/ship-ui-s4-regression-j9o83ezj/` and `/tmp/ship-ui-s4-regression-mnvxptdp/`. Input regressions: `/tmp/ship-ui-s1-a7rpqpm5/` and `/tmp/ship-ui-s1-__0ydjas/`. All used owned temporary servers with isolated XDG config/state/runtime directories; the servers and tmux sessions were stopped. Existing servers were not used.
+
+- Follow-up spacing requested by Cyan: added one blank column between the rename pill and input for both target kinds, collapsing the gap when needed to retain an input cell. Ten live padding/cursor/resize checks passed, including two-column width and submitting the preserved text after expansion; formatting, Clippy, workspace tests (80 passed, 1 ignored), build and diff checks passed on macOS. Disposable probe: `/tmp/ship-ui-rename-padding.py`; evidence: `/tmp/ship-ui-s1-8xdkcv70/`. Linux and physical terminals remain unverified.
+
+- Follow-up color correction approved by Cyan: the spacer now shares the input bar's explicit black background instead of exposing the terminal default. Paint the row background once before the cyan pill and input. Twelve live checks passed, including ANSI background assertions across both spacers and input bars, cursor placement and narrow resizing. Evidence: `/tmp/ship-ui-s1-s1u6cb7x/`; formatting, Clippy, workspace tests (80 passed, 1 ignored) and build passed on macOS. Linux and physical terminals remain unverified.
+
+### Follow-up: default tabs shortcut
+
+- Cyan approved replacing normal mode's `alt-g` with `alt-t`, without an alias, and updating its guide tables and current OpenSpec records. The three locked papers carry the approved amendment; current keymap and terminal-client delta scenarios use `alt-t`. Earlier evidence remains a record of the former binding. Only the shortcut entries in `docs/site/keys.md` and `docs/site/tabs.md` changed; task 5.1 remains pending.
+- The final shortcut verifier passed seven direct and eight delayed checkpoints through the approved 500 ms each-way Unix-socket proxy. A raw-input program received exactly `ESC g` for `alt-g` in normal mode; `alt-t` opened tabs mode without reaching the program. Navigation, remembered-pane landing, `alt-t r` rename, returning to normal mode, and queued `alt-t j r` all passed. `alt-p`, `alt-r` and `alt-tab` retained their existing actions.
+- Delayed create then `alt-t j r` and immediate typing passed 10/10: beta was renamed rather than alpha or the newly created tab, and no draft reached either shell or the raw-input program. All probes used owned temporary servers with isolated XDG config/state/runtime directories; servers and tmux sessions were stopped.
+- macOS: formatting, Clippy with warnings denied, workspace tests (80 passed, 1 ignored), build, strict OpenSpec validation, diff checks and the website build (`pnpm --dir website build`, 21 pages) passed. No permanent tests added. Linux and physical terminals remain unverified.
+- Disposable verifier: `/tmp/ship-ui-tabs-shortcut.py`. Final evidence and captures: `/tmp/ship-ui-s1-8k2ckt73/` (direct) and `/tmp/ship-ui-s1-ekuhtq9j/` (delayed). Build log: `/tmp/ship-tabs-shortcut-site.log`.
 
 ## 5. Docs
 

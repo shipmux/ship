@@ -12,7 +12,7 @@ Tabs can hold panes, other tabs, or both, so a big task can keep its smaller pie
 | `alt-n` | New tab with a shell |
 | `alt-shift-n` | New tab nested under the current one |
 | `alt-left` / `alt-right` | Previous / next tab |
-| `alt-g` | Tabs mode: `j` / `k` select tabs; `h` folds an open row or selects its parent; `l` unfolds a folded row or selects its first child; `shift-k` / `shift-j` move up / down among siblings; `shift-l` nests under the sibling above, `shift-h` moves out just after the parent; `esc` leaves |
+| `alt-t` | Tabs mode: `j` / `k` select tabs; `h` folds an open row or selects its parent; `l` unfolds a folded row or selects its first child; `shift-k` / `shift-j` move up / down among siblings; `shift-l` nests under the sibling above, `shift-h` moves out just after the parent; `esc` leaves |
 | `alt-b` | Hide or show the sidebar |
 | `alt-x` | Close the tab and everything in it |
 
