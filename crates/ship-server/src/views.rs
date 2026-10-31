@@ -10,7 +10,7 @@ use ship_core::{
 use crate::{
     AppState,
     body::{Body, Path},
-    state::{GetView, ListViews, Select, Viewers},
+    state::{Select, Viewers, attachment_not_found},
 };
 
 #[utoipa::path(
@@ -23,8 +23,7 @@ use crate::{
     ),
 )]
 pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Json<Viewers>> {
-    let value = app.state.ask(ListViews).await?;
-    Ok(Json(value))
+    Ok(Json(app.replicas.current().viewers.clone()))
 }
 
 #[utoipa::path(
@@ -43,8 +42,13 @@ pub(crate) async fn get_view(
     State(app): State<AppState>,
     Path(attachment): Path<IdOf<Attachment>>,
 ) -> Result<Json<ViewingRecord>> {
-    let value = app.state.ask(GetView(attachment)).await?;
-    Ok(Json(value))
+    app.replicas
+        .current()
+        .viewers
+        .get(&attachment)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| attachment_not_found(attachment))
 }
 
 #[utoipa::path(

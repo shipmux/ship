@@ -18,7 +18,7 @@ use crate::{
     attach::AttachmentHeader,
     body::Body,
     pane::{LivePanes, PaneCommand, PaneMouse},
-    state::CheckAttachment,
+    state::attachment_not_found,
 };
 
 #[utoipa::path(
@@ -48,9 +48,10 @@ pub(crate) async fn input(
 ) -> Result<Response> {
     let attachment = attachment.map(|AttachmentHeader(id)| id);
     match attachment {
-        Some(id) => {
-            app.state.ask(CheckAttachment(id)).await?;
+        Some(id) if !app.replicas.current().viewers.contains_key(&id) => {
+            return Err(attachment_not_found(id));
         }
+        Some(_) => {}
         None if frames
             .iter()
             .any(|frame| matches!(frame, InputFrame::Mouse(_))) =>

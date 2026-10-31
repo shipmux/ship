@@ -42,7 +42,7 @@ use ship_core::{
     endpoint::Endpoint,
     geometry::{PaneGeometry, TabGeometry},
     prelude::*,
-    protocol::{CreateTab, MoveTab, NewTab, Problem, Replica, Starter, ViewingRecord},
+    protocol::{CreateTab, MoveTab, NewTab, Problem, Starter, ViewingRecord},
     relay,
     run::{OnExit, Runner},
 };
@@ -219,16 +219,10 @@ pub async fn serve(
         saved,
         Runner::new(run_output, OnExit::Log),
     );
-    let (replicas, replica_sink) = replicas::Replicas::new(state.replica());
+    let replicas = state.replicas();
     // The starter is a saved change, so take the baseline before creating it.
-    let baseline = saver::project(&replicas.latest().borrow().tabs);
+    let baseline = saver::project(&replicas.current().tabs);
     let restored = !baseline.is_empty();
-    let revision = state.written();
-    bus.ask(relay::Subscribe::<Arc<Replica>> {
-        sink: Box::new(replica_sink),
-    })
-    .await
-    .map_err(|error| err!(Internal, "cannot subscribe replica stream", @external: error))?;
     let state = state::ServerState::spawn(state);
     forward_pane_events(events, state.clone());
     // Bound but not accepting: a health probe waits in the backlog until the
@@ -256,7 +250,6 @@ pub async fn serve(
         replicas,
         live,
         stop: stop.clone(),
-        revision,
         log: Arc::new(log),
         socket: claim
             .endpoint()
@@ -366,8 +359,8 @@ async fn actor_stopped(
 }
 
 /// Stops the state actor, then the relay. The state actor goes first so its
-/// queued commits still publish. Dropping the relay drops the replica watch
-/// sender, which ends every attach stream with `server_shutdown` so Axum's
+/// queued commits still publish. Dropping the state actor drops the replica
+/// sink, which ends every attach stream with `server_shutdown` so Axum's
 /// drain can finish. Stopping an actor that already stopped is a no-op.
 /// `wait_for_shutdown_result`, unlike `wait_for_shutdown`, also waits for the
 /// state actor's `on_stop`, which tears down every pane.

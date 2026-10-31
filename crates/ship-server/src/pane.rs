@@ -27,7 +27,7 @@ use ship_core::{
     config::ServerSettings,
     endpoint::Endpoint,
     id::{Attachment, IdOf},
-    model::{ExitStatus, Pane, StatusRecord},
+    model::{ExitStatus, Pane, PaneStatus, StatusRecord},
     prelude::*,
     protocol::{MouseInput, ReadPane, RunCommand, ScrollDirection, ScrollPane},
     relay::{Publish, RelayBus},
@@ -234,20 +234,19 @@ pub(crate) enum PaneCommand {
 /// Every running pane, published by the state actor.
 pub(crate) type LivePanes = HashMap<IdOf<Pane>, PaneHandle>;
 
-/// Bus publication for the state actor.
-#[derive(Clone)]
+/// The pane's reported state as it stands, sent after a publish in which
+/// any of it changed, and once more when the program exits. The fields are
+/// `Pane`'s own names and types.
+#[derive(Clone, PartialEq)]
 pub(crate) struct PaneEvent {
     pub pane: IdOf<Pane>,
-    pub change: PaneChange,
-}
-
-#[derive(Clone)]
-pub(crate) enum PaneChange {
-    Title(Option<String>),
-    /// From OSC 7, else the program's working directory.
-    Dir(String),
-    Exited(ExitStatus),
-    Program(IndexMap<String, StatusRecord>),
+    pub title: Option<String>,
+    /// From OSC 7, else the program's working directory; the last one known.
+    pub dir: Option<String>,
+    /// Empty once exited.
+    pub program: IndexMap<String, StatusRecord>,
+    /// `Pane::status`'s own type, not a second way to say "exited".
+    pub status: PaneStatus,
 }
 
 /// Text for clients' clipboards, on the bus apart from `PaneEvent`, since it
@@ -400,8 +399,13 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
             reaped: false,
         },
         dirty,
-        title: None,
-        dir: None,
+        sent: PaneEvent {
+            pane,
+            title: None,
+            dir: None,
+            program: IndexMap::new(),
+            status: PaneStatus::Running,
+        },
         reported: false,
         pid,
         pointer: None,
@@ -444,10 +448,9 @@ struct PaneTask {
     /// The wrapper's wake callback calls `notify_one` when the terminal
     /// changed; it renders only when `publish` asks, once per frame.
     dirty: Arc<Notify>,
-    /// Latest title seen this frame; the tree keeps the lasting copy.
-    title: Option<String>,
-    /// Last directory published, so a repeated report sends nothing.
-    dir: Option<String>,
+    /// The state last sent, which a new pane's tree entry starts equal to.
+    /// A publish that leaves it unchanged sends nothing.
+    sent: PaneEvent,
     /// Whether the shell reported a directory through OSC 7, which then ends
     /// the lookups of `pid`'s working directory.
     reported: bool,
@@ -510,7 +513,7 @@ impl PaneTask {
         loop {
             if pending && Instant::now() >= next {
                 pending = false;
-                self.publish().await;
+                self.publish(None).await;
                 next = Instant::now() + FRAME;
                 continue;
             }
@@ -524,10 +527,7 @@ impl PaneTask {
                 () = sleep_until(next), if pending => {}
                 status = &mut self.exit.status, if !self.exit.reaped => {
                     self.exit.reaped = true;
-                    self.publish().await;
-                    if let Ok(status) = status {
-                        self.event(PaneChange::Exited(status)).await;
-                    }
+                    self.publish(status.ok()).await;
                 }
             }
         }
@@ -614,18 +614,19 @@ impl PaneTask {
         }
     }
 
-    /// Drain the wrapper's events, publish the screen, then the title and
-    /// directory if they changed. A shell that hasn't reported OSC 7, such as
-    /// zsh under oh-my-zsh with SSH variables set, has its working directory
-    /// read instead; its prompt after a `cd` is output, so it lands here.
+    /// Drain the wrapper's events, publish the screen, then the pane's state
+    /// if it changed, with `exited` once the program has. A shell that hasn't
+    /// reported OSC 7, such as zsh under oh-my-zsh with SSH variables set, has
+    /// its working directory read instead; its prompt after a `cd` is output,
+    /// so it lands here.
     #[traced(fields(screen = false))]
-    async fn publish(&mut self) {
+    async fn publish(&mut self, exited: Option<ExitStatus>) {
         let (rendered, render) = oneshot::channel();
         self.session.render(Box::new(move || {
             rendered.send(()).ok();
         }));
         render.await.ok();
-        let mut changed = false;
+        let mut state = self.sent.clone();
         let mut program_changed = false;
         let mut dir = None;
         let mut copies = Vec::new();
@@ -638,8 +639,7 @@ impl PaneTask {
                 SessionEvent::Copied(text) => copies.push((self.pointer, text)),
                 SessionEvent::ClipboardWrite(text) => copies.push((None, text)),
                 SessionEvent::TitleChanged(title) => {
-                    self.title = Some(title).filter(|title| !title.is_empty());
-                    changed = true;
+                    state.title = Some(title).filter(|title| !title.is_empty());
                 }
                 SessionEvent::CwdChanged(uri) => {
                     dir = local_path(&uri).or(dir);
@@ -663,31 +663,20 @@ impl PaneTask {
                 .await
                 .ok();
         }
-        if changed {
-            self.event(PaneChange::Title(self.title.clone())).await;
+        if dir.is_some() {
+            state.dir = dir;
         }
         if program_changed && !self.exit.reaped {
-            self.event(PaneChange::Program(self.records.snapshot()))
-                .await;
+            state.program = self.records.snapshot();
         }
-        self.set_dir(dir).await;
-    }
-
-    async fn set_dir(&mut self, dir: Option<String>) {
-        if let Some(dir) = dir.filter(|dir| self.dir.as_ref() != Some(dir)) {
-            self.dir = Some(dir.clone());
-            self.event(PaneChange::Dir(dir)).await;
+        if let Some(status) = exited {
+            state.status = PaneStatus::Exited(status);
+            state.program.clear();
         }
-    }
-
-    /// `&mut`, because `SessionHandle` isn't `Sync` and a shared borrow held
-    /// across the await would make the task `!Send`.
-    async fn event(&mut self, change: PaneChange) {
-        let event = PaneEvent {
-            pane: self.pane,
-            change,
-        };
-        self.bus.tell(Publish(event)).await.ok();
+        if state != self.sent {
+            self.sent = state.clone();
+            self.bus.tell(Publish(state)).await.ok();
+        }
     }
 
     #[traced]

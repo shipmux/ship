@@ -79,8 +79,7 @@ pub(crate) async fn run(State(app): App, Body(body): Body<RunCommand>) -> Result
     ),
 )]
 pub(crate) async fn list_tabs(State(app): App) -> Result<Json<Tabs>> {
-    let value = app.state.ask(ListTabs).await?;
-    Ok(Json(value))
+    Ok(Json(app.replicas.current().tabs.clone()))
 }
 
 #[utoipa::path(
@@ -116,8 +115,9 @@ pub(crate) async fn create_tab(
     ),
 )]
 pub(crate) async fn get_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Result<Json<Tab>> {
-    let value = app.state.ask(Get::<Tab>(id)).await?;
-    Ok(Json(value))
+    tree::tab(&app.replicas.current().tabs, id)
+        .cloned()
+        .map(Json)
 }
 
 #[utoipa::path(
@@ -261,8 +261,9 @@ pub(crate) async fn move_pane(
     ),
 )]
 pub(crate) async fn get_pane(State(app): App, Path(id): Path<IdOf<Pane>>) -> Result<Json<Pane>> {
-    let value = app.state.ask(Get::<Pane>(id)).await?;
-    Ok(Json(value))
+    tree::pane(&app.replicas.current().tabs, id)
+        .cloned()
+        .map(Json)
 }
 
 #[utoipa::path(

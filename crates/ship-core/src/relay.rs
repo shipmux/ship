@@ -6,7 +6,7 @@ use std::{
 
 use kameo::prelude::*;
 use ship_macros::Actor;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::mpsc;
 
 #[derive(Actor, Default)]
 pub struct RelayBus {
@@ -75,17 +75,6 @@ pub enum SendResult {
 /// `Closed` once the receiver is gone. For publications that must not
 /// drop, such as exit statuses.
 impl<T: Send + 'static> Sink<T> for mpsc::UnboundedSender<T> {
-    fn try_send(&mut self, value: T) -> ControlFlow<SendResult, SendResult> {
-        match self.send(value) {
-            Ok(()) => ControlFlow::Continue(SendResult::Sent),
-            Err(_) => ControlFlow::Break(SendResult::Closed),
-        }
-    }
-}
-
-/// Replaces the latest value; `Closed` once every receiver is gone. This
-/// is the sink for authoritative replicas.
-impl<T: Send + Sync + 'static> Sink<T> for watch::Sender<T> {
     fn try_send(&mut self, value: T) -> ControlFlow<SendResult, SendResult> {
         match self.send(value) {
             Ok(()) => ControlFlow::Continue(SendResult::Sent),

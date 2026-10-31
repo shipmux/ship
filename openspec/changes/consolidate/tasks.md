@@ -20,12 +20,12 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 2. Server: replica reads, pane reports and new-pane sizing
 
-- [ ] 2.1 Before any change, profile GET and commit latency with `SHIP_TRACE` and count replicas per prompt.
-- [ ] 2.2 Give `ServerState` the `ReplicaSink`, publish inside `commit`, and remove the revision `AtomicU64` and the bus subscription for replicas.
-- [ ] 2.3 Serve `list_tabs`, `get_tab`, `get_pane`, `list_views` and `get_view`, `input`'s attachment check and `order::lane` from `Replicas::current`, and remove the six read messages.
-- [ ] 2.4 Replace `PaneChange` with the state-carrying `PaneEvent`, send it only when it differs, and rewrite the state actor's handler.
-- [ ] 2.5 Add `start_size` and `placeholder` in `state/geometry.rs` and use them in `CreatePane`.
-- [ ] 2.6 Verify slice 2's checks, including the after-profile, the replica count and the `stty size` matrix on two client sizes.
+- [x] 2.1 Before any change, profile GET and commit latency with `SHIP_TRACE` and count replicas per prompt.
+- [x] 2.2 Give `ServerState` the `ReplicaSink`, publish inside `commit`, and remove the revision `AtomicU64` and the bus subscription for replicas.
+- [x] 2.3 Serve `list_tabs`, `get_tab`, `get_pane`, `list_views` and `get_view`, `input`'s attachment check and `order::lane` from `Replicas::current`, and remove the six read messages.
+- [x] 2.4 Replace `PaneChange` with the state-carrying `PaneEvent`, send it only when it differs, and rewrite the state actor's handler.
+- [x] 2.5 Add `start_size` and `placeholder` in `state/geometry.rs` and use them in `CreatePane`.
+- [x] 2.6 Verify slice 2's checks, including the after-profile, the replica count and the `stty size` matrix on two client sizes.
 
 ## 3. Client loop and sidebar
 

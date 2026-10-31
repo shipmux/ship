@@ -838,3 +838,12 @@ The change ships as one pull request. The slices are its build order, not review
 - **Four `Size` conversions, not about seven.** That's all the code had: `state.rs` three times and `draw.rs` once.
 - **`order.rs` uses `attachment_not_found`.** It had a seventh copy of the message.
 - **Size: 100 code lines fewer, not about 335.** `cloc --include-lang=Rust crates` went from 13,732 to 13,632. No test code changed in `crates`.
+
+### Slice 2
+
+- **`commit` is synchronous.** Publishing no longer awaits the bus, so nothing in `commit` awaits, and its 17 call sites drop `.await`.
+- **`Replicas::new` is gone.** `ReplicaSink::new` builds both channels, and `ReplicaSink::subscribe` hands out the read side, as the skeleton's `subscribe` says. `published_tabs` folded into `replica()`, its last caller, and `geometry::halves` became private, since only geometry uses it now.
+- **`PaneTask::publish` takes the exit status.** The exit arm passes it in, so the exit and the frame's last title, directory and program changes go out as one `PaneEvent`. The handler closes a pane only on its first change from running to exited.
+- **The read routes keep their documented 503.** The OpenAPI document is byte-identical to slice 1's.
+- **Stacking into a slot under `MIN_CONTENT` now refuses.** `start_size` checks the new pane in a stack as well as in a split, as its doc asks. Read from the code rather than exercised: before, a stack onto a lone borderless pane only one row tall started its program with zero rows, and now it answers "no space for new pane". Every placement the matrix covers sizes as before.
+- **Size: 93 code lines fewer, not about 190.** `cloc --include-lang=Rust crates` went from 13,632 to 13,539.
