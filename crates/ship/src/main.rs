@@ -101,24 +101,19 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
             command: Some(cli::ServerCommand::Stop),
             ..
         })) => {
-            let target = cli.target()?;
-            let (client, _) = checked(&target.endpoint()?, matches!(target, Target::Url(_))).await?;
-            commands::stop_server(&client).await
+            commands::stop_server(&checked_target(&cli).await?.client).await
         }
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Status),
             ..
         })) => {
-            let target = cli.target()?;
-            commands::print(&checked(&target.endpoint()?, matches!(target, Target::Url(_))).await?.1)
+            commands::print(&checked_target(&cli).await?.health)
         }
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Log(args)),
             ..
         })) => {
-            let target = cli.target()?;
-            let (client, _) = checked(&target.endpoint()?, matches!(target, Target::Url(_))).await?;
-            commands::server_log(&client, args).await
+            commands::server_log(&checked_target(&cli).await?.client, args).await
         }
         Some(Command::Server(_)) if cli.server_url.is_some() || cli.server_name.is_some() => {
             Err(err!(
@@ -184,7 +179,7 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
             let target = cli.target()?;
             let endpoint = target.endpoint()?;
             let (client, initial_selection) = match target {
-                Target::Url(_) => (checked(&endpoint, true).await?.0, InitialSelection::None),
+                Target::Url(_) => (checked(&endpoint, true).await?.client, InitialSelection::None),
                 Target::Named(name) => {
                     let client = client(&endpoint, true)?;
                     let launched = local::ensure_running(&client, &name, &cli.config_path()?)
@@ -212,7 +207,7 @@ async fn connect(cli: &Cli) -> Result<Client> {
     let target = cli.target()?;
     let endpoint = target.endpoint()?;
     match target {
-        Target::Url(_) => Ok(checked(&endpoint, true).await?.0),
+        Target::Url(_) => Ok(checked(&endpoint, true).await?.client),
         Target::Named(name) => {
             let client = client(&endpoint, true)?;
             local::ensure_running(&client, &name, &cli.config_path()?)
@@ -223,11 +218,23 @@ async fn connect(cli: &Cli) -> Result<Client> {
     }
 }
 
+/// A client whose health check passed, and that check's answer.
+struct Checked {
+    client: Client,
+    health: HealthResponse,
+}
+
+/// `checked` on the CLI's target, which is explicit when it's a URL.
+async fn checked_target(cli: &Cli) -> Result<Checked> {
+    let target = cli.target()?;
+    checked(&target.endpoint()?, matches!(target, Target::Url(_))).await
+}
+
 /// A client whose health check passed. An explicit target that fails over
 /// HTTP/2 for any reason but an absent or silent server, such as a proxy that
 /// speaks only HTTP/1.1, gets one more check over HTTP/1.1. Ship's own server
 /// always speaks HTTP/2, so the local default target never needs it.
-async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<(Client, HealthResponse)> {
+async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<Checked> {
     let http2 = client(endpoint, true)?;
     match health(&http2)
         .await
@@ -243,9 +250,15 @@ async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<(Client, 
                 server = %endpoint,
                 "server answers only over HTTP/1.1"
             );
-            Ok((http1, response))
+            Ok(Checked {
+                client: http1,
+                health: response,
+            })
         }
-        result => Ok((http2, result?)),
+        result => Ok(Checked {
+            client: http2,
+            health: result?,
+        }),
     }
 }
 

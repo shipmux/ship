@@ -66,6 +66,16 @@ struct Watched {
     unseen: bool,
 }
 
+impl Watched {
+    fn new(state: ReportedState) -> Self {
+        Self {
+            state,
+            pending: None,
+            unseen: false,
+        }
+    }
+}
+
 /// No panes, focused.
 impl Default for Attention {
     fn default() -> Self {
@@ -81,14 +91,7 @@ impl Attention {
     /// that happened before the attach notifies.
     pub fn attached(&mut self, observer: &Observer) {
         self.panes = roots(observer)
-            .map(|(pane, state)| {
-                let watched = Watched {
-                    state,
-                    pending: None,
-                    unseen: false,
-                };
-                (pane, watched)
-            })
+            .map(|(pane, state)| (pane, Watched::new(state)))
             .collect();
     }
 
@@ -105,11 +108,7 @@ impl Attention {
                     // Changed, or new to the replica and so changed from nothing.
                     known => {
                         let from = known.as_ref().map(|watched| watched.state);
-                        let mut watched = known.unwrap_or(Watched {
-                            state,
-                            pending: None,
-                            unseen: false,
-                        });
+                        let mut watched = known.unwrap_or(Watched::new(state));
                         watched.state = state;
                         if let Some(notice) = notice(from, state) {
                             if notice == Notice::Done && !(focused && observer.in_view(pane)) {

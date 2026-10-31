@@ -287,12 +287,7 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
     } = launch;
     let size = terminal_size(size);
     let pty = native_pty_system()
-        .openpty(PtySize {
-            rows: size.rows,
-            cols: size.cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
+        .openpty(pty_size(size))
         .map_err(|error| err!(Io, "cannot open a terminal", @external: error))?;
     let reader = pty
         .master
@@ -309,12 +304,7 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
             master
                 .lock()
                 .map_err(|_| "terminal lock poisoned")?
-                .resize(PtySize {
-                    rows,
-                    cols,
-                    pixel_width: 0,
-                    pixel_height: 0,
-                })
+                .resize(pty_size(Size { cols, rows }))
                 .map_err(Into::into)
         })
     };
@@ -1003,6 +993,15 @@ mod program {
 }
 
 /// Both PTY and emulator need a positive grid; published content stays actual.
+fn pty_size(size: Size) -> PtySize {
+    PtySize {
+        rows: size.rows,
+        cols: size.cols,
+        pixel_width: 0,
+        pixel_height: 0,
+    }
+}
+
 fn terminal_size(size: Size) -> Size {
     Size {
         cols: size.cols.max(1),

@@ -295,7 +295,7 @@ async fn drive(
                     }
                     let screen = matches!(event, SseEvent::Screen(_));
                     let attached = matches!(event, SseEvent::Attached(_));
-                    let previous = local.observer.record().and_then(|record| record.selection);
+                    let previous = local.observer.selection();
                     let visible = local.observer.apply(event);
                     if attached {
                         local.attention.attached(&local.observer);
@@ -303,7 +303,7 @@ async fn drive(
                         local.attention.observe(&local.observer, Instant::now(), local.agents.delay);
                     }
                     if !screen && let Some(replica) = &local.observer.replica {
-                        let selection = local.observer.record().and_then(|record| record.selection);
+                        let selection = local.observer.selection();
                         local.memory.observe(&replica.tabs, selection);
                         if previous != selection {
                             local.sidebar.tabs.reveal(&replica.tabs, selection);
@@ -587,7 +587,7 @@ impl<'a> Local<'a> {
         let tab = selected.as_ref().map(|selected| selected.tab);
         Scene {
             panes: draw::split(screen, self.sidebar.width()).1,
-            tabs: self.observer.replica.as_ref().map(|replica| &replica.tabs),
+            tabs: self.observer.tabs(),
             tab,
             geometry: tab.and_then(|tab| tab.geometry.as_deref()),
             selected: selected
@@ -890,7 +890,7 @@ impl<'a> Local<'a> {
     }
 
     fn act(&mut self, client: &'a Client, action: Action) -> Turn<'a> {
-        let selection = self.observer.record().and_then(|record| record.selection);
+        let selection = self.observer.selection();
         if leaves_zoom(&action)
             && let Some(zoomed) = zoomed_pane(&self.observer, selection)
         {
@@ -1153,7 +1153,7 @@ fn zoomed_pane(observer: &Observer, selection: Option<NodeId>) -> Option<IdOf<Pa
     let Some(NodeId::Pane(pane)) = selection else {
         return None;
     };
-    let tabs = &observer.replica.as_ref()?.tabs;
+    let tabs = observer.tabs()?;
     let tab = tree::pane_tab(tabs, pane).ok()?;
     (tab.zoomed == Some(pane)).then_some(pane)
 }

@@ -1,10 +1,6 @@
 //! Each attachment's view, readable and selectable by anyone holding its ID.
 
-use axum::{
-    Json,
-    extract::State,
-    response::{IntoResponse, Response},
-};
+use axum::{Json, extract::State};
 use ship_core::{
     AppError, Result,
     id::{Attachment, IdOf},
@@ -14,7 +10,7 @@ use ship_core::{
 use crate::{
     AppState,
     body::{Body, Path},
-    state::{GetView, ListViews, Select},
+    state::{GetView, ListViews, Select, Viewers},
 };
 
 #[utoipa::path(
@@ -26,9 +22,9 @@ use crate::{
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Response> {
+pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Json<Viewers>> {
     let value = app.state.ask(ListViews).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -46,9 +42,9 @@ pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Response> 
 pub(crate) async fn get_view(
     State(app): State<AppState>,
     Path(attachment): Path<IdOf<Attachment>>,
-) -> Result<Response> {
+) -> Result<Json<ViewingRecord>> {
     let value = app.state.ask(GetView(attachment)).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -68,7 +64,7 @@ pub(crate) async fn select(
     State(app): State<AppState>,
     Path(attachment): Path<IdOf<Attachment>>,
     Body(body): Body<SelectView>,
-) -> Result<Response> {
+) -> Result<Json<ViewingRecord>> {
     let value = app
         .state
         .ask(Select {
@@ -76,5 +72,5 @@ pub(crate) async fn select(
             selection: body.selection,
         })
         .await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }

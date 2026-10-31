@@ -289,7 +289,7 @@ pub(crate) async fn view(
     State(app): State<AppState>,
     AttachmentHeader(attachment): AttachmentHeader,
     Body(view): Body<ViewInput>,
-) -> Result<Response> {
+) -> Result<Json<ViewingRecord>> {
     let record = app.state.ask(SetView { attachment, view }).await?;
-    Ok(Json(record).into_response())
+    Ok(Json(record))
 }

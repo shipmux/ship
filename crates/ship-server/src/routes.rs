@@ -4,14 +4,14 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use ship_core::{AppError, Result, err, id::*, model::*, protocol::*};
+use ship_core::{AppError, Result, err, id::*, model::*, protocol::*, tree::Tabs};
 
 use tokio::sync::oneshot;
 
 use crate::{
     AppState,
     body::{Body, Path, Query},
-    pane::PaneCommand,
+    pane::{PaneCommand, PaneHandle},
     state::*,
 };
 
@@ -78,9 +78,9 @@ pub(crate) async fn run(State(app): App, Body(body): Body<RunCommand>) -> Result
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn list_tabs(State(app): App) -> Result<Response> {
+pub(crate) async fn list_tabs(State(app): App) -> Result<Json<Tabs>> {
     let value = app.state.ask(ListTabs).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -95,9 +95,12 @@ pub(crate) async fn list_tabs(State(app): App) -> Result<Response> {
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn create_tab(State(app): App, Body(body): Body<CreateTab>) -> Result<Response> {
+pub(crate) async fn create_tab(
+    State(app): App,
+    Body(body): Body<CreateTab>,
+) -> Result<(StatusCode, Json<Tab>)> {
     let tab = app.state.ask(body).await?;
-    Ok((StatusCode::CREATED, Json(tab)).into_response())
+    Ok((StatusCode::CREATED, Json(tab)))
 }
 
 #[utoipa::path(
@@ -112,9 +115,9 @@ pub(crate) async fn create_tab(State(app): App, Body(body): Body<CreateTab>) -> 
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn get_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Result<Response> {
+pub(crate) async fn get_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Result<Json<Tab>> {
     let value = app.state.ask(Get::<Tab>(id)).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -135,9 +138,9 @@ pub(crate) async fn set_tab(
     State(app): App,
     Path(id): Path<IdOf<Tab>>,
     Body(set): Body<SetTab>,
-) -> Result<Response> {
+) -> Result<Json<Tab>> {
     let value = app.state.ask(Set { id, set }).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -152,9 +155,9 @@ pub(crate) async fn set_tab(
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn remove_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Result<Response> {
+pub(crate) async fn remove_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Result<StatusCode> {
     app.state.ask(Remove::<Tab>(id)).await?;
-    Ok(StatusCode::NO_CONTENT.into_response())
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(
@@ -175,9 +178,9 @@ pub(crate) async fn move_tab(
     State(app): App,
     Path(id): Path<IdOf<Tab>>,
     Body(body): Body<MoveTabBody>,
-) -> Result<Response> {
+) -> Result<Json<Tab>> {
     let value = app.state.ask(Move { id, to: body.at }).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -192,9 +195,12 @@ pub(crate) async fn move_tab(
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn create_pane(State(app): App, Body(body): Body<CreatePane>) -> Result<Response> {
+pub(crate) async fn create_pane(
+    State(app): App,
+    Body(body): Body<CreatePane>,
+) -> Result<(StatusCode, Json<Pane>)> {
     let pane = app.state.ask(body).await?;
-    Ok((StatusCode::CREATED, Json(pane)).into_response())
+    Ok((StatusCode::CREATED, Json(pane)))
 }
 
 #[utoipa::path(
@@ -214,9 +220,9 @@ pub(crate) async fn cycle_pane(
     State(app): App,
     Path(id): Path<IdOf<Pane>>,
     Body(cycle): Body<CyclePane>,
-) -> Result<Response> {
+) -> Result<Json<Tab>> {
     let tab = app.state.ask(Cycle { id, cycle }).await?;
-    Ok(Json(tab).into_response())
+    Ok(Json(tab))
 }
 
 #[utoipa::path(
@@ -237,9 +243,9 @@ pub(crate) async fn move_pane(
     State(app): App,
     Path(id): Path<IdOf<Pane>>,
     Body(body): Body<MovePane>,
-) -> Result<Response> {
+) -> Result<Json<Tab>> {
     let tab = app.state.ask(PaneMove { id, to: body }).await?;
-    Ok(Json(tab).into_response())
+    Ok(Json(tab))
 }
 
 #[utoipa::path(
@@ -254,9 +260,9 @@ pub(crate) async fn move_pane(
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn get_pane(State(app): App, Path(id): Path<IdOf<Pane>>) -> Result<Response> {
+pub(crate) async fn get_pane(State(app): App, Path(id): Path<IdOf<Pane>>) -> Result<Json<Pane>> {
     let value = app.state.ask(Get::<Pane>(id)).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -276,9 +282,9 @@ pub(crate) async fn set_pane(
     State(app): App,
     Path(id): Path<IdOf<Pane>>,
     Body(set): Body<SetPane>,
-) -> Result<Response> {
+) -> Result<Json<Pane>> {
     let value = app.state.ask(Set { id, set }).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -293,9 +299,9 @@ pub(crate) async fn set_pane(
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn remove_pane(State(app): App, Path(id): Path<IdOf<Pane>>) -> Result<Response> {
+pub(crate) async fn remove_pane(State(app): App, Path(id): Path<IdOf<Pane>>) -> Result<StatusCode> {
     app.state.ask(Remove::<Pane>(id)).await?;
-    Ok(StatusCode::NO_CONTENT.into_response())
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(
@@ -316,9 +322,9 @@ pub(crate) async fn swap_pane(
     State(app): App,
     Path(id): Path<IdOf<Pane>>,
     Body(swap): Body<SwapPane>,
-) -> Result<Response> {
+) -> Result<Json<Tab>> {
     let value = app.state.ask(Swap { id, swap }).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -338,9 +344,9 @@ pub(crate) async fn resize_pane(
     State(app): App,
     Path(id): Path<IdOf<Pane>>,
     Body(resize): Body<ResizePane>,
-) -> Result<Response> {
+) -> Result<Json<Tab>> {
     let value = app.state.ask(Resize { id, resize }).await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }
 
 #[utoipa::path(
@@ -361,11 +367,8 @@ pub(crate) async fn scroll_pane(
     Path(id): Path<IdOf<Pane>>,
     Body(body): Body<ScrollPane>,
 ) -> Result<StatusCode> {
-    let live = app.live.borrow();
-    let pane = live
-        .get(&id)
-        .ok_or_else(|| err!(NotFound, "pane {} not found", id))?;
-    pane.commands
+    live_pane(&app, id)?
+        .commands
         .send(PaneCommand::Scroll(body))
         .map_err(|_| err!(Internal, "pane {} task ended", id))?;
     Ok(StatusCode::NO_CONTENT)
@@ -394,17 +397,21 @@ pub(crate) async fn read_pane(
     Query(read): Query<ReadPane>,
 ) -> Result<String> {
     let (reply, text) = oneshot::channel();
-    {
-        let live = app.live.borrow();
-        let pane = live
-            .get(&id)
-            .ok_or_else(|| err!(NotFound, "pane {} not found", id))?;
-        pane.commands
-            .send(PaneCommand::Read(read, reply))
-            .map_err(|_| err!(Internal, "pane {} task ended", id))?;
-    }
+    live_pane(&app, id)?
+        .commands
+        .send(PaneCommand::Read(read, reply))
+        .map_err(|_| err!(Internal, "pane {} task ended", id))?;
     text.await
         .map_err(|_| err!(Internal, "pane {} read failed", id))
+}
+
+/// The live pane or 404.
+fn live_pane(app: &AppState, id: IdOf<Pane>) -> Result<PaneHandle> {
+    app.live
+        .borrow()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| err!(NotFound, "pane {} not found", id))
 }
 
 #[utoipa::path(

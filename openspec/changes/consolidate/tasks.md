@@ -6,17 +6,17 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 1. Shared shapes and lints
 
-- [ ] 1.1 Add `tree::pane_tab`, `tree::parent` and `tree::panes` in `ship-core`, and `pane_tab_mut` and `pane_mut` in `ship-server/src/state/tree.rs`; replace the hand-written chains.
-- [ ] 1.2 Move screen style and color conversions into `ship-core/src/screen.rs`, add `From<Rect> for Size` and `Display for Scrolled`, and use them from `pane.rs`, `ui/panes.rs` and `ui/draw.rs`.
-- [ ] 1.3 Add the `Axis` and `Direction` helpers and use them in `state/layout.rs`, `state/geometry.rs`, `ui/mouse.rs`, `ui/mod.rs` and `sidebar/mod.rs`.
-- [ ] 1.4 Make `Prefixed` an associated const, rename `Id::new` to `Id::random`, and add `id_map_schema` and `RectSchema`.
-- [ ] 1.5 Return `ErrorCode` by value from `AppError::code`, share `data_mut`, and replace `rename::Target` with `NodeId`.
-- [ ] 1.6 Settle open choice O-3, add the four lints to the workspace `Cargo.toml`, and name them in `docs/agents/code.md`.
-- [ ] 1.7 Rewrite `err!` without the glob import, add `ServeOptions` with `SavedTabs`, and `Startup`, move `AttachmentGuard` into `Progress`, and replace `runlog.rs`'s `unwrap`s.
-- [ ] 1.8 Remove the unused sinks from `relay.rs`.
-- [ ] 1.9 Apply the server cleanups: state helpers, `layout::place`, `unzoom_unless`, `edit_slot`, `Json<T>` handlers, `live_pane`, `Saver::flush` and `pty_size`.
-- [ ] 1.10 Apply the client and `ship` cleanups: `Watched::new`, `Observer::selection` and `tabs`, one `Sidebar::nudge`, the merged mouse arms, `checked_target` with `Checked`, `env_target` and `first_signal`.
-- [ ] 1.11 Verify slice 1's checks in `design/program.md`, including the OpenAPI before-and-after diff, `cargo tree -d` and an empty `grep -rn '#\[allow' crates`.
+- [x] 1.1 Add `tree::pane_tab`, `tree::parent` and `tree::panes` in `ship-core`, and `pane_tab_mut` and `pane_mut` in `ship-server/src/state/tree.rs`; replace the hand-written chains.
+- [x] 1.2 Move screen style and color conversions into `ship-core/src/screen.rs`, add `From<Rect> for Size` and `Display for Scrolled`, and use them from `pane.rs`, `ui/panes.rs` and `ui/draw.rs`.
+- [x] 1.3 Add the `Axis` and `Direction` helpers and use them in `state/layout.rs`, `state/geometry.rs`, `ui/mouse.rs`, `ui/mod.rs` and `sidebar/mod.rs`.
+- [x] 1.4 Make `Prefixed` an associated const, rename `Id::new` to `Id::random`, and add `id_map_schema` and `RectSchema`.
+- [x] 1.5 Return `ErrorCode` by value from `AppError::code`, share `data_mut`, and replace `rename::Target` with `NodeId`.
+- [x] 1.6 Settle open choice O-3, add the four lints to the workspace `Cargo.toml`, and name them in `docs/agents/code.md`.
+- [x] 1.7 Rewrite `err!` without the glob import, add `ServeOptions` with `SavedTabs`, and `Startup`, move `AttachmentGuard` into `Progress`, and replace `runlog.rs`'s `unwrap`s.
+- [x] 1.8 Remove the unused sinks from `relay.rs`.
+- [x] 1.9 Apply the server cleanups: state helpers, `layout::place`, `unzoom_unless`, `edit_slot`, `Json<T>` handlers, `live_pane`, `Saver::flush` and `pty_size`.
+- [x] 1.10 Apply the client and `ship` cleanups: `Watched::new`, `Observer::selection` and `tabs`, one `Sidebar::nudge`, the merged mouse arms, `checked_target` with `Checked`, `env_target` and `first_signal`.
+- [x] 1.11 Verify slice 1's checks in `design/program.md`, including the OpenAPI before-and-after diff, `cargo tree -d` and an empty `grep -rn '#\[allow' crates`.
 
 ## 2. Server: replica reads, pane reports and new-pane sizing
 

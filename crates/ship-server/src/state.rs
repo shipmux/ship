@@ -252,6 +252,14 @@ impl ServerState {
         );
     }
 
+    /// The tab's viewed size, else the 80x24 fallback.
+    fn tab_size(&self, tab: IdOf<Tab>) -> Size {
+        self.tab_sizes()
+            .get(&tab)
+            .copied()
+            .unwrap_or(Size::FALLBACK)
+    }
+
     /// Each viewed tab's size: the smallest of its viewers' areas in each
     /// dimension. Records without a selection or an area are skipped.
     /// Derived, never stored.
@@ -440,12 +448,19 @@ impl Message<ListTabs> for ServerState {
     }
 }
 
-/// Select inside a create commit, before placing anything in the tree.
-fn select_created(viewers: &mut Viewers, attachment: IdOf<Attachment>, node: NodeId) -> Result<()> {
+pub(crate) fn attachment_not_found(attachment: IdOf<Attachment>) -> AppError {
+    err!(NotFound, "attachment {} not found", attachment)
+}
+
+fn viewer_mut(viewers: &mut Viewers, attachment: IdOf<Attachment>) -> Result<&mut ViewingRecord> {
     viewers
         .get_mut(&attachment)
-        .ok_or_else(|| err!(NotFound, "attachment {} not found", attachment))?
-        .selection = Some(node);
+        .ok_or_else(|| attachment_not_found(attachment))
+}
+
+/// Select inside a create commit, before placing anything in the tree.
+fn select_created(viewers: &mut Viewers, attachment: IdOf<Attachment>, node: NodeId) -> Result<()> {
+    viewer_mut(viewers, attachment)?.selection = Some(node);
     Ok(())
 }
 
@@ -629,11 +644,7 @@ impl Message<CreatePane> for ServerState {
             PaneAt::Pane(pane) => (tree::pane_owner(&self.tabs, pane)?, Some(pane)),
         };
         let tab = tree::tab(&self.tabs, owner)?;
-        let size = self
-            .tab_sizes()
-            .get(&owner)
-            .copied()
-            .unwrap_or(Size::FALLBACK);
+        let size = self.tab_size(owner);
         // Validate the unzoomed edit without changing shared state or starting a program.
         let mut full = tab.clone();
         full.zoomed = None;
@@ -679,12 +690,9 @@ impl Message<CreatePane> for ServerState {
                 select_created(viewers, attachment, NodeId::Pane(pane.id))?;
             }
             let tab = tree::tab_mut(tabs, owner)?;
-            match create.place {
-                Place::Split(direction) => layout::split(tab, anchor, direction, pane.clone())?,
-                Place::Stack => layout::stack(tab, anchor, pane.clone())?,
-            }
-            if create.select.is_some() && tab.zoomed.is_some_and(|zoomed| zoomed != pane.id) {
-                tab.zoomed = None;
+            layout::place(tab, anchor, create.place, pane.clone())?;
+            if create.select.is_some() {
+                layout::unzoom_unless(tab, pane.id);
             }
             Ok(pane)
         })
@@ -803,16 +811,12 @@ impl Message<PaneMove> for ServerState {
         self.commit(|tabs, viewers| {
             let pane = layout::take(tree::tab_mut(tabs, source)?, id)?;
             let tab = tree::tab_mut(tabs, destination)?;
-            match to.place {
-                Place::Split(direction) => layout::split(tab, Some(to.at), direction, pane)?,
-                Place::Stack => layout::stack(tab, Some(to.at), pane)?,
-            }
-            if tab.zoomed.is_some_and(|zoomed| zoomed != id)
-                && viewers
-                    .values()
-                    .any(|record| record.selection == Some(NodeId::Pane(id)))
+            layout::place(tab, Some(to.at), to.place, pane)?;
+            if viewers
+                .values()
+                .any(|record| record.selection == Some(NodeId::Pane(id)))
             {
-                tab.zoomed = None;
+                layout::unzoom_unless(tab, id);
             }
             Ok(())
         })
@@ -863,11 +867,7 @@ impl Message<Resize> for ServerState {
             (amount, None) => layout::Change::By(amount.unwrap_or(RESIZE_STEP)),
         };
         let owner = tree::pane_owner(&self.tabs, id)?;
-        let size = self
-            .tab_sizes()
-            .get(&owner)
-            .copied()
-            .unwrap_or(Size::FALLBACK);
+        let size = self.tab_size(owner);
         let mut tab = tree::tab(&self.tabs, owner)?.clone();
         if layout::resize(&mut tab, size, id, resize.direction, change)? {
             self.commit(|tabs, _| {
@@ -952,7 +952,7 @@ impl Message<CheckAttachment> for ServerState {
         _: &mut Context<Self, Self::Reply>,
     ) -> Self::Reply {
         if !self.viewers.contains_key(&attachment) {
-            return Err(err!(NotFound, "attachment {} not found", attachment));
+            return Err(attachment_not_found(attachment));
         }
         Ok(self.revision)
     }
@@ -979,7 +979,7 @@ impl Message<GetView> for ServerState {
         self.viewers
             .get(&attachment)
             .cloned()
-            .ok_or_else(|| err!(NotFound, "attachment {} not found", attachment))
+            .ok_or_else(|| attachment_not_found(attachment))
     }
 }
 
@@ -998,17 +998,13 @@ impl Message<Select> for ServerState {
         _: &mut Context<Self, Self::Reply>,
     ) -> Self::Reply {
         self.commit(|tabs, viewers| {
-            let record = viewers
-                .get_mut(&attachment)
-                .ok_or_else(|| err!(NotFound, "attachment {} not found", attachment))?;
+            let record = viewer_mut(viewers, attachment)?;
             if let Some(node) = selection {
                 tree::path(tabs, node).ok_or_else(|| tree::not_found(node))?;
                 if let NodeId::Pane(pane) = node {
                     let tab = tree::pane_tab_mut(tabs, pane)?;
                     layout::bring_to_front(tab, pane)?;
-                    if tab.zoomed.is_some_and(|zoomed| zoomed != pane) {
-                        tab.zoomed = None;
-                    }
+                    layout::unzoom_unless(tab, pane);
                 }
             }
             record.selection = selection;
@@ -1030,9 +1026,7 @@ impl Message<SetView> for ServerState {
         _: &mut Context<Self, Self::Reply>,
     ) -> Self::Reply {
         self.commit(|_, viewers| {
-            let record = viewers
-                .get_mut(&attachment)
-                .ok_or_else(|| err!(NotFound, "attachment {} not found", attachment))?;
+            let record = viewer_mut(viewers, attachment)?;
             record.area = Some(view.area);
             Ok(record.clone())
         })

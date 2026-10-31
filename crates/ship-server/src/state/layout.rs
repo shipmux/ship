@@ -6,13 +6,13 @@ use ship_core::{
     layout::{Axis, CycleDirection, Layout, Ratio, Slot, Split, Taken},
     model::{Pane, Tab},
     prelude::*,
-    protocol::SplitDirection,
+    protocol::{Place, SplitDirection},
     screen::Size,
 };
 
 use super::geometry;
 
-pub(crate) fn split(
+fn split(
     tab: &mut Tab,
     anchor: Option<IdOf<Pane>>,
     direction: SplitDirection,
@@ -50,7 +50,7 @@ pub(crate) fn split(
 }
 
 /// Stack in front of the anchor's slot, or start an empty tab.
-pub(crate) fn stack(tab: &mut Tab, anchor: Option<IdOf<Pane>>, pane: Pane) -> Result<()> {
+fn stack(tab: &mut Tab, anchor: Option<IdOf<Pane>>, pane: Pane) -> Result<()> {
     let zoomed = tab.zoomed;
     match (&mut tab.layout, anchor) {
         (None, None) => tab.layout = Some(Layout::Slot(Slot::new(pane))),
@@ -66,27 +66,46 @@ pub(crate) fn stack(tab: &mut Tab, anchor: Option<IdOf<Pane>>, pane: Pane) -> Re
     Ok(())
 }
 
+/// Split or stack by `place`.
+pub(crate) fn place(
+    tab: &mut Tab,
+    anchor: Option<IdOf<Pane>>,
+    place: Place,
+    pane: Pane,
+) -> Result<()> {
+    match place {
+        Place::Split(direction) => split(tab, anchor, direction, pane),
+        Place::Stack => stack(tab, anchor, pane),
+    }
+}
+
+/// Clear the tab's zoom unless it's on `pane`.
+pub(crate) fn unzoom_unless(tab: &mut Tab, pane: IdOf<Pane>) {
+    if tab.zoomed.is_some_and(|zoomed| zoomed != pane) {
+        tab.zoomed = None;
+    }
+}
+
 /// Rotate a slot; zoom follows its front.
 pub(crate) fn cycle(tab: &mut Tab, pane: IdOf<Pane>, direction: CycleDirection) -> Result<()> {
-    let zoomed = tab.zoomed;
-    tab.layout
-        .as_mut()
-        .and_then(|layout| layout.slot_mut(pane))
-        .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?
-        .cycle(direction);
-    if let Some(was) = zoomed {
-        refocus_zoom(tab, was);
-    }
-    Ok(())
+    edit_slot(tab, pane, |slot| slot.cycle(direction))
 }
 
 pub(crate) fn bring_to_front(tab: &mut Tab, pane: IdOf<Pane>) -> Result<()> {
+    edit_slot(tab, pane, |slot| {
+        slot.bring_to_front(pane);
+    })
+}
+
+/// Find the pane's slot, edit it, then let zoom follow the slot's front.
+fn edit_slot(tab: &mut Tab, pane: IdOf<Pane>, edit: impl FnOnce(&mut Slot)) -> Result<()> {
     let zoomed = tab.zoomed;
-    tab.layout
-        .as_mut()
-        .and_then(|layout| layout.slot_mut(pane))
-        .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?
-        .bring_to_front(pane);
+    edit(
+        tab.layout
+            .as_mut()
+            .and_then(|layout| layout.slot_mut(pane))
+            .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?,
+    );
     if let Some(was) = zoomed {
         refocus_zoom(tab, was);
     }

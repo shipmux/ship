@@ -5,7 +5,7 @@ use ship_core::{
     model::{NodeId, Pane, Tab},
     protocol::{AttachRequest, PaneScreen, Replica, SseEvent, ViewingRecord},
     screen::{Screen, Size},
-    tree,
+    tree::{self, Tabs},
 };
 
 use ship_macros::traced;
@@ -81,6 +81,15 @@ impl Observer {
         self.replica.as_ref()?.viewers.get(&self.attachment?)
     }
 
+    /// This client's selection.
+    pub fn selection(&self) -> Option<NodeId> {
+        self.record()?.selection
+    }
+
+    pub fn tabs(&self) -> Option<&Tabs> {
+        self.replica.as_ref().map(|replica| &replica.tabs)
+    }
+
     /// What to send on reattach: the last record's selection at the
     /// terminal's current tab area. `None` before the first `Attached` event.
     pub fn remembered(&self, area: Size) -> Option<AttachRequest> {
@@ -102,8 +111,8 @@ impl Observer {
 
     /// `None` when nothing is selected or before the first `Attached`.
     pub fn selected(&self) -> Option<Selected<'_>> {
-        let selection = self.record()?.selection?;
-        let tabs = &self.replica.as_ref()?.tabs;
+        let selection = self.selection()?;
+        let tabs = self.tabs()?;
         let tab = tree::tab(tabs, tree::viewed_tab(tabs, selection)?).ok()?;
         let pane = match selection {
             NodeId::Pane(id) => tab.pane(id),

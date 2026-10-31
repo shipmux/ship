@@ -199,16 +199,11 @@ impl Mouse {
             return clicked;
         }
         match event.kind {
-            MouseEventKind::Up(_) => {
-                let id = self.held.take()?;
-                Some(Clicked::Frame(InputFrame::Mouse(input(
-                    event,
-                    id,
-                    content(id)?,
-                ))))
-            }
-            MouseEventKind::Drag(_) => {
-                let id = self.held?;
+            MouseEventKind::Up(_) | MouseEventKind::Drag(_) => {
+                let id = match event.kind {
+                    MouseEventKind::Up(_) => self.held.take()?,
+                    _ => self.held?,
+                };
                 Some(Clicked::Frame(InputFrame::Mouse(input(
                     event,
                     id,

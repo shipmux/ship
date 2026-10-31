@@ -267,7 +267,7 @@ pub(super) fn tab_auto_label(tab: &Tab, position: usize) -> String {
 
 /// Look up the automatic label each frame so title and directory changes show.
 fn placeholder(observer: &Observer, target: NodeId) -> Option<String> {
-    let tabs = &observer.replica.as_ref()?.tabs;
+    let tabs = observer.tabs()?;
     match target {
         NodeId::Pane(id) => Some(pane_auto_label(tree::pane(tabs, id).ok()?).to_owned()),
         NodeId::Tab(id) => {

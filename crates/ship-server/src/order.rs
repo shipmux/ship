@@ -23,7 +23,10 @@ use ship_core::{
 };
 use tokio::{sync::watch, time::timeout};
 
-use crate::{AppState, state::ListViews};
+use crate::{
+    AppState,
+    state::{self, ListViews},
+};
 
 /// How long a numbered request waits for a missing predecessor while
 /// nothing is running. Under the client's 2 s timeout, so the client sees
@@ -150,7 +153,7 @@ async fn lane(app: &AppState, attachment: IdOf<Attachment>) -> Result<Arc<Lane>>
     }
     let viewers = app.state.ask(ListViews).await?;
     if !viewers.contains_key(&attachment) {
-        return Err(err!(NotFound, "attachment {} not found", attachment));
+        return Err(state::attachment_not_found(attachment));
     }
     let mut lanes = app.lanes.lock().expect("lanes lock");
     Ok(Arc::clone(lanes.entry(attachment).or_default()))

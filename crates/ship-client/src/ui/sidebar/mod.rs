@@ -228,7 +228,7 @@ impl Sidebar {
                 ..content
             },
             &replica.tabs,
-            observer.record().and_then(|record| record.selection),
+            observer.selection(),
             gap,
             attention,
             renaming,
@@ -257,7 +257,7 @@ impl Sidebar {
                 ..content
             },
             &replica.tabs,
-            observer.record().and_then(|record| record.selection),
+            observer.selection(),
             attention,
             rows,
         );

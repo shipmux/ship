@@ -108,12 +108,13 @@ fn distance(a: Rect, b: Rect) -> u32 {
 
 // Mirror of ratatui's `Rect` for the schema only. Utoipa states `u16` as
 // int32 with minimum 0, without the old maximum.
+// Public so it needs no `dead_code` expectation; never built.
+#[doc(hidden)]
 #[derive(ToSchema)]
 #[schema(as = Rect)]
-#[expect(dead_code, reason = "a schema, never built")]
-struct RectSchema {
-    x: u16,
-    y: u16,
-    width: u16,
-    height: u16,
+pub struct RectSchema {
+    pub x: u16,
+    pub y: u16,
+    pub width: u16,
+    pub height: u16,
 }

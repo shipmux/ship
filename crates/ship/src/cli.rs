@@ -1,6 +1,7 @@
 use std::{
     env,
     path::{self, PathBuf},
+    str::FromStr,
 };
 
 use clap::{Args, Parser, Subcommand};
@@ -62,23 +63,11 @@ impl Cli {
         if let Some(name) = &self.server_name {
             return Ok(Target::Named(name.clone()));
         }
-        if let Some(value) = env::var_os("SHIP_SERVER_URL") {
-            let value = value
-                .into_string()
-                .map_err(|_| err!(Configuration, "SHIP_SERVER_URL must be valid UTF-8"))?;
-            return value
-                .parse()
-                .map(Target::Url)
-                .map_err(|error: AppError| error.context("invalid SHIP_SERVER_URL"));
+        if let Some(url) = env_target("SHIP_SERVER_URL")? {
+            return Ok(Target::Url(url));
         }
-        if let Some(value) = env::var_os("SHIP_SERVER_NAME") {
-            let value = value
-                .into_string()
-                .map_err(|_| err!(Configuration, "SHIP_SERVER_NAME must be valid UTF-8"))?;
-            return value
-                .parse()
-                .map(Target::Named)
-                .map_err(|error: AppError| error.context("invalid SHIP_SERVER_NAME"));
+        if let Some(name) = env_target("SHIP_SERVER_NAME")? {
+            return Ok(Target::Named(name));
         }
         Ok(Target::Named(ServerName::default()))
     }
@@ -97,6 +86,20 @@ impl Cli {
             |error| err!(Io, "cannot resolve config path {}", path.display(), @external: error),
         )
     }
+}
+
+/// The environment variable's target, `None` when unset.
+fn env_target<T: FromStr<Err = AppError>>(name: &str) -> Result<Option<T>> {
+    let Some(value) = env::var_os(name) else {
+        return Ok(None);
+    };
+    let value = value
+        .into_string()
+        .map_err(|_| err!(Configuration, "{} must be valid UTF-8", name))?;
+    value
+        .parse()
+        .map(Some)
+        .map_err(|error: AppError| error.context(format!("invalid {name}")))
 }
 
 #[derive(Subcommand)]

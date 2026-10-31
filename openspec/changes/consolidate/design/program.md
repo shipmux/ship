@@ -1,6 +1,6 @@
 # Consolidate the server and client: program
 
-Status: Locked on 2026-10-31. Cyan first approved the ten-slice draft in chat when asking to start slice 1 ("Lock it, then build"), then, in a second session, settled O-1, asked for the four slices and the `docs/agents/code.md` fixes, and approved this revision ("also lock them before committing"). Cyan chose to skip the product and architecture papers for this change, because it keeps product behavior the same. This paper is the only design paper. O-2 and O-3 stay open: O-2 keeps its default until Cyan decides, and O-3 is settled with Cyan at task 1.6.
+Status: Locked on 2026-10-31. Cyan first approved the ten-slice draft in chat when asking to start slice 1 ("Lock it, then build"), then, in a second session, settled O-1, asked for the four slices and the `docs/agents/code.md` fixes, and approved this revision ("also lock them before committing"). Cyan chose to skip the product and architecture papers for this change, because it keeps product behavior the same. This paper is the only design paper. O-2 stays open and keeps its default until Cyan decides. O-3 was settled at task 1.6: convert the vendor.
 
 ## Rationale
 
@@ -750,7 +750,7 @@ pub(in crate::ui) struct Tabs {
 
 - **O-1, settled: hand-drawn sidebar tree (slice 3).** Cyan chose to draw the tree from Ship's own rows and drop `tui-tree-widget`. The widget's model differs from Ship's at every point the sidebar uses: it keys folds by path and opens nothing by default, where Ship keys them by tab ID and opens by default, so a server-side move would reset a fold and a tab gaining its first child would show folded. Its `click_at` selects locally and toggles on a second click, where Ship folds from the marker and leaves selection to the server. Its `scroll_down` lets the last row reach the top. Using it as designed would change those behaviors and save about 25 lines; dropping it keeps them and saves about 85. Ship owns the offset clamp and the scroll-into-view on a new selection in exchange.
 - **O-2: the sidebar draw expectations.** Cyan approved the two `too_many_arguments` expectations on `Sidebar::draw` and `Tabs::draw` "for now" in ui-rename. A small view struct would remove them. Default: keep.
-- **O-3: the new lints in the vendored crate.** Cargo can't combine `workspace = true` with overrides. Either convert the vendor's 32 `let _ =` and one `unwrap` (recommended: it's a workspace member Ship already edits), or give the vendor its own lint table, or set the new lints as crate attributes in the five Ship crates instead.
+- **O-3, settled: the new lints in the vendored crate.** Cargo can't combine `workspace = true` with overrides. The options were to convert the vendor's 32 `let _ =` and one `unwrap`, give the vendor its own lint table, or set the new lints as crate attributes in the five Ship crates instead. On 2026-10-31 Cyan agreed with the recommended default, converting the vendor, when asked to build slice 1.
 - **U-1: `Connection::next` borrows.** One future over three `Option` fields should borrow cleanly; confirm at slice 3 that `drive`'s `select!` preconditions on `connection.idle()` compile alongside it.
 - **U-2: the attach response's revision.** `exchange` records `x-ship-revision` on every response, including `attach`, which `stream` didn't. It can only equal or trail a `state` event, so it shouldn't stall the lane; confirm at slice 4, or skip recording for streams.
 - **U-3: one `ratatui-core`.** `Cargo.lock` has one `ratatui-core` (0.1.2) today, so `ratatui::style::Color` and core's are one type. Slice 1 confirms with `cargo tree -d`.
@@ -825,3 +825,16 @@ Expected size, estimated and not measured: about 855 code lines fewer by `cloc` 
 The change ships as one pull request. The slices are its build order, not review units.
 
 ## Deviation log
+
+### Slice 1
+
+- **`id_map_schema` takes the value type, not a name.** Utoipa's `schema_with` calls a bare path with no arguments, so `id_map_schema::<K, V: ToSchema>()` names the `$ref` from `V::name()`. Call sites read `schema_with = id_map_schema::<Tab, Tab>`.
+- **`RectSchema` is public and `#[doc(hidden)]`.** A private struct that is never built needs a `dead_code` expectation, and "Done when" allows only O-2's. The OpenAPI diff is still confined to `Rect`: its four integers lose `maximum: 65535` and gain Utoipa's `format: int32` for `u16`.
+- **O-3's conversion stops at the vendor's tests and demo.** The vendor's `src` and examples drop every `let _ =` for `.ok()` and its one `unwrap` for `expect`. Its three integration test files and the demo example also hold about 60 `unwrap`s that the paper's count left out, and Clippy's `allow-unwrap-in-tests` doesn't cover their helper functions. Each of those four crate roots carries one `#![expect(clippy::unwrap_used, reason = ...)]` instead. They are in `vendor/`, so `grep -rn '#\[allow' crates` stays empty.
+- **`err!` lost its unused `@external` entry arms.** No caller used `err!(@external code, source)`. The `@external:` modifier stays.
+- **`layout::split` and `layout::stack` became private**, because every caller now goes through `layout::place`.
+- **`attach` keeps returning `Response`.** Its body is an SSE stream, not JSON. Every JSON handler returns `Json<T>`, or `(StatusCode, Json<T>)` for 201, and the 204 handlers return `StatusCode`.
+- **`checked_target` serves the three `server` arms only.** `connect` and bare `ship` need the target's name for the named-server branch, so they keep calling `checked` and now read `Checked`'s fields.
+- **Four `Size` conversions, not about seven.** That's all the code had: `state.rs` three times and `draw.rs` once.
+- **`order.rs` uses `attachment_not_found`.** It had a seventh copy of the message.
+- **Size: 100 code lines fewer, not about 335.** `cloc --include-lang=Rust crates` went from 13,732 to 13,632. No test code changed in `crates`.
