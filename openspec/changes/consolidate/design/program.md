@@ -696,7 +696,7 @@ impl Client {
 
 `tab_target`, `current_tab`, `pane_at`, `pane_target` and `select_attachment` keep their names and errors, written over these.
 
-#### `ship-client/src/ui/sidebar/tabs.rs` (slice 10, only if O-1 says yes)
+#### `ship-client/src/ui/sidebar/tabs.rs` (slice 10)
 
 ```rust
 /// One visible row, from one walk of the tree under unfolded ancestors.
@@ -739,7 +739,7 @@ Replaces the `TreeState` mirror, `items`, the `rendered_at` row rebuild and its 
 
 ### Open choices and blocking unknowns
 
-- **O-1: hand-drawn sidebar tree (slice 10).** Drops `tui-tree-widget` and about 85 lines, reversing "rent the mechanisms" for a widget Cyan chose. Default: out unless Cyan opts in.
+- **O-1, settled: hand-drawn sidebar tree (slice 10).** Cyan chose to draw the tree from Ship's own rows and drop `tui-tree-widget`. The widget's model differs from Ship's at every point the sidebar uses: it keys folds by path and opens nothing by default, where Ship keys them by tab ID and opens by default, so a server-side move would reset a fold and a tab gaining its first child would show folded. Its `click_at` selects locally and toggles on a second click, where Ship folds from the marker and leaves selection to the server. Its `scroll_down` lets the last row reach the top. Using it as designed would change those behaviors and save about 25 lines; dropping it keeps them and saves about 85. Ship owns the offset clamp and the scroll-into-view on a new selection in exchange.
 - **O-2: the sidebar draw expectations.** Cyan approved the two `too_many_arguments` expectations on `Sidebar::draw` and `Tabs::draw` "for now" in ui-rename. A small view struct would remove them. Default: keep.
 - **O-3: the new lints in the vendored crate.** Cargo can't combine `workspace = true` with overrides. Either convert the vendor's 32 `let _ =` and one `unwrap` (recommended: it's a workspace member Ship already edits), or give the vendor its own lint table, or set the new lints as crate attributes in the five Ship crates instead.
 - **U-1: `Connection::next` borrows.** One future over three `Option` fields should borrow cleanly; confirm at slice 8 that `drive`'s `select!` preconditions on `connection.idle()` compile alongside it.
@@ -824,14 +824,14 @@ Every slice keeps behavior as it was, so its completion evidence is the regressi
 - **Delivers:** one request path and one target resolver.
 - **Done when:** the regression walk passes; every `ship tab` and `ship pane` subcommand prints the same JSON as before for the same inputs, including its errors (missing `--pane` outside a pane, unknown IDs, a stopped server's "no server running", a timeout from a server paused with `SIGSTOP`); U-2 is settled; about 75 code lines fewer.
 
-### 10. Sidebar tree, if O-1 says yes
+### 10. Sidebar tree
 
 - **Files:** `ui/sidebar/tabs.rs`, workspace and `ship-client` manifests.
 - **Delivers:** the tab tree drawn from Ship's own rows.
-- **Done when:** the regression walk passes; side by side with the previous build: indentation, fold markers, the selected band, the rename accent, the zoom flag and rollup icons look the same; clicks on markers and labels, drop gaps at every depth, wheel scrolling to the end, and a newly selected row scrolling into view behave the same; `cargo tree` no longer lists `tui-tree-widget`; about 85 code lines fewer.
+- **Done when:** the regression walk passes; side by side with the previous build: indentation, fold markers, the selected band, the rename accent, the zoom flag and rollup icons look the same; clicks on markers and labels, drop gaps at every depth, wheel scrolling to the end, folding or closing a tab while scrolled to the end, and a newly selected row scrolling into view behave the same; `cargo tree` no longer lists `tui-tree-widget`; about 85 code lines fewer.
 
 Expected size, estimated and not measured: about 770 code lines fewer by `cloc` across slices 1 to 9 (about 5.6% of 13,732), and about 855 with slice 10. No test code, as `docs/agents/code.md` asks.
 
-Proposed pull requests, each large enough to review or revert alone: slices 1 and 2 together as the tidy-up; slice 3; slices 4 and 5; slices 6 to 8, which all reshape `ui/mod.rs`; slice 9; slice 10 if chosen.
+The change ships as one pull request. The slices are its build order, not review units.
 
 ## Deviation log

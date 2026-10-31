@@ -1,6 +1,6 @@
 # Tasks
 
-The ten groups are `design/program.md`'s build slices. The paper's skeleton map gives the types and signatures, and each slice's "Done when" is its completion evidence; record anything that differs in its deviation log. Slice 10 runs only if open choice O-1 says yes.
+The ten groups are `design/program.md`'s build slices. The paper's skeleton map gives the types and signatures, and each slice's "Done when" is its completion evidence; record anything that differs in its deviation log.
 
 Verification uses real commands and a running client, not permanent authored tests. Use an owned temporary server with `XDG_STATE_HOME`, `XDG_CONFIG_HOME` and `XDG_RUNTIME_DIR` pointed at temporary directories, and never a server already running. Every group ends with the paper's regression walk, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo build`, `cargo test --workspace` and a `cloc --include-lang=Rust crates` count against the previous group. Checks run on the implementing machine; the other priority platform is reported unverified.
 
@@ -59,7 +59,7 @@ Verification uses real commands and a running client, not permanent authored tes
 - [ ] 9.2 Add the `Scope` helpers and `scope_tabs`, and rewrite the target resolvers over them.
 - [ ] 9.3 Verify that every `ship tab` and `ship pane` subcommand prints the same output and errors as before.
 
-## 10. Sidebar tree (only if O-1 says yes)
+## 10. Sidebar tree
 
 - [ ] 10.1 Draw the tab tree from Ship's own rows in `ui/sidebar/tabs.rs` and remove `tui-tree-widget`.
 - [ ] 10.2 Verify slice 10's side-by-side checks.

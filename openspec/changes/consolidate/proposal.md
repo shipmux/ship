@@ -13,7 +13,7 @@ Ship's implementation is 13,732 lines of Rust by `cloc` (code lines only), and p
 - **New panes are sized by `geometry::tab`**, through a trial placement, as resize already works.
 - **The client loop becomes a dispatcher.** Keys and the mouse produce lane items directly, navigation reads one view per turn, and a `Connection` owns attaching, reconnecting and area updates.
 - **Shared shapes are stated once**, in `ship-core` where both sides use them, and four restriction lints encode `docs/agents/code.md`'s conventions.
-- **Optional:** draw the sidebar's tab tree from Ship's own rows and drop `tui-tree-widget` (open choice O-1).
+- **The sidebar's tab tree is drawn from Ship's own rows**, and `tui-tree-widget` goes (O-1, settled by Cyan).
 
 Not in this change: removing the relay bus, any protocol, config or key change, new tests, and user-visible behavior changes.
 
@@ -30,5 +30,5 @@ None modified. No requirement in `openspec/specs/` changes, so this change has n
 - `ship-client`: `lib.rs`, `api.rs`, `execute.rs`, and most of `ui/`, with new `ui/nav.rs` and `ui/connection.rs`.
 - `ship`: `main.rs`, `cli.rs`, `diagnostics.rs`, `runlog.rs`.
 - Workspace `Cargo.toml`: four new Clippy lints. `docs/agents/code.md`: one line naming them.
-- Size: about 770 fewer code lines by `cloc` (about 855 with the optional sidebar slice), estimated, not measured. No tests are planned.
-- Proposed pull requests: slices 1 and 2; slice 3; slices 4 and 5; slices 6 to 8; slice 9; slice 10 if chosen.
+- Size: about 855 fewer code lines by `cloc`, 85 of them from the sidebar slice, estimated, not measured. No tests are planned.
+- One pull request for the whole change.
