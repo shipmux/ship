@@ -34,9 +34,17 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 2. Panes mode
 
-- [ ] 2.1 In `crates/ship-core/src/defaults.toml`, add `alt-p` and the `panes` mode, and remove normal mode's `alt-shift-h/j/k/l`.
+- [x] 2.1 In `crates/ship-core/src/defaults.toml`, add `alt-p` and the `panes` mode, and remove normal mode's `alt-shift-h/j/k/l`.
 - [x] 2.2 Write `specs/keymap/spec.md`: MODIFIED "Default pane keys" and "Modes", ADDED "Default panes keys".
-- [ ] 2.3 Verify every P3 case, the swap labels, `alt-shift-l` reaching a program, and SC-005.
+- [x] 2.3 Verify every P3 case, the swap labels, `alt-shift-l` reaching a program, and SC-005.
+
+### Slice-2 evidence
+
+- Only defaults changed: `alt-p` enters sticky panes mode; focus, swap and cycle reuse existing actions; Esc returns to normal. The four normal-mode `alt-shift-h/j/k/l` bindings are removed. Both `r` bindings remain for slice 3, as the paper specifies.
+- P3 and SC-005 passed in a running client on both a direct connection and the approved 500 ms each-way Unix-socket proxy, 17 checks each. Read back selection, geometry and stack order with `ship view selected` and `ship tab get`: all four focus and swap directions work, swapped panes stay selected, and both cycle directions work in a three-pane stack. Normal-mode focus, Alt-Tab and both cycle directions still work.
+- Captured the panes-mode bar with all four `swap` labels. Verified the mode stays active after navigation, swaps and cycling, drops unbound typing, and returns ordinary program input after Esc. In normal mode a raw-input program printed and recorded `1b48`, `1b4a`, `1b4b` and `1b4c` for Alt-Shift-H/J/K/L, without moving selection or changing geometry.
+- Parsed old and new defaults to confirm every moved binding uses its original action and unrelated defaults are unchanged. Formatting, Clippy with warnings denied, workspace tests (80 passed, 1 ignored), build and strict OpenSpec validation passed on macOS. No Rust or permanent test code added; Linux and physical-terminal interaction remain unverified.
+- Disposable verifier: `/tmp/ship-ui-slice2-verify.py`, reusing slice 1's isolated harness. Evidence and screen/layout captures: `/tmp/ship-ui-s2-vlv_wt6e/` (direct) and `/tmp/ship-ui-s2-j5tfrihe/` (delayed). Owned servers and tmux sessions were stopped; existing servers were not used.
 
 ## 3. The rename field
 

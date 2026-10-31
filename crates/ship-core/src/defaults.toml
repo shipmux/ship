@@ -76,10 +76,7 @@ global = [
 "alt-l"       = { action = { client.pane.focus.direction = "right" } }
 "alt-tab"     = { action = { client.pane.next = {} } }
 "alt-f"       = { action = { client.pane.zoom = { zoomed = "toggle" } } }
-"alt-shift-h" = { action = { client.pane.swap.direction = "left" } }
-"alt-shift-j" = { action = { client.pane.swap.direction = "down" } }
-"alt-shift-k" = { action = { client.pane.swap.direction = "up" } }
-"alt-shift-l" = { action = { client.pane.swap.direction = "right" } }
+"alt-p"       = { action = { client.mode = "panes" } }
 "alt-b"       = { action = { client.sidebar.toggle = {} } }
 "alt-g"       = { action = { client.mode = "tabs" } }
 "alt-r"       = { action = { client.mode = "resize" } }
@@ -100,6 +97,22 @@ kind = "sticky"
 "shift-j" = { action = { client.tab.move.direction = "down" }, label = "move down" }
 "shift-l" = { action = { client.tab.move.direction = "in" }, label = "move in" }
 "shift-h" = { action = { client.tab.move.direction = "out" }, label = "move out" }
+"esc"     = { action = { client.mode = "normal" } }
+
+[client.modes.panes]
+kind = "sticky"
+
+[client.modes.panes.keys]
+"h"       = { action = { client.pane.focus.direction = "left" } }
+"j"       = { action = { client.pane.focus.direction = "down" } }
+"k"       = { action = { client.pane.focus.direction = "up" } }
+"l"       = { action = { client.pane.focus.direction = "right" } }
+"shift-h" = { action = { client.pane.swap.direction = "left" }, label = "swap left" }
+"shift-j" = { action = { client.pane.swap.direction = "down" }, label = "swap down" }
+"shift-k" = { action = { client.pane.swap.direction = "up" }, label = "swap up" }
+"shift-l" = { action = { client.pane.swap.direction = "right" }, label = "swap right" }
+"."       = { action = { server.pane.cycle = { direction = "next" } } }
+","       = { action = { server.pane.cycle = { direction = "prev" } } }
 "esc"     = { action = { client.mode = "normal" } }
 
 [client.modes.resize]
