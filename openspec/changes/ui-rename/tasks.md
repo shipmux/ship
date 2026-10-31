@@ -6,9 +6,9 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 1. Input is read at its turn
 
-- [ ] 1.1 In `crates/ship-client/src/ui/keys.rs`, reshape `Handled` into `Action`, `Key`, `Paste` and `None`, and remove `Handled::Queue`, `Handled::Now` and `fn handled`.
-- [ ] 1.2 In `crates/ship-client/src/ui/lane.rs`, add `Item::Event`, `Item::Menu` and `Turn::Local`.
-- [ ] 1.3 In `crates/ship-client/src/ui/mod.rs`:
+- [x] 1.1 In `crates/ship-client/src/ui/keys.rs`, reshape `Handled` into `Action`, `Key`, `Paste` and `None`, and remove `Handled::Queue`, `Handled::Now` and `fn handled`.
+- [x] 1.2 In `crates/ship-client/src/ui/lane.rs`, add `Item::Event`, `Item::Menu` and `Turn::Local`.
+- [x] 1.3 In `crates/ship-client/src/ui/mod.rs`:
   - Replace `Local::menu` with `Local::overlay` (`Overlay::Menu` only).
   - Add `read`, `offline` and `land`, and pass `screen` to `turn`.
   - Return `Turn::Local` for mode, sidebar and reload actions.
@@ -20,7 +20,17 @@ Verification uses real commands and a running client, not permanent authored tes
   - `specs/context-menus/spec.md`: "Selection when a menu opens", "Using an open menu" and "Menu items run as key actions".
   - `specs/mouse-input/spec.md`: ADDED "Mouse input queued before an overlay".
   - `specs/terminal-client/spec.md`: ADDED "Input while disconnected".
-- [ ] 1.5 Verify every slice-1 check in `design/program.md`.
+- [x] 1.5 Verify every slice-1 check in `design/program.md`.
+
+### Slice-1 evidence
+
+- macOS: formatting, Clippy with warnings denied, workspace tests (80 passed, 1 ignored), build and strict OpenSpec validation passed. No permanent tests added; Linux remains unverified.
+- Owned temporary server, isolated config/state/runtime directories, and a Unix-socket proxy delaying traffic 500 ms each way. Cyan approved sockets in place of the paper's obsolete TCP-port setup. Existing servers were not used.
+- Delayed `alt-n`, `alt-g`, `j`: 100/100 correct selections with no leaked `j`; mode bar stayed unchanged while create waited. Immediate typing after create and split-then-zoom: 10/10 each.
+- Menu keyboard and mouse picks, typing before a right-click, queued wheel suppression with a mouse-tracking positive control, queued click dismissal, bracketed paste and resize passed. Idle mode/sidebar controls, reload, clicks, sidebar and pane-border drags, tab drops and one-shot redraw passed. The idle mode bar was observed within 9 ms in this probe, not a general latency benchmark.
+- After abrupt server loss, modes, sidebar controls and explicit reload still worked; server-dependent input was dropped and `alt-q` detached.
+- Cyan approved an additional client-side barrier: actions and routed clicks wait for the outbox to drain, while consecutive program input can still batch. Without it, the typing-before-menu probe sent selection request 10 while input request 9 was still buffered; the server refused the selection. The final run passed with no numbered-request refusals.
+- Disposable verifier: `/tmp/ship-ui-slice1-verify.py`; final evidence, screen captures and logs: `/tmp/ship-ui-s1-_m1x1baf/`. Additional paste, menu-click and resize checks: `/tmp/ship-ui-slice1-extra.py`, evidence in `/tmp/ship-ui-s1-1eil9emo/`. Owned servers and tmux sessions were stopped.
 
 ## 2. Panes mode
 

@@ -13,7 +13,7 @@ use ship_core::{
 };
 
 use super::{
-    Local,
+    Local, Overlay,
     observer::{Observer, Selected},
     panes,
     sidebar::Sidebar,
@@ -113,7 +113,7 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
         // A cursor under the overlay would sit on top of it.
         cursor = cursor.filter(|(at, _)| !overlay.contains(*at));
     }
-    if let Some(menu) = &mut local.menu {
+    if let Some(Overlay::Menu(menu)) = &mut local.overlay {
         menu.draw(frame);
         return None;
     }
