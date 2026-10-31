@@ -1,5 +1,8 @@
 # Configuration and plugin ownership precedents
 
+> [!NOTE]
+> Historical research from before Ship's configuration system. Config files, reload, keys and menus are now implemented. See [Configuration](../site/configuration.md) for current behavior; the comparison below is preserved as recorded.
+
 Configuration and plugin systems are deferred beyond Ship's first terminal slice. Start with fixed defaults and minimal operational/exit bindings; no config file, reload mechanism, plugin runtime or registry. The observations below are context for a later slice, not adopted implementation choices.
 
 ## Source-only comparison

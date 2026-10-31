@@ -1,5 +1,8 @@
 # Ship typed relay contract
 
+> [!NOTE]
+> Historical design reference, written before Ship's relay was implemented. See [`relay.rs`](../../crates/ship-core/src/relay.rs) and [session observation requirements](../../openspec/specs/session-observation/spec.md) for the current implementation and contract. The proposal below is preserved as recorded.
+
 This is a self-contained design reference for Ship's proposed typed actor relay. It records the relevant behavior of the implementation inspected during planning without requiring another repository. It is not implemented Ship code, a dependency selection or runtime verification.
 
 ## Responsibilities

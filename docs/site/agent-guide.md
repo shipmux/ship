@@ -19,7 +19,7 @@ Ask which terminal emulator and shell they use, which operating system, which co
 
 ## 2. Install
 
-The [Overview's Install section](README.md#install) lists the prerequisites and the build commands. Check each prerequisite with a command (`cargo --version`, `zig version` and so on) before installing anything, report what is missing, and run the build only with the person's go-ahead.
+[Building from source](building-from-source.md) lists the prerequisites and the build commands. Check each prerequisite with a command (`cargo --version`, `zig version` and so on) before installing anything, report what is missing, and run the build only with the person's go-ahead.
 
 Done when `ship --version` prints a version.
 
@@ -49,7 +49,7 @@ Done when an agent the person uses shows up in the sidebar's agent list.
 Ship runs on its defaults with no config file. If the person wants changes, read [Configuration](configuration.md) first, then:
 
 1. Write only the settings they change to `~/.config/ship/config.toml` (or `$XDG_CONFIG_HOME/ship/config.toml`). Copying all of `ship config defaults` pins every default and stops it following Ship's updates.
-2. Run `ship config check`. It prints nothing and exits 0 when the file is valid, and otherwise points at the first mistake with its line and column.
+2. Run `ship config check`. It prints nothing and exits 0 when the file is valid, and otherwise lists the findings with their locations.
 3. Open windows apply the file when it is saved. Server settings apply to new panes only.
 
 For tmux habits, the prefix-mode example on the Configuration page is the starting point. Done when `ship config check` exits 0.
@@ -57,7 +57,7 @@ For tmux habits, the prefix-mode example on the Configuration page is the starti
 ## 7. Optional extras
 
 - [Shell completions](shell-completions.md): one line in the shell's startup file.
-- [Scripting Ship](scripting/README.md): if the person wants their agents to open panes, send prompts to other agents and read the answers, the scripting pages show the commands. Every command prints JSON.
+- [Scripting Ship](scripting/README.md): if the person wants their agents to open panes, send prompts to other agents and read the answers, the scripting pages show the commands. Commands that return tabs or panes print JSON; `pane read` prints text, and commands with no result print nothing on success.
 
 ## When something goes wrong
 

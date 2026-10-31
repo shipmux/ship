@@ -1,5 +1,8 @@
 # Agent state detection
 
+> [!NOTE]
+> Historical research. Ship now uses agents' own status reports, not this proposed screen-rule engine. See [Agents](../site/agents.md) for current behavior. The findings below are preserved as recorded.
+
 Evidence gathered on 2026-10-08 from Herdr's source and docs at commit `d6b40d4e` (2026-10-01), during a design conversation about milestone 3. Nothing was built or run in Ship. This note records a deferred direction so it can be picked up when milestone 3 starts. It is not an approved design.
 
 ## Summary

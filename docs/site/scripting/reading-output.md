@@ -8,10 +8,11 @@ Not here: waiting for output (handing-work-to-another-agent.md).
 ```sh
 ship pane read --pane "$PANE"                 # what's on screen now
 ship pane read --pane "$PANE" --lines 200     # the last 200 lines, including history
-ship pane read --pane "$PANE" --ansi | cat    # keep the colors
+ship pane read --pane "$PANE" --lines 200 --unwrap  # join lines wrapped by the terminal
+ship pane read --pane "$PANE" --ansi         # keep colors as terminal escape codes
 ```
 
-Reading doesn't move anyone's scroll position.
+`PANE` is a pane ID from `ship pane create` or `ship tab list`. Each command prints text, not JSON, and doesn't move anyone's scroll position.
 
 ## Reading after a program exits
 

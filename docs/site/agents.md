@@ -5,9 +5,7 @@ Scope: How agents show up: the sidebar entry and its states, sounds and notifica
 Not here: agent settings (configuration.md), driving agents from scripts (scripting/).
 -->
 
-Agents report their own state using [OSC 7501, the Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status). Claude Code, Codex, Pi and crush already do, so they work with no setup. Ship has no list of agents to update; anything that speaks the protocol shows up.
-
-Each reporting agent gets an entry in the lower half of the sidebar:
+See which agents are busy and which need an answer without visiting every pane. The lower half of the sidebar shows entries like this:
 
 ```text
 ▲ claude blocked
@@ -24,9 +22,15 @@ ship › api
 
 The ones that need you sort to the top. Tabs show the most urgent icon from anything inside them, so you can spot a blocked agent even in a folded tab.
 
-Press `alt-a` to jump to the next agent that needs you. Click an entry to go to its pane.
+Press `alt-a` to jump to the next agent that needs you. If none needs you, it cycles through all agents. Click an entry to go to its pane.
 
 **Unseen** is tracked per window. An agent that finishes while its pane isn't on screen in a focused window stays `◆` until you look at it. A window you attach later starts with nothing marked unseen.
+
+## Which agents appear
+
+Agents report their own state using [OSC 7501, the Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status). Claude Code, Codex, Pi and crush already do, so they work with no setup. Ship has no list of agents to update; programs that report their own status work without an agent-specific integration.
+
+Each pane's reporting program gets one entry. Subagents reported within that program don't get separate entries.
 
 ## Sounds and notifications
 
@@ -36,9 +40,9 @@ Set `popups = true` to also get desktop notifications through your terminal, lik
 
 ## When an agent's status looks stuck
 
-An agent that crashes can't report that it stopped, so its last state hangs around. Ship can clear it when your shell shows its next prompt, but only if the shell marks its prompts. Bash and zsh don't by default. For zsh, add this to `~/.zshrc`:
+An agent that crashes can't report that it stopped, so its last state hangs around. Ship can clear stale working or blocked states when your shell shows its next prompt, but only if the shell marks its prompts. Error states stay visible. Bash and zsh don't mark prompts by default. For zsh, add this to `~/.zshrc`:
 
-```sh
+```zsh
 _prompt_mark() { print -n '\e]133;A\e\\' }
 precmd_functions+=(_prompt_mark)
 ```

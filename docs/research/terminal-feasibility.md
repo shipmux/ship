@@ -1,5 +1,8 @@
 # Terminal capture and patch feasibility
 
+> [!NOTE]
+> Historical dependency probe. Ship now vendors its terminal wrapper and uses compressed full snapshots, not the screen-diff pipeline below. For current build prerequisites, see [Installation](../../README.md#installation). The old versions, results and open questions are preserved as recorded.
+
 The supplied session plus a small compatibility patch passed the macOS feasibility checks. Owned screen conversion and JSON patch application worked. Cyan accepted the default whole-vector strategy for the first slice and deferred optimization until profiling real Ship usage shows a bottleneck.
 
 This is dependency evidence, not a completed Ship client/server implementation. Decisions live in the [capture ticket](https://github.com/Cyanistic/ship/blob/a26c037/.scratch/first-terminal-slice/issues/02-screen-capture.md) and [diff ticket](https://github.com/Cyanistic/ship/blob/a26c037/.scratch/first-terminal-slice/issues/03-screen-diffs.md).

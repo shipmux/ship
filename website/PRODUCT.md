@@ -20,7 +20,7 @@ Versions are one Astro build per git ref, merged into one output by `website/scr
 
 ## Product Purpose
 
-Ship is a small terminal workspace for running several coding agents at once. A background server keeps shells, editors and agents alive in tabs and split panes after the window closes, shows which agent is working, blocked, finished or idle, and lets agents open panes and hand work to each other through a JSON CLI.
+Ship is a small terminal workspace for running several coding agents at once. A background server keeps shells, editors and agents alive in tabs and split panes after the window closes, shows which agent is working, blocked, finished or idle, and lets agents open panes and hand work to each other through the CLI. Commands that return tabs or panes print JSON; reading a pane prints text.
 
 The site exists to turn "oh that's pretty cool" into "let me actually try this", and then to get out of the way of people who came for the docs.
 
@@ -36,7 +36,7 @@ Ship runs in a terminal on Linux and macOS (Windows best effort). Users install 
 
 ## Capabilities and Constraints
 
-Use `README.md` as the source of truth for what works today and what isn't built. Never claim a feature from "Not built yet" (releases, history search, keyboard copy mode, resuming agents after restart, direct remote connections).
+Use `README.md` as the source of truth for what works today and what isn't built. Never claim a feature from "Not built yet" (releases, built-in history search, keyboard copy mode, resuming agents after restart, a combined multi-server view). Manual SSH access and Unix socket forwarding already work. Cyan has used Ship successfully on Linux; do not describe Linux as untested. Historical macOS-only benchmarks are not a statement about current platform support.
 
 Agent display states, from `openspec/specs/agent-attention/spec.md`. Any crewmate mood must sit next to its glyph and colour, never replace it:
 

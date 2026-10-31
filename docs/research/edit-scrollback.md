@@ -1,5 +1,8 @@
 # Edit scrollback
 
+> [!NOTE]
+> Historical research. Editing scrollback is now implemented using pane stacks, not the split-and-zoom proposal below. See [Edit scrollback](../site/panes.md#edit-scrollback) for current behavior. The original options and open questions are preserved as recorded.
+
 Status: undecided. Recorded on 2026-10-27 for [#85](https://github.com/shipmux/ship/issues/85). Nothing here authorizes implementation.
 
 ## The question

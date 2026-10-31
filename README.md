@@ -6,7 +6,7 @@ Not here: keys, configuration and CLI walkthroughs (docs/site/).
 <div align="center">
 <img src="website/public/marks/app-large.svg" height="216" width="216" alt="A pixel sailing ship with three crewmates on deck">
 
-**Ship - A Terminal Workspace for Working Alongside Coding Agents**
+**Ship - A terminal workspace for you and your coding agents**
 
 [Overview](#overview) •
 [What works today](#what-works-today) •
@@ -16,16 +16,16 @@ Not here: keys, configuration and CLI walkthroughs (docs/site/).
 
 </div>
 
-> [!WARNING]
-> **Ship is a work in progress.** There are no releases yet. See [what works today](#what-works-today) and [what isn't built yet](#not-built-yet).
+> [!NOTE]
+> **Ship is a work in progress.** There are no releases yet, but you can build it from source and try it today.
 
 [![Claude Code and Pi working side by side in nested tabs, with the sidebar marking each agent's state](https://shipmux.github.io/ship/demo/waterline.gif)](https://shipmux.github.io/ship/)
 
 ## Overview
 
-Ship is a terminal multiplexer, like tmux or Zellij, except it treats coding agents as first-class citizens instead of just another program in a pane. Your shells and agents run in tabs and split panes on a background server, so they keep going after you close the window.
+Keep your editor, shells and coding agents in one place, without switching through every tab to find out who needs you.
 
-Programs can tell Ship what they're doing through a recently proposed protocol, the [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status), and Ship shows it in the sidebar:
+Ship is a terminal multiplexer, like tmux or Zellij, with a sidebar that shows what your agents are doing. Your work runs on a background server, so closing the window doesn't stop it. Open Ship again and carry on where you left off.
 
 ```text
 ─ agents ─────────────
@@ -37,83 +37,58 @@ ship › docs
 site
 ```
 
-So you can see what's working, what's waiting on you and what finished without flipping through tabs. Nothing about the protocol is specific to agents, but agents are where it's actually useful, and Claude Code, Codex, Pi and crush already support it. Support is up to each agent's authors, so there's no list of agents in Ship to keep up to date.
+Claude needs an answer, Codex is still working, and Pi finished while you were looking elsewhere. Jump to the one that needs you instead of checking them all.
 
-Everything Ship does is also a `ship` command that prints JSON, and it's the same binary your agent calls from bash. So an agent running in Ship can start another one and hand it work:
-
-```sh
-$ ship pane create --name worker -- claude
-{"id":"pane:8df435b8…","name":"worker","command":["claude"],"status":{"state":"running"},…}
-
-$ ship pane send --pane pane:8df435b8… "write a haiku about ships" --key enter --wait
-{"id":"pane:8df435b8…",…,"program":{"":{"state":"done","app":"claude"}}}
-
-$ ship pane read --pane pane:8df435b8…
-write a haiku about ships
-wooden hull at dusk
-three small crewmates keep the watch
-the build turns green
-```
-
-No SDK or plugin needed, same reason you'd just run grep instead of rewriting it in every language. [Handing work to another agent](docs/site/scripting/handing-work-to-another-agent.md) has the full loop.
-
-The name started as a joke about shipping software faster, and the ship and crew theme grew out of that.
+You can keep a whole project under one tab, split panes for things you want side by side, or stack a temporary shell over a busy pane without squeezing everything smaller. And your agents can use the same `ship` commands you do to open panes, hand work to each other and read the results. No SDK or plugin needed. [See the handoff workflow](docs/site/scripting/handing-work-to-another-agent.md).
 
 ### Why another multiplexer?
 
-[Herdr](https://github.com/herdrdev/herdr) already does a lot of this, and Ship is heavily inspired by it, but it tries to cover most of what Herdr does day to day with a much smaller codebase, by using libraries for the hard parts (terminal emulation from [Ghostty](https://ghostty.org), PTYs, transport) and only writing the tab, pane and agent parts itself.
+[Herdr](https://github.com/herdrdev/herdr) is a big inspiration. Ship aims to cover most of its daily-use value with less code to maintain, using libraries for the hard parts, including terminal emulation from [Ghostty](https://ghostty.org), and owning how tabs, panes and agents fit together.
+
+The name started as a joke about shipping software faster, and the ship and crew theme grew out of that.
 
 ## What works today
 
-- **Detaching.** Close the window or press `alt-q` and everything keeps running until you come back. [More](docs/site/windows-and-the-server.md)
-- **Saved tabs.** After a restart, your tabs, splits and directories come back with fresh shells. [More](docs/site/saved-tabs.md)
-- **Agent status.** Agents that speak the Program Status Protocol show in the sidebar, with a sound when one needs you. [More](docs/site/agents.md)
-- **Nested tabs.** A tab can hold its own tabs, and the sidebar shows them as a tree you can fold. [More](docs/site/tabs.md)
-- **Split panes.** Split, zoom, swap and resize from the keyboard or the mouse. [More](docs/site/panes.md)
-- **Several windows.** Attach from more than one terminal, each looking at its own tab. [More](docs/site/windows-and-the-server.md)
-- **Scrollback and copy.** Scroll back through a pane's history and drag to copy. [More](docs/site/scrolling-copying-and-the-mouse.md)
-- **A CLI that prints JSON.** Scripts and agents can do anything you can do from the keyboard. [More](docs/site/scripting/README.md)
-- **Custom keys and menus.** Rebind anything, build tmux-style prefix modes, and change the right-click menus. [More](docs/site/configuration.md)
+- **See who needs you.** The sidebar shows agent status, with sounds when work finishes or needs an answer. Claude Code, Codex, Pi and crush report their state without a Ship-specific integration. [Agents](docs/site/agents.md)
+- **Make room for a whole project.** Nest tabs, split or stack panes, zoom in, and move or rename things with the keyboard or mouse. [Tabs](docs/site/tabs.md) · [Panes](docs/site/panes.md)
+- **Leave the window, not the work.** Detach and come back to the same running programs, or open several terminal windows onto one server. [Windows and the server](docs/site/windows-and-the-server.md)
+- **Get your layout back after a restart.** Tabs, stacks, splits and directories return with fresh shells. Your old programs don't restart. [Saved tabs](docs/site/saved-tabs.md)
+- **Search output in your own editor.** Open a pane's scrollback in your editor, or drag to copy straight from the terminal. [Scrollback and copy](docs/site/scrolling-copying-and-the-mouse.md)
+- **Give scripts and agents the controls.** Create panes, send prompts or keys, wait for status reports and read output through the CLI. [Scripting Ship](docs/site/scripting/README.md)
+- **Keep your habits.** Rebind keys, add a tmux-style prefix, customize menus or run your own scripts from a key. Config changes apply when you save. [Configuration](docs/site/configuration.md)
 
-Linux and macOS are the priority platforms. Windows is best effort.
+Agents report through the [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status). Anything that reports its own status can work with Ship; there's no per-agent plugin list to maintain.
+
+Linux and macOS are the priority platforms, and both have been used successfully. Windows is best effort.
 
 ### Not built yet
 
-- Releases and packages.
-- Searching a pane's history, and a keyboard copy mode. For now, `ship pane read --lines N | grep ...` covers search.
-- Resuming agent conversations or rerunning programs after a restart. Saved tabs come back with fresh shells.
-- Connecting to another machine's server directly. The server only accepts local connections for now, so [use an SSH tunnel](docs/site/windows-and-the-server.md#using-ship-on-another-machine).
-- A login for the server. Anything running on your machine, under any user account, can drive it. [More](docs/site/windows-and-the-server.md#using-ship-on-another-machine)
-- Testing on Linux. Most features have only been checked on macOS so far.
+- Releases and packages. Installation is from source for now.
+- Built-in history search and keyboard copy mode. Use [scrollback in your editor](docs/site/panes.md#edit-scrollback) instead.
+- Resuming agent conversations or rerunning programs after a server restart. Saved tabs start fresh shells.
+- A combined view of servers on several machines. You can already [run Ship over SSH or forward a remote socket](docs/site/windows-and-the-server.md#using-ship-on-another-machine).
 
 ## Installation
 
-There are no releases yet, so you'll need to build from source. You need:
+Install the [build prerequisites](docs/site/building-from-source.md#prerequisites), including Rust, Zig 0.17 and `git`, then:
 
-- a recent stable [Rust toolchain](https://www.rust-lang.org/tools/install)
-- [Zig](https://ziglang.org/download/) 0.17 on your `PATH`, to build Ghostty's terminal library
-- `git` and a network connection on the first build, which fetches Ghostty's source
-- on Linux, `pkg-config` and ALSA's development headers for sound (`libasound2-dev` on Debian and Ubuntu, `alsa-lib-devel` on Fedora)
-
-Then:
 ```sh
 git clone https://github.com/shipmux/ship.git
 cd ship
 cargo install --path crates/ship
+ship
 ```
 
-Run `ship`. It starts a server in the background if one isn't running, restores its saved tabs, and opens on the first tab's first pane. With nothing to restore, it creates a tab with your shell. Press `alt-q` to detach; the server and everything in it keeps running, and `ship` brings you back.
-
-On macOS, set your terminal to use Option as Alt (often called "Option as Meta"), or Ship's keys will type special characters instead.
+[Building from source](docs/site/building-from-source.md) covers platform setup, local builds, updates and build problems. The [first session](docs/site/README.md#first-run) picks up once Ship is installed.
 
 ## Docs
 
-The [guide](docs/site/README.md) starts with the keys you need for a first session and a short CLI demo, and goes from there. Some pages you'll probably want early on:
+The [guide](docs/site/README.md) walks through a first session. From there:
 
-- [All the keys](docs/site/keys.md)
-- [Configuration](docs/site/configuration.md)
-- [Scripting Ship](docs/site/scripting/README.md)
-- [Troubleshooting](docs/site/troubleshooting.md)
+- [Keys](docs/site/keys.md) for the everyday controls
+- [Configuration](docs/site/configuration.md) to make it yours
+- [Scripting Ship](docs/site/scripting/README.md) for scripts and agent handoffs
+- [Troubleshooting](docs/site/troubleshooting.md) when something isn't working
 
 ## License
 

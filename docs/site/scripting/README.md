@@ -5,7 +5,18 @@ Scope: What every `ship` command shares for scripts (JSON output, explicit IDs, 
 Not here: the recipes themselves.
 -->
 
-Anything you can do with keys, you can also do with `ship` commands. They print JSON and take explicit IDs, so a script never acts on whichever pane you happen to have selected. Inside a Ship pane, `--pane` defaults to that pane. In these examples, `$PANE` holds a pane ID, like one printed by `ship pane create` or listed by `ship tab list`.
+Use `ship` commands to open panes, send work and read the results. Commands take explicit IDs, so changing your selection doesn't redirect a script.
+
+```sh
+ship pane get --pane "$PANE" | jq .status   # inspect a pane as JSON
+ship pane read --pane "$PANE" --lines 40   # read its output as text
+```
+
+Commands that return tabs, panes or views print JSON. `pane read` prints text. Commands with no result, such as closing a pane or sending without `--wait`, print nothing on success. [Command errors](reading-command-errors.md) explains failures.
+
+In these examples, `$PANE` holds an ID from `ship pane create` or `ship tab list`, and [`jq`](https://jqlang.org) reads fields from JSON. Inside a Ship pane, you can omit `--pane` to target that pane, not whichever pane the user selects next.
+
+Tab, pane and view commands start a missing named server, just like bare `ship`. To check without starting one, use `ship server status`. Passing `--server-url` also connects only and never starts a server.
 
 - [Reading output](reading-output.md)
 - [Typing into a pane](typing-into-a-pane.md)

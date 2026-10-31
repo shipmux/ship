@@ -30,14 +30,15 @@
     <div class="hero-text">
       <h1 id="title" class="pixel p66"><span class="nb">staying afloat</span> <span class="nb">in an ocean</span> <span class="nb">of slop</span></h1>
       <p class="lede">ship is a small terminal workspace that gives you and your coding agents somewhere steady to work while everyone else keeps shipping more slop.</p>
+      <p>run your editor, shells and agents side by side, see who needs you, and close the window without stopping the work.</p>
       <div class="install-quick">
         <div class="term cmd">
           <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship &amp;&amp; cargo install --path crates/ship">copy</button>
 <pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
 <span class="t-prompt">$ </span>cd ship &amp;&amp; cargo install --path crates/ship</pre>
         </div>
-        <p>there are no releases yet, so ship builds from source with rust and zig 0.17. linux and macos come first, and windows is best effort.</p>
-        <div class="links"><a href="/docs/">read the docs</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
+        <p>a work in progress you can try today. builds from source with rust and zig 0.17.</p>
+        <div class="links"><a href="#install">build and try ship</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
       </div>
     </div>
     <div class="rig">
@@ -60,7 +61,7 @@
             <li><span class="s-idle">○</span> crush idle<span class="tab">notes</span></li>
           </ul>
         </div>
-        <figcaption>from the crow's nest, the lookout watches ship's agent list, with the ones that need you sorted to the top. drawn by hand to match the real sidebar.</figcaption>
+        <figcaption>one agent needs permission, another is working, and one finished while you were looking elsewhere. a sketch of ship's real sidebar, with the ones that need you at the top.</figcaption>
       </figure>
     </div>
   </div>
@@ -73,28 +74,27 @@
   <div class="climber" aria-hidden="true"><span class="act a-point"></span></div>
   <div class="deck-in">
     <h2 id="deck-title" class="pixel p33"><span class="place">deck</span> what works today</h2>
-    <p class="intro">there are no releases yet, but a build from source does all of this today. linux and macos are the priority platforms, and windows is best effort.</p>
+    <p class="intro">keep a project together while several things are happening at once. these all work today, with successful use on linux and macos. windows is best effort.</p>
     <ul class="works">
-      <li><h3 class="pixel p22"><a href="/docs/windows-and-the-server/">work that keeps running</a></h3><p>a background server owns your terminals. close the window or press <code>alt-q</code> to detach, and everything keeps running until you come back.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/saved-tabs/">saved tabs</a></h3><p>after a server restart or reboot, your tabs, splits and directories come back with fresh shells. programs, agent conversations and scrollback do not resume.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/agents/">agent status</a></h3><p>agents that report their state, like claude code, codex and pi, get a sidebar entry showing whether they're working, blocked, finished unseen or idle, and their tabs show it too. a sound plays when one finishes or needs you while you're looking elsewhere, and <code>alt-a</code> jumps to it.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/tabs/">tabs inside tabs</a></h3><p>tabs can nest, so a big task can hold its own smaller ones. a sidebar shows the tree. fold the parts you aren't looking at, or drag rows to reorder and nest tabs.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/panes/">split panes</a></h3><p>split, zoom, swap and resize from the keyboard, or drag shared borders to resize. new splits open in the directory you were working in.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/windows-and-the-server/">more than one window</a></h3><p>attach from several terminals at once. each one picks its own tab and pane, while the work underneath is shared.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/scrolling-copying-and-the-mouse/">scrollback and copy</a></h3><p>scroll back through a pane's history, and drag to select and copy text.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/scripting/">a scriptable cli</a></h3><p>server actions are also <code>ship</code> commands that print json, so scripts and agents can create panes, read output and steer a specific client's selection.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/scripting/handing-work-to-another-agent/">agents driving agents</a></h3><p><code>ship pane send</code> types a prompt or keys into a pane, and <code>ship pane wait</code> blocks until the agent there stops working, so one agent can hand work to another and read the answer.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/configuration/">your keys and menus</a></h3><p>rebind anything, build tmux-style prefix modes, and customize right-click menus for panes, tabs and the sidebar. let mouse-aware programs have right-clicks per pane. config changes apply when you save.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/windows-and-the-server/">leave and come back</a></h3><p>close the window or press <code>alt-q</code>, and your programs keep running on the background server. run <code>ship</code> again to carry on.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/saved-tabs/">get your layout back</a></h3><p>after a server restart or reboot, your tabs, splits, stacks and directories return with fresh shells. the layout comes back, not the old running programs.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/agents/">know who needs you</a></h3><p>see who's working, waiting for an answer or finished unseen. a sound lets you know when something needs attention, and <code>alt-a</code> takes you there.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/tabs/">a tab for the whole project</a></h3><p>keep the api, docs and review under one project tab. fold the parts you aren't looking at, and move or rename tabs with the keyboard or mouse.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/panes/">split panes and stacks</a></h3><p>split when you want things side by side, or press <code>alt-s</code> for a shell on top without making your panes smaller. the pane behind it keeps running.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/windows-and-the-server/">several windows, same work</a></h3><p>open ship from more than one terminal. each window chooses what to look at, while the tabs, panes and running programs are shared.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/panes/#edit-scrollback">search in your own editor</a></h3><p>press <code>alt-e</code> to open scrollback in your editor and search with familiar keys. or drag to copy straight from a pane.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/scripting/">a cli for scripts and agents</a></h3><p>open panes, send text or keys and read output with <code>ship</code> commands. use explicit pane ids so changing your selection doesn't redirect a script.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/scripting/handing-work-to-another-agent/">hand work to another agent</a></h3><p>an agent can open a second pane, give another agent a task, wait for its status report and read the reply. no sdk or plugin needed.</p></li>
+      <li><h3 class="pixel p22"><a href="/docs/configuration/">keep your habits</a></h3><p>change keys and menus, add a tmux-style prefix, or run your own scripts from a key. save the config and open windows pick up the changes.</p></li>
     </ul>
 
     <aside class="notyet" aria-labelledby="notyet-title">
       <h3 id="notyet-title" class="pixel p22">not built yet</h3>
       <ul>
         <li>releases and packages.</li>
-        <li>searching a pane's history, and a keyboard copy mode. for now, <code>ship pane read --lines N | grep ...</code> covers search.</li>
-        <li>resuming agent conversations or rerunning programs after a restart. saved tabs come back with fresh shells.</li>
-        <li>connecting to another machine's server directly. the server only accepts local connections for now, so <a href="/docs/windows-and-the-server/#using-ship-on-another-machine">use an ssh tunnel</a>.</li>
-        <li>testing on linux. most features have only been checked on macos so far.</li>
+        <li>built-in history search and keyboard copy mode. <a href="/docs/panes/#edit-scrollback">use your editor</a> instead.</li>
+        <li>resuming agent conversations or rerunning programs after a server restart. saved tabs start fresh shells.</li>
+        <li>a combined view of servers on several machines. you can already <a href="/docs/windows-and-the-server/#using-ship-on-another-machine">run ship over ssh or forward a remote socket</a>.</li>
       </ul>
     </aside>
 
@@ -163,7 +163,7 @@
     <div class="water-copy">
       <h2 id="waterline-title" class="pixel p33"><span class="place">waterline</span> <span class="nb">the ocean of slop</span> <span class="plain">why ship</span></h2>
       <p>this is the water everyone else keeps shipping into: readmes that promise everything, pull requests nobody read to the end, and features that exist because generating them was cheaper than deciding not to.</p>
-      <p>ship can't drain it, and it doesn't try. it keeps your shells, editors and agents in tabs and panes on a server that stays up after the window closes, and it tells you which agent is working, which one is stuck on a question and which one finished while you were looking somewhere else, so whatever you send out is something you actually looked at.</p>
+      <p>ship can't review your work for you. it gives you somewhere to stay involved, with your editor beside the agents, a sidebar that tells you who needs an answer, and room to check what came back before you send it out.</p>
     </div>
     <figure class="recording">
       <div class="screen mount"><video src="demo/waterline.webm" poster="demo/waterline.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="a ship session: claude code and pi work side by side in nested tabs, claude stops on a permission question and the sidebar marks it blocked, the window detaches and reattaches with both agents still working"></video></div>
@@ -179,7 +179,7 @@
   <div class="below-in">
     <div class="below-head">
       <h2 id="below-title" class="pixel p33"><span class="place">below deck</span> how it works</h2>
-      <p class="intro">ship runs in two parts, a server that owns the work and windows that look at it, and the rooms below follow from that.</p>
+      <p class="intro">your programs live on a background server. the terminal window is how you look at them, and the cli lets scripts and agents join in.</p>
     </div>
 
     <article class="floor">
@@ -190,8 +190,8 @@
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">a server that stays up</h3>
-        <p>a background server owns your tabs, panes and the programs in them. running <code>ship</code> opens a window onto that server, and closing the window, or pressing <code>alt-q</code>, leaves everything running until you run <code>ship</code> again.</p>
-        <p>you can open ship from several terminals at once. the windows share the work, the same tabs, programs and output, but each picks its own tab and pane, folds its own sidebar and keeps its own mode. <code>ship server stop</code> ends the server and every program inside it.</p>
+        <p>the first <code>ship</code> starts a server for you. detach, close the terminal or open another window, and the same programs are still there. each window can look at a different part of the work.</p>
+        <p>the local connection is restricted to your user account. to work on another machine, <a href="/docs/windows-and-the-server/#using-ship-on-another-machine">use ssh</a>. stopping the server is different from closing a window: <code>ship server stop</code> ends every program inside it.</p>
       </div>
       <figure class="floor-fig">
         <div class="term mount dg" role="img" aria-label="three windows above one server. two windows are attached, each on its own tab. the third was closed with alt-q, shown dashed. the server below holds four panes and keeps running either way.">
@@ -222,8 +222,8 @@
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">tabs and panes</h3>
-        <p>tabs can hold panes, other tabs, or both, so a big task can keep its smaller pieces underneath it, and the sidebar on the left shows the tree. a new split opens in the directory you were working in. by default, a pane closes when its program exits; choose <code>keep</code> to read its output afterwards, or <code>keep_failed</code> to keep only failures.</p>
-        <p>agents that report their state get an entry in the lower half of the sidebar, with the ones that need you sorted to the top. tabs show the most urgent icon from anything inside them, so a blocked agent stays visible even in a folded tab.</p>
+        <p>keep an editor beside a test run, nest smaller tasks under a project tab, or stack a spare shell over a busy pane. new splits and stacked shells open in the directory you were working in. zoom in when you need more room, then return to the same layout.</p>
+        <p>claude code, codex, pi and crush report their own state through the <a href="/docs/agents/">program status protocol</a>. ship shows it in the sidebar and on their tabs, so an agent waiting for permission stays visible even when its tab is folded.</p>
       </div>
       <figure class="floor-fig">
         <div class="term mount ui" role="img" aria-label="a sketch of ship's layout: a sidebar with a tree of tabs and a list of agents, and three panes, one running cargo test, one with claude waiting on a question and one with nvim">
@@ -259,17 +259,17 @@ Apply changes?
         <i class="eyes" style="--x:11;--y:36;animation-delay:-5s"></i>
       </div>
       <div class="floor-text">
-        <h3 class="pixel p22">a cli that prints json</h3>
-        <p>anything you can do with keys you can also do with <code>ship</code> commands. they print json and take explicit ids, so a script never acts on whichever pane you happen to have selected, and inside a ship pane the commands default to the pane they run in.</p>
+        <h3 class="pixel p22">use the terminal to drive it</h3>
+        <p>create a pane, run a command, read its output and close it, all from a shell script. commands that return tabs or panes print json, <code>pane read</code> prints text, and commands with no result stay quiet on success.</p>
+        <p>try this with <code>ship</code> and <code>jq</code> installed. a demo tab appears, a command counts to 100, and the last three lines come back to your terminal.</p>
       </div>
       <figure class="floor-fig">
         <div class="term mount cmd">
-          <button class="copy" type="button" data-copy="TAB=$(ship tab create --name demo | jq -r .id)&#10;PANE=$(ship pane create --tab &quot;$TAB&quot; --exit-behavior keep -- sh -c 'seq 100' | jq -r .id)&#10;ship pane wait --pane &quot;$PANE&quot; --status exited &gt;/dev/null&#10;ship pane read --pane &quot;$PANE&quot; --lines 5&#10;ship tab close --tab &quot;$TAB&quot;">copy</button>
+          <button class="copy" type="button" data-copy="TAB=$(ship tab create --name demo | jq -r .id)&#10;PANE=$(ship pane create --tab &quot;$TAB&quot; --exit-behavior keep -- sh -c 'seq 100' | jq -r .id)&#10;ship pane wait --pane &quot;$PANE&quot; --status exited &gt;/dev/null&#10;ship pane read --pane &quot;$PANE&quot; | tail -3&#10;ship tab close --tab &quot;$TAB&quot;">copy</button>
 <pre><span class="t-prompt">$ </span>TAB=$(ship tab create --name demo | jq -r .id)
 <span class="t-prompt">$ </span>PANE=$(ship pane create --tab "$TAB" --exit-behavior keep -- sh -c <span class="t-s">'seq 100'</span> | jq -r .id)
 <span class="t-prompt">$ </span>ship pane wait --pane "$PANE" --status exited &gt;/dev/null
-<span class="t-prompt">$ </span>ship pane read --pane "$PANE" --lines 5
-97
+<span class="t-prompt">$ </span>ship pane read --pane "$PANE" | tail -3
 98
 99
 100
@@ -287,8 +287,8 @@ Apply changes?
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">agents driving agents</h3>
-        <p><code>ship pane send</code> types a prompt or keys into a pane, and <code>ship pane wait</code> blocks until the agent there stops working. that is enough for one agent to start another, give it a task and read the answer.</p>
-        <p><code>--wait</code> returns once the agent has stopped working, and the state it prints says how the turn ended: <code>done</code> or <code>idle</code> means it finished, and <code>blocked</code> means it is asking you something. this works with any program that reports its status.</p>
+        <p>an agent can open a second agent in a pane, send it a task and read back the answer, using the same commands you would type yourself.</p>
+        <p>waiting uses the program's status reports, not a guess at what's on screen. a reply might mean finished, blocked on a question or an error, so the caller can decide what to do next. the <a href="/docs/scripting/handing-work-to-another-agent/">handoff guide</a> covers the full loop and what to do if a wait fails.</p>
       </div>
       <figure class="recording">
         <div class="screen mount"><video src="demo/relay.webm" poster="demo/relay.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="claude code uses ship commands to open pi in the pane beside it, hands it a task, waits for it to finish and reads its answer back"></video></div>
@@ -305,7 +305,7 @@ Apply changes?
     <div class="hold-head">
       <div>
         <h2 id="hold-title" class="pixel p33"><span class="place">the hold</span> install, keys and config</h2>
-        <p class="intro">the practical part: how to build it, which keys do what and where the settings live, with links into the docs for the rest.</p>
+        <p class="intro">build ship, open a shell and try a split. these are enough to get started, with the rest in the docs when you want it.</p>
       </div>
       <div class="room hold-room" aria-hidden="true">
         <span class="act a-hold"></span>
@@ -316,43 +316,37 @@ Apply changes?
     <div class="cargo">
       <section class="crate-col" id="install" aria-labelledby="install-title">
         <h3 id="install-title" class="pixel p22">install</h3>
-        <p>there are no releases yet, so ship builds from source. you need:</p>
-        <ul class="needs">
-          <li>a recent stable <a href="https://www.rust-lang.org/tools/install">rust toolchain</a></li>
-          <li><a href="https://ziglang.org/download/">zig</a> 0.17 on your <code>PATH</code>, to build ghostty's terminal library</li>
-          <li><code>git</code> and a network connection on the first build, which fetches ghostty's source</li>
-          <li>on linux, <code>pkg-config</code> and alsa's development headers for sound (<code>libasound2-dev</code> on debian and ubuntu, <code>alsa-lib-devel</code> on fedora)</li>
-        </ul>
+        <p>ship builds from source for now. install the <a href="/docs/building-from-source/#prerequisites">build prerequisites</a>, including rust, zig 0.17 and <code>git</code>, then:</p>
         <div class="term cmd">
           <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
 <pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
 <span class="t-prompt">$ </span>cd ship
 <span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
         </div>
-        <p>run <code>ship</code>. it starts a server in the background if one isn't running, restores its saved tabs, and opens on the first tab's first pane. press <code>alt-q</code> to detach, and <code>ship</code> brings you back.</p>
+        <p>run <code>ship</code> to open a shell. try <code>alt-|</code> to split it, then <code>alt-q</code> to detach. run <code>ship</code> again and both shells are still there.</p>
         <p class="note">on macos, set your terminal to use option as alt, often called "option as meta", or ship's keys will type special characters instead.</p>
-        <p class="hold-links"><a href="/docs/">read the docs</a><a href="https://github.com/shipmux/ship/tree/main/docs/site">the docs on github</a><a href="https://github.com/shipmux/ship">ship on github</a></p>
+        <p class="hold-links"><a href="/docs/building-from-source/">full build and update instructions</a><a href="/docs/">read the docs</a><a href="https://github.com/shipmux/ship">ship on github</a></p>
       </section>
 
       <section class="crate-col" id="keys" aria-labelledby="keys-title">
         <h3 id="keys-title" class="pixel p22">keys</h3>
-        <p>all of ship's default keys are alt chords, and any other key goes to the program in the selected pane.</p>
+        <p>in normal mode, ship uses alt chords and other keys go to the selected pane. start with these, and keep the <a href="/docs/keys/">full key list</a> nearby.</p>
         <table class="keys">
-          <caption class="sr-only">default keys</caption>
+          <caption class="sr-only">a selection of default keys</caption>
           <tbody>
             <tr><th scope="row"><kbd>alt-n</kbd></th><td>new tab with a shell</td></tr>
-            <tr><th scope="row"><kbd>alt-shift-n</kbd></th><td>new tab nested under the current one</td></tr>
             <tr><th scope="row"><kbd>alt-x</kbd></th><td>close the tab</td></tr>
             <tr><th scope="row"><kbd>alt-|</kbd> <kbd>alt--</kbd></th><td>split the pane right or down</td></tr>
-            <tr><th scope="row"><kbd>alt-shift-x</kbd></th><td>close the pane</td></tr>
-            <tr><th scope="row"><kbd>alt-left</kbd> <kbd>alt-right</kbd></th><td>previous or next tab</td></tr>
-            <tr><th scope="row"><kbd>alt-h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></th><td>move to the pane left, below, above or right</td></tr>
+            <tr><th scope="row"><kbd>alt-s</kbd></th><td>stack a shell in front of the pane</td></tr>
+            <tr><th scope="row"><kbd>alt-,</kbd> <kbd>alt-.</kbd></th><td>previous or next pane in the stack</td></tr>
+            <tr><th scope="row"><kbd>alt-e</kbd></th><td>open scrollback in your editor</td></tr>
+            <tr><th scope="row"><kbd>alt-h</kbd> <kbd>alt-j</kbd> <kbd>alt-k</kbd> <kbd>alt-l</kbd></th><td>move to the pane left, below, above or right</td></tr>
             <tr><th scope="row"><kbd>alt-tab</kbd></th><td>next pane in the tab</td></tr>
             <tr><th scope="row"><kbd>alt-a</kbd></th><td>jump to the next agent that needs you</td></tr>
-            <tr><th scope="row"><kbd>alt-shift-h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></th><td>swap the pane with its neighbor in that direction</td></tr>
+            <tr><th scope="row"><kbd>alt-p</kbd></th><td>panes mode to move, swap or rename; <kbd>esc</kbd> leaves</td></tr>
             <tr><th scope="row"><kbd>alt-f</kbd></th><td>zoom the pane to fill the tab, or unzoom</td></tr>
             <tr><th scope="row"><kbd>alt-r</kbd></th><td>resize mode: <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> move the pane's edge, <kbd>esc</kbd> leaves</td></tr>
-            <tr><th scope="row"><kbd>alt-g</kbd></th><td>tabs mode: <kbd>j</kbd> <kbd>k</kbd> move, <kbd>h</kbd> <kbd>l</kbd> fold or unfold, <kbd>esc</kbd> leaves</td></tr>
+            <tr><th scope="row"><kbd>alt-t</kbd></th><td>tabs mode to navigate, fold, move or rename; <kbd>esc</kbd> leaves</td></tr>
             <tr><th scope="row"><kbd>alt-b</kbd></th><td>hide or show the sidebar</td></tr>
             <tr><th scope="row"><kbd>alt-pageup</kbd> <kbd>alt-pagedown</kbd></th><td>scroll the pane up or down a page</td></tr>
             <tr><th scope="row"><kbd>alt-q</kbd></th><td>detach</td></tr>
@@ -366,13 +360,12 @@ Apply changes?
         <p>ship reads <code>~/.config/ship/config.toml</code>, or <code>$XDG_CONFIG_HOME/ship/config.toml</code>. without one it uses its defaults, and a running window picks up changes as soon as you save.</p>
         <div class="term cmd">
 <pre tabindex="0" role="region" aria-label="config example, scrolls sideways if it is wide"><span class="t-h">[server.defaults.pane]</span>
-<span class="t-k">shell</span> = <span class="t-s">"/bin/bash"</span>   <span class="t-c"># default: your login shell</span>
+<span class="t-k">exit_behavior</span> = <span class="t-s">"keep_failed"</span>  <span class="t-c"># keep failed commands open</span>
 
 <span class="t-h">[client]</span>
-<span class="t-k">sidebar_width</span> = <span class="t-n">40</span>
+<span class="t-k">sidebar_width</span> = <span class="t-n">34</span>
 
 <span class="t-h">[client.modes.normal.keys]</span>
-<span class="t-s">"alt-q"</span>  = {}  <span class="t-c"># alt-q reaches the program</span>
 <span class="t-s">"ctrl-b"</span> = { <span class="t-k">action</span> = { <span class="t-k">client.mode</span> = <span class="t-s">"prefix"</span> } }
 <span class="t-c"># tmux habits</span>
 
@@ -383,8 +376,8 @@ Apply changes?
 <span class="t-s">"c"</span>      = { <span class="t-k">action</span> = { <span class="t-k">server.tab.create</span> = { <span class="t-k">starter</span> = <span class="t-s">"shell"</span>, <span class="t-k">select</span> = true } } }
 <span class="t-s">"ctrl-b"</span> = { <span class="t-k">action</span> = { <span class="t-k">client.send</span> = <span class="t-s">"ctrl-b"</span> } }</pre>
         </div>
-        <p><code>ship config check</code> points at the first mistake in the file, with its line and column.</p>
-        <p class="more"><a href="/docs/configuration/">every setting, custom modes and menus in the docs</a></p>
+        <p>copy only what you want to change. this example keeps failed commands open, makes the sidebar wider and adds a tmux-style prefix. <code>ship config check</code> lists any mistakes before you try it.</p>
+        <p class="more"><a href="/docs/configuration/">custom keys, menus, sounds and scripts in the docs</a></p>
       </section>
     </div>
   </div>
@@ -406,8 +399,8 @@ Apply changes?
 <pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
 <span class="t-prompt">$ </span>cd ship &amp;&amp; cargo install --path crates/ship</pre>
         </div>
-        <p>builds from source with rust and zig 0.17. linux and macos come first, and windows is best effort.</p>
-        <div class="links"><a href="/docs/">read the docs</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
+        <p>start with one shell, add a split, and see how it fits the way you work. builds from source with rust and zig 0.17.</p>
+        <div class="links"><a href="/docs/#first-run">try your first session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
       </div>
     </div>
     <div class="reef" aria-hidden="true">

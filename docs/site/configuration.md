@@ -7,15 +7,15 @@ Not here: what each default key does (keys.md), every setting and value (`ship c
 
 Ship reads `~/.config/ship/config.toml`, or `ship/config.toml` under `$XDG_CONFIG_HOME`. Without one, it uses its defaults. `ship config defaults` prints them all, with what each setting accepts:
 
-```console
-$ ship config defaults | grep -A3 '\[client.agents\]'
+```sh
+ship config defaults
 ```
 
 > [!NOTE]
 > Your file only needs what you change. Copy just those lines rather than the whole output: anything you copy stays fixed, and stops following Ship's defaults when they change. `--config <file>` or `SHIP_CONFIG` points somewhere else.
 
 > [!NOTE]
-> Open windows pick up changes when you save. If the file has a mistake, Ship keeps the last working settings and shows the error. `ship config check` points at the first mistake with its line and column.
+> Open windows pick up changes when you save. If the file has a mistake, open windows keep their last working settings and show the error. Run `ship config check` to list the findings and their locations.
 
 ## Server settings
 
@@ -38,9 +38,6 @@ ship pane set --pane "$PANE" --scrollback-bytes 50000000
 ```
 
 Raising the limit keeps the history already there and lets it grow. Lowering it drops the oldest history beyond the new limit right away. The limit is in bytes, not lines.
-
-> [!NOTE]
-> If your file still has `shell` or `scrollback_bytes` under `[server]`, move them to `[server.defaults.pane]`. The old settings are no longer accepted; `ship config check` points at them with their line and column.
 
 ## Client settings
 
@@ -74,7 +71,7 @@ The built-in sounds are from Kenney's [Interface Sounds](https://www.kenney.nl) 
 
 ## Keys and modes
 
-Keys live in modes, and you start in `normal`. Binding a key replaces only that key; everything else keeps its default. `{}` unbinds a key so it reaches the program instead:
+Keys live in modes, and you start in `normal`. Binding a key replaces only that key; everything else keeps its default. In normal mode, `{}` unbinds a key so it reaches the program instead:
 
 ```toml
 [client.modes.normal.keys]
@@ -96,7 +93,7 @@ There are two kinds of actions:
 - `server.` actions normally have a CLI command. `server.tab.create = { starter = "shell" }` does the same as `ship tab create --starter shell`, so `ship <command> --help` documents its options. The exception is `server.run`, which starts a program on the server's machine and has no CLI form.
 - `client.` actions work in your window, like `client.pane.focus`, `client.sidebar.toggle`, `client.mode` and `client.detach`. `client.run` starts a program on your machine.
 
-A `oneshot` mode takes one key and returns to normal. A `sticky` mode stays until a binding leaves it. `clear_defaults = true` starts a mode with none of Ship's bindings. Add `label = "..."` to a binding to change how it's shown in the hints.
+A `oneshot` mode takes one key and returns to normal, unless that key enters another mode. A `sticky` mode stays until a binding leaves it. Outside normal mode, unbound keys are ignored rather than sent to the program. `clear_defaults = true` starts a mode with none of Ship's bindings. Add `label = "..."` to a binding to change how it's shown in the hints.
 
 When you're in a mode other than normal, a hint bar shows at the bottom with that mode's keys, wrapping into aligned columns when they don't fit on one line. The same bar shows errors and when a pane's program has exited.
 
@@ -104,12 +101,15 @@ The default keys are in [`defaults.toml`](../../crates/ship-core/src/defaults.to
 
 ## Running programs from keys
 
+Open the docs in your browser with `alt-u`, or name the selected pane `picked` with `alt-i`:
+
 ```toml
 [client.modes.normal.keys]
-"alt-u" = { action = { client.run = { command = ["touch", "/tmp/ship-hit"] } } }
-"alt-i" = { action = { client.run = { command = ["sh", "-c", "echo hello; echo error >&2"] } } }
-"alt-b" = { action = { server.run = { command = ["sh", "-c", "\"$SHIP_BIN\" pane set --name picked"] } } }
+"alt-u" = { action = { client.run = { command = ["xdg-open", "https://shipmux.github.io/ship/"] } } }
+"alt-i" = { action = { server.run = { command = ["sh", "-c", "\"$SHIP_BIN\" pane set --name picked"] } } }
 ```
+
+The browser example uses Linux's `xdg-open`. On macOS, replace it with `open`.
 
 `client.run` starts a program on the client's machine, in the directory you started the client from. Use it for things that need your desktop or login session, like opening a URL.
 
@@ -117,7 +117,7 @@ The default keys are in [`defaults.toml`](../../crates/ship-core/src/defaults.to
 
 Both run in the background. Each press starts another run without waiting for earlier ones, and you can keep typing while they run. Menus accept the same actions.
 
-`command` must be a non-empty array of strings. The first string is the program and the rest are its arguments. There is no shell expansion unless you name a shell, as the second example does.
+`command` must be a non-empty array of strings. The first string is the program and the rest are its arguments. There is no shell expansion unless you name a shell, as the rename example does.
 
 The program gets `SHIP_BIN`, `SHIP_SERVER_URL` and `SHIP_ATTACHMENT_ID` so it can call Ship back, plus `SHIP_PANE_ID` when a pane is selected. It gets no input, and its output goes to that side's [log](troubleshooting.md), never onto the screen.
 

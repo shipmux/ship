@@ -11,7 +11,9 @@ Not here: changing the menus (configuration.md).
 
 Full-screen programs like Neovim and `less` have no scrollback in Ship; they manage their own screen.
 
-Ship doesn't have built-in search or a copy mode yet. Until it does, read a pane's history and search it with your usual tools:
+Press `alt-e` to [open scrollback in your editor](panes.md#edit-scrollback), where you can search and copy with familiar keys. Ship doesn't have built-in search or a keyboard copy mode.
+
+From a script, read the history and search it with your usual tools:
 
 ```sh
 ship pane read --pane "$PANE" --lines 2000 | grep error
@@ -38,8 +40,8 @@ Right-click a pane, a tab or the empty sidebar space for a menu of actions, or c
 
 | Menu | Items |
 | --- | --- |
-| Pane | Split right, split down, zoom, right-click passthrough, close |
-| Tab | New tab, new child tab, close |
+| Pane | Split right, split down, stack, edit scrollback, zoom, right-click passthrough, rename, close |
+| Tab | New tab, new child tab, rename, close |
 | Global | New tab, hide sidebar, reload config, detach |
 
 Some programs want right-clicks for themselves. Turn on **right-click passthrough** for that pane, from its menu or with `ship pane set --right-click-passthrough true`, and right-clicks inside go to the program whenever it's using the mouse. Its label and border still open Ship's menu. You can change what's in each menu in the [config](configuration.md#menus).

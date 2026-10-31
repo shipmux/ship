@@ -1,6 +1,9 @@
 # Pane terminals transport probe
 
-Evidence for the pane-terminals architecture paper. Run on 2026-10-06 on macOS (Darwin arm64, rustc 1.98.0), loopback only. Nothing here was run on Linux, so every result is unverified there.
+> [!NOTE]
+> Historical transport experiment. The streamed-input and TCP setup below predates today's ordered requests over local sockets. See [request ordering requirements](../../openspec/specs/request-ordering/spec.md) and [Windows and the server](../site/windows-and-the-server.md) for the current behavior. Measurements are preserved as recorded.
+
+Evidence for the pane-terminals architecture paper. Run on 2026-10-06 on macOS (Darwin arm64, rustc 1.98.0), loopback only. These benchmark measurements were taken on macOS only.
 
 ## Summary
 
@@ -123,4 +126,4 @@ Both probes' sources lived in the session scratchpad and were not kept in the re
 ## Uncertain decisions
 
 - Nagle's effect over a real network is untested. The nodelay recommendation is based on known behavior, not a measurement.
-- Linux is entirely unverified. EIO and readiness behavior there is a portable-pty question, not a transport one, but the transport numbers themselves were also only taken on macOS.
+- This historical probe was not run on Linux, so it gives no Linux latency or PTY-readiness measurements. It is not a statement about current Ship support.

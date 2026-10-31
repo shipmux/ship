@@ -1,5 +1,8 @@
 # Ship handoff: compressed full snapshots
 
+> [!NOTE]
+> Historical handoff from before the production transport was implemented. The measurements below are preserved as recorded; its "current direction" and "open" decisions describe that planning stage. See [session observation requirements](../../openspec/specs/session-observation/spec.md) for the current contract and [Windows and the server](../site/windows-and-the-server.md) for connection setup.
+
 Audience: mixed, intended for Cyan and the Ship agent. This records the current design direction and bounded experimental evidence, not an implemented Ship protocol. Historical benchmark sections below retain their original workloads and results.
 
 ## Decision to carry back

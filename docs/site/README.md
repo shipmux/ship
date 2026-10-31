@@ -5,19 +5,13 @@ Scope: A one-paragraph intro, then a first session: install, first run, the few 
 Not here: the full key list (keys.md), settings (configuration.md), anything a first session can skip.
 -->
 
-Ship is a terminal multiplexer, like tmux or Zellij, except it treats coding agents as first-class citizens instead of just another program in a pane. Your shells and agents run on a background server, so they keep going after you close the window, and agents that support the [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status) show up in the sidebar as working, waiting on you or done. Everything is also a `ship` command that prints JSON, so agents can open panes and hand work to each other. [Agents](agents.md) and [Handing work to another agent](scripting/handing-work-to-another-agent.md) show what both look like.
+Run a shell, an editor and a few coding agents side by side. Ship is a terminal multiplexer, like tmux or Zellij, that keeps them running after you close the window. The sidebar shows which [agents](agents.md) are working, waiting on you or done, and the [CLI](scripting/README.md) lets scripts and agents open panes and hand work to each other.
 
 Ship is a work in progress and has no releases yet. The [README](../../README.md#what-works-today) lists what works today and what isn't built yet.
 
 ## Install
 
-There are no releases yet, so Ship builds from source. You need a recent stable [Rust toolchain](https://www.rust-lang.org/tools/install), [Zig](https://ziglang.org/download/) 0.17 on your `PATH`, and `git` with a network connection for the first build, which fetches Ghostty's source. On Linux you also need `pkg-config` and ALSA's development headers for sound (`libasound2-dev` on Debian and Ubuntu, `alsa-lib-devel` on Fedora).
-
-```sh
-git clone https://github.com/shipmux/ship.git
-cd ship
-cargo install --path crates/ship
-```
+Ship builds from source for now. Follow [Building from source](building-from-source.md) for prerequisites and installation, then come back here for your first session.
 
 ## First run
 
@@ -43,20 +37,30 @@ That's all you need for now. [Keys](keys.md) lists the rest when you want them.
 
 ## Try the CLI
 
-Leave `ship` open in one terminal and try this from another:
+Leave `ship` open in one terminal and try this from another. You'll need [`jq`](https://jqlang.org) to read the IDs from Ship's JSON output:
 
 ```sh
-$ TAB=$(ship tab create --name demo | jq -r .id)
-$ PANE=$(ship pane create --tab "$TAB" --exit-behavior keep -- sh -c 'seq 100' | jq -r .id)
-$ ship pane wait --pane "$PANE" --status exited >/dev/null
-$ ship pane read --pane "$PANE" | tail -3
+TAB=$(ship tab create --name demo | jq -r .id)
+PANE=$(ship pane create --tab "$TAB" --exit-behavior keep -- sh -c 'seq 100' | jq -r .id)
+ship pane wait --pane "$PANE" --status exited >/dev/null
+ship pane read --pane "$PANE" | tail -3
+```
+
+The last command prints:
+
+```text
 98
 99
 100
-$ ship tab close --tab "$TAB"
 ```
 
-The demo tab shows up in the sidebar as soon as you create it and goes away when you close it. Inside a Ship pane you can leave out `--tab` and `--pane`, since commands default to the pane they run in. [Scripting Ship](scripting/README.md) picks up from here.
+The demo tab appears in the sidebar. When you're done, close it and its pane:
+
+```sh
+ship tab close --tab "$TAB"
+```
+
+Inside a Ship pane you can leave out `--tab` and `--pane`, since commands default to the pane they run in. [Scripting Ship](scripting/README.md) picks up from here.
 
 ## Let your agent set you up
 
@@ -70,7 +74,7 @@ Agents that want the whole map can start from [llms.txt](https://shipmux.dev/llm
 
 ## Guides
 
-These cover day-to-day use, roughly in the order you'll run into things. The examples assume `ship` is on your `PATH` and [`jq`](https://jqlang.org) is installed.
+These cover day-to-day use, roughly in the order you'll run into things. CLI recipes use [`jq`](https://jqlang.org) to read JSON fields.
 
 - [Windows and the server](windows-and-the-server.md)
 - [Tabs](tabs.md)
@@ -83,6 +87,7 @@ These cover day-to-day use, roughly in the order you'll run into things. The exa
 
 You can skip these until something sends you looking. `ship --help`, or `--help` on any command, lists every option.
 
+- [Building from source](building-from-source.md)
 - [Saved tabs](saved-tabs.md)
 - [Configuration](configuration.md)
 - [Shell completions](shell-completions.md)

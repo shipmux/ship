@@ -1,6 +1,9 @@
 # Request ordering probe
 
-Evidence for the ordered-requests change ([#20](https://github.com/shipmux/ship/issues/20)). Run on 2026-10-26 on macOS (Darwin arm64, rustc 1.98.0), loopback only. Nothing here was run on Linux, so every result is unverified there.
+> [!NOTE]
+> Historical transport experiment. "Today's stream" below means the implementation at the time of the probe, before ordered input requests and local sockets. See [request ordering requirements](../../openspec/specs/request-ordering/spec.md) for the current contract. Measurements are preserved as recorded.
+
+Evidence for the ordered-requests change ([#20](https://github.com/shipmux/ship/issues/20)). Run on 2026-10-26 on macOS (Darwin arm64, rustc 1.98.0), loopback only. These benchmark measurements were taken on macOS only.
 
 ## Summary
 

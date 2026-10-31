@@ -5,17 +5,17 @@ Scope: What comes back after a restart and what doesn't, where the file lives, a
 Not here: the file's format (openspec/specs/session-restore).
 -->
 
-After a server restart or a reboot, Ship brings back your tabs, their nesting and names, the splits and their sizes, zoom, and each pane's last directory. Panes also keep their [exit behavior](panes.md#when-a-program-exits) and [history size](configuration.md#server-settings). Every pane starts a fresh shell. Running programs, agent conversations and scrollback don't come back.
+After a server restart or a reboot, Ship brings back your tabs, their nesting and names, the splits and their sizes, pane stacks and their front panes, zoom, and each pane's last directory. Panes also keep their [exit behavior](panes.md#when-a-program-exits) and [history size](configuration.md#server-settings). Every pane starts a fresh shell. Running programs, agent conversations and scrollback don't come back.
 
-Tabs saved before these settings existed restore with `close` and 10,000,000 bytes of history per pane, even if your config gives new panes different defaults.
+Ship saves a few seconds after each change, and `ship server stop` saves right away. The file lives at `~/.local/state/ship/tabs/default.json` (under `$XDG_STATE_HOME` if you set it). A [named server](windows-and-the-server.md#running-more-than-one-server) uses its own name in place of `default`. On Windows, saved tabs live under Ship's platform data directory instead.
 
-Ship saves a few seconds after each change, and `ship server stop` saves right away. The file lives at `~/.local/state/ship/tabs/default.json` (under `$XDG_STATE_HOME` if you set it). A [named server](windows-and-the-server.md#running-more-than-one-server) uses its own name in place of `default`.
+If a pane's directory is gone, it opens in your home directory instead.
 
-If a pane's directory is gone, it opens in your home directory instead. If the file can't be read, Ship starts with no tabs and leaves the file alone so you can look at it.
+If the saved file can't be read or parsed, Ship logs the error and restores no tabs. Normal startup then creates a fresh shell tab. Saving can replace a damaged file, keeping its old contents as `.prev` if they can be read. If you're recovering tabs, copy both files somewhere safe before making more changes.
 
 ## Getting back the previous tabs
 
-Each time the server starts and saves, it keeps the file it replaced as `default.json.prev`. To go back to it:
+The first save after each server start keeps the file it replaced as `default.json.prev`. To go back to it:
 
 ```sh
 ship server stop

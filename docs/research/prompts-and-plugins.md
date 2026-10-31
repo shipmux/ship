@@ -1,5 +1,8 @@
 # Prompts and plugins
 
+> [!NOTE]
+> Historical research. UI renaming and client/server run actions are now implemented. See [tab renaming](../site/tabs.md#renaming), [pane renaming](../site/panes.md#renaming) and [run actions](../site/configuration.md#running-programs-from-keys). The old action names, config examples and open questions below are not current instructions.
+
 Status: undecided. Recorded on 2026-10-09 from the layout and sidebar grilling, where renaming from the UI was deferred because Cyan could not settle how the UI should ask for input yet. Nothing here is decided or authorizes implementation.
 
 ## The question

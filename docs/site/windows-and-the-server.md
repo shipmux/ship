@@ -7,15 +7,17 @@ Not here: saved tabs (saved-tabs.md), the HTTP protocol (openspec/specs/).
 
 Ship runs in two parts. A background server owns your tabs, panes and the programs in them. Running `ship` opens a window onto that server. Closing the window, or pressing `alt-q`, leaves everything running, and running `ship` again brings you back.
 
-The first `ship` starts the server for you. It restores your [saved tabs](saved-tabs.md), or opens one tab with a shell if there's nothing to restore. `ship server status` tells you whether a server is running, and `ship server stop` shuts it down, ending every program inside.
+The first `ship` starts the server for you. Tab, pane and view commands also start it if needed. It restores your [saved tabs](saved-tabs.md), or opens one tab with a shell if there's nothing to restore. `ship server status` tells you whether a server is running, and `ship server stop` shuts it down, ending every program inside.
 
-You can open Ship from several terminals at once. The windows share the work: the same tabs, the same programs, the same output. Each window picks its own tab and pane, folds its own sidebar and keeps its own mode. Panes are sized to fit the smallest window looking at that tab, so a bigger window shows some empty space around them.
+You can open Ship from several terminals at once. The windows share the work: the same tabs, programs, output, zoom and front panes in stacks. Scrolling and text selection in a pane are shared too. Each window picks its own tab and pane, folds its own sidebar and keeps its own mode. Panes are sized to fit the smallest window looking at that tab, so a bigger window shows some empty space around them.
 
 If a window loses its connection to the server, it reconnects on its own.
 
 ## Where the server lives
 
-The server listens on a socket, a file that only your user account can open. `ship server status` prints its path in `socket`. On Linux it's usually `$XDG_RUNTIME_DIR/ship/default.sock`, and on macOS it's under `$TMPDIR/ship/`. Other people on the same machine get their own server and can't connect to yours.
+On Linux and macOS, the server listens on a local socket that only your user account can open. `ship server status` prints its path in `socket`. On Linux it's usually `$XDG_RUNTIME_DIR/ship/default.sock`, and on macOS it's under `$TMPDIR/ship/`. Other user accounts get their own servers and can't connect to yours, but programs running as you can control it.
+
+On Windows, Ship uses an owner-restricted named pipe instead. Explicit URLs use `npipe:////./pipe/NAME` rather than `unix:///path`. Windows support is best effort.
 
 ## Running more than one server
 
@@ -35,7 +37,7 @@ The simplest way is to run Ship over SSH:
 ssh otherbox -t ship
 ```
 
-To use your local terminal's window instead, forward the other machine's socket. Run `ship server status` there to find its path, then:
+On Linux and macOS, you can instead run the client locally and forward the other machine's Unix socket. Run `ship server status` there to find its path, then replace `/run/user/1000/ship/default.sock` below with that path:
 
 ```sh
 ssh -N -o StreamLocalBindUnlink=yes -L ~/.ship-otherbox.sock:/run/user/1000/ship/default.sock otherbox
@@ -49,6 +51,8 @@ ship --server-url unix://$HOME/.ship-otherbox.sock
 
 Run `ship` on the other machine once first so its server is up. Passing `--server-url` makes Ship connect only to that socket, so it won't quietly start a local server if the tunnel isn't up. All the CLI commands take `--server-url` too, or set `SHIP_SERVER_URL` once. `StreamLocalBindUnlink` lets you rerun the `ssh` command after it exits, since it would otherwise refuse to replace the socket file it left behind.
 
-The server refuses web pages and requests passed on by proxies, so opening it in a browser or putting it behind a proxy such as Tailscale Serve or Caddy won't work. Use SSH to reach it from elsewhere.
+The server has no network listener. Use SSH for remote access rather than exposing its socket through a web proxy. Ship rejects requests from web pages and expects HTTP requests addressed to localhost.
+
+When creating a pane through the tunnel, use `--cwd` with a directory on the remote machine. Otherwise the CLI sends your local current directory, which may not exist there.
 
 Sounds and clipboard copies happen on the machine you're sitting at. Through a tunnel, `ship server stop` stops the server but may report that it's still running, because the tunnel keeps accepting connections after the server is gone.

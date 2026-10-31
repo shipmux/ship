@@ -1,6 +1,9 @@
 # Screen cost per workload
 
-Evidence gathered on 2026-10-07 on macOS (Darwin arm64), loopback only, while tuning the attach stream after pane-terminals slice 7. Nothing here was run on Linux, so every result is unverified there. This note records a deferred idea, row-level screen updates, so it can be picked up if performance starts to feel like a problem. It is not an approved protocol change.
+> [!NOTE]
+> Historical performance measurements, not a benchmark of the current checkout. The proposed row-level wire protocol below is not an implementation contract. See [session observation requirements](../../openspec/specs/session-observation/spec.md) for current behavior.
+
+Evidence gathered on 2026-10-07 on macOS (Darwin arm64), loopback only, while tuning the attach stream after pane-terminals slice 7. These benchmark measurements were taken on macOS only. This note records a deferred idea, row-level screen updates, so it can be picked up if performance starts to feel like a problem. It is not an approved protocol change.
 
 ## Summary
 

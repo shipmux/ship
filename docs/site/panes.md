@@ -15,16 +15,20 @@ Every pane runs a program in its own terminal, your shell unless you say otherwi
 | `alt-e` | Open the pane's scrollback in your editor |
 | `alt-h` / `alt-j` / `alt-k` / `alt-l` | Move to the pane left, below, above or right |
 | `alt-tab` | Next visible pane in the tab, skipping panes behind |
-| `alt-p` | Panes mode: `h` / `j` / `k` / `l` select a neighbor; `shift-h` / `shift-j` / `shift-k` / `shift-l` swap with it; `,` / `.` cycle the stack; `r` renames; `esc` leaves |
+| `alt-p` | [Panes mode](keys.md#resize-tabs-and-panes-modes) to move, swap or rename; `esc` leaves |
 | `alt-f` | Zoom the pane to fill the tab, or unzoom |
 | `alt-r` | Resize mode: `h` / `j` / `k` / `l` move the pane's edge, `esc` leaves |
 | `alt-shift-x` | Close the pane |
 
 A new split or stacked shell opens in the directory you were working in, so after `cd ~/src/ship`, `alt--` gives you a shell there. You can also resize by dragging the border between two panes.
 
-`alt-s` opens a shell in front of the current pane without splitting. The panes behind it keep running. Their titles appear in the border, front first and bold, separated by ` · `. A stack without a border gets a title row instead. Click a title to bring that pane forward, or use `alt-,` and `alt-.` to cycle. Everyone viewing the tab sees the same front pane.
+## Stacks
 
-Zoom belongs to the tab, so everyone looking at it sees the zoomed stack's front pane, and its sidebar row shows `Z`. Cycling, stacking and closing the front keep the stack zoomed while it has panes. Moving to another split, splitting, swapping or resizing unzooms first. A create that selects its new pane also unzooms if needed to show it.
+Press `alt-s` when you want a temporary shell without making your splits smaller. It opens in front of the current pane, and the panes behind it keep running. Their titles appear in the border, front first and bold, separated by ` · `. A stack without a border gets a title row instead. Click a title to bring that pane forward, or use `alt-,` and `alt-.` to cycle. Everyone viewing the tab sees the same front pane.
+
+Press `alt-f` to fill the tab with the front pane, then press it again to restore your splits. You can cycle the stack while zoomed. Everyone viewing the tab sees the same zoom, marked `Z` in the sidebar. Moving to another split or changing the split layout leaves zoom.
+
+## From the CLI
 
 The CLI can do the same things. Panes created from the CLI start in your current directory, or in `--cwd`:
 
@@ -55,7 +59,7 @@ ship pane move --pane "$PANE" --beside "$OTHER" --direction right
 
 Press `alt-p` then `r`, or right-click the pane and choose **rename**. Editing, saving and clearing work [the same way as tab renaming](tabs.md#renaming); clearing a pane's name restores its program's title, or its command if it has no title. Press `esc` after renaming to leave panes mode.
 
-Moving to another pane cancels without saving. This includes another client bringing a different pane to the front of your stack, which also changes your selected pane.
+While renaming, keys edit the name rather than navigate, and any click cancels. If another window changes your selected pane, the edit also cancels without saving.
 
 ## Edit scrollback
 

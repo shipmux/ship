@@ -7,13 +7,13 @@ Not here: fixes for one feature's problems, which go on that feature's page.
 
 ## Logs
 
-The server writes logs to `~/.local/state/ship/logs/default/` (under `$XDG_STATE_HOME` if set; a named server uses its name in place of `default`). To follow along:
+On Linux and macOS, the server writes logs to `~/.local/state/ship/logs/default/` (under `$XDG_STATE_HOME` if set; a named server uses its name in place of `default`). To follow along:
 
 ```sh
 tail -F ~/.local/state/ship/logs/default/current.log
 ```
 
-Windows log to `~/.local/state/ship/logs/client/`. Problems that don't show up on screen end up in one of these: a saved directory that disappeared is in the server log, and a sound file that wouldn't load is in the client log. Old logs are cleaned up automatically.
+Client windows write to `~/.local/state/ship/logs/client/`. On Windows, these folders are under Ship's platform data directory instead. Problems that don't show up on screen end up in one of these: a saved directory that disappeared is in the server log, and a sound file that wouldn't load is in the client log. Old logs are cleaned up automatically.
 
 Logs don't record pane input or output, but programs started by [run actions](configuration.md#running-programs-from-keys) write their output here. Error messages can also include program names and paths, so look logs over before sharing.
 

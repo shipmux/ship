@@ -37,7 +37,7 @@ In resize mode, `h` / `j` / `k` / `l` move the pane's edge, `shift-h` / `shift-l
 
 In tabs mode, `j` / `k` select tabs, `h` folds an open row or selects its parent, and `l` unfolds a folded row or selects its first child. `shift-k` / `shift-j` move a tab up / down among its siblings, while `shift-l` / `shift-h` move it [in / out](tabs.md). `r` [renames the tab](tabs.md#renaming).
 
-In panes mode, `h` / `j` / `k` / `l` select the pane left, below, above or right, and `shift-h` / `shift-j` / `shift-k` / `shift-l` swap with that neighbor. `,` / `.` cycle the stack and `r` [renames the pane](panes.md#renaming). The former `alt-shift-h` / `j` / `k` / `l` chords are no longer bound in normal mode and go to the program instead.
+In panes mode, `h` / `j` / `k` / `l` select the pane left, below, above or right, and `shift-h` / `shift-j` / `shift-k` / `shift-l` swap with that neighbor. `,` / `.` cycle the stack and `r` [renames the pane](panes.md#renaming).
 
 ## The mouse
 

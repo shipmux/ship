@@ -7,14 +7,21 @@ Not here: the commands themselves (`ship --help`).
 
 `ship completions <shell>` prints a script that lets your shell tab-complete Ship's commands, flags and fixed values. It supports bash, zsh, fish, elvish and PowerShell. Load it from your shell's startup file:
 
-```sh
-# ~/.bashrc
+For bash, add this to `~/.bashrc`:
+
+```bash
 source <(ship completions bash)
+```
 
-# ~/.zshrc, after compinit
+For zsh, add this to `~/.zshrc` after `compinit`:
+
+```zsh
 source <(ship completions zsh)
+```
 
-# fish
+For fish, run this once:
+
+```fish
 ship completions fish > ~/.config/fish/completions/ship.fish
 ```
 
