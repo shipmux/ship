@@ -50,6 +50,7 @@ strum = { version = "0.27", features = ["derive"] }
 syn = { version = "2", features = ["full"] }
 tempfile = "3"
 toml = { version = "1", features = ["preserve_order"] }
+tui-input = { version = "0.15", default-features = false, features = ["crossterm"] }
 tui-tree-widget = "0.24"
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-util = "0.7"

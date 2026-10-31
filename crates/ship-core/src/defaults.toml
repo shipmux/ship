@@ -97,6 +97,7 @@ kind = "sticky"
 "shift-j" = { action = { client.tab.move.direction = "down" }, label = "move down" }
 "shift-l" = { action = { client.tab.move.direction = "in" }, label = "move in" }
 "shift-h" = { action = { client.tab.move.direction = "out" }, label = "move out" }
+"r"       = { action = { client.tab.rename = {} } }
 "esc"     = { action = { client.mode = "normal" } }
 
 [client.modes.panes]
@@ -113,6 +114,7 @@ kind = "sticky"
 "shift-l" = { action = { client.pane.swap.direction = "right" }, label = "swap right" }
 "."       = { action = { server.pane.cycle = { direction = "next" } } }
 ","       = { action = { server.pane.cycle = { direction = "prev" } } }
+"r"       = { action = { client.pane.rename = {} } }
 "esc"     = { action = { client.mode = "normal" } }
 
 [client.modes.resize]

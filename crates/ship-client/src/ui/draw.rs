@@ -9,13 +9,14 @@ use std::{env, path::Path};
 
 use ship_core::{
     model::{Pane, PaneStatus, Tab},
-    screen::{Cursor, Size},
+    screen::{Cursor, CursorShape, Size},
+    tree,
 };
 
 use super::{
     Local, Overlay,
     observer::{Observer, Selected},
-    panes,
+    panes, rename,
     sidebar::Sidebar,
 };
 use crate::keymap::ModeName;
@@ -95,6 +96,25 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
                 ..main
             },
         ),
+    }
+    if let Some(Overlay::Rename(rename)) = &local.overlay {
+        if main.is_empty() {
+            return None;
+        }
+        let row = Rect {
+            y: main.bottom() - 1,
+            height: 1,
+            ..main
+        };
+        let placeholder = placeholder(observer, rename.target());
+        let at = rename.draw(frame, row, placeholder.as_deref());
+        frame.set_cursor_position(at);
+        return Some(Cursor {
+            x: at.x,
+            y: at.y,
+            shape: CursorShape::Default,
+            blinking: false,
+        });
     }
     if let Some(mut lines) = status_line(selected.as_ref(), observer.connected, &status, main.width)
     {
@@ -203,11 +223,17 @@ fn status_line<'a>(
     Some(rows)
 }
 
-/// The pane's name, else its program's title, else its command's file name.
+/// The pane's name, else its automatic label.
 pub(super) fn pane_label(pane: &Pane) -> &str {
     pane.name
         .as_deref()
-        .or(pane.title.as_deref())
+        .unwrap_or_else(|| pane_auto_label(pane))
+}
+
+/// The program's title, else its command's file name.
+pub(super) fn pane_auto_label(pane: &Pane) -> &str {
+    pane.title
+        .as_deref()
         .or_else(|| {
             let program = Path::new(pane.command.first()?).file_name()?;
             program.to_str()
@@ -220,15 +246,34 @@ pub(super) fn pane_label(pane: &Pane) -> &str {
 pub(super) fn tab_label(tab: &Tab, position: usize) -> String {
     tab.name
         .as_deref()
-        .map(str::to_owned)
-        .or_else(|| {
-            tab.panes().next().map(|pane| {
-                pane.dir
-                    .as_deref()
-                    .map_or_else(|| pane_label(pane).to_owned(), last_component)
-            })
+        .map_or_else(|| tab_auto_label(tab, position), str::to_owned)
+}
+
+/// The first pane's directory or label, else its 1-based sibling position.
+pub(super) fn tab_auto_label(tab: &Tab, position: usize) -> String {
+    tab.panes()
+        .next()
+        .map(|pane| {
+            pane.dir
+                .as_deref()
+                .map_or_else(|| pane_label(pane).to_owned(), last_component)
         })
         .unwrap_or_else(|| (position + 1).to_string())
+}
+
+/// Look up the automatic label each frame so title and directory changes show.
+fn placeholder(observer: &Observer, target: rename::Target) -> Option<String> {
+    let tabs = &observer.replica.as_ref()?.tabs;
+    match target {
+        rename::Target::Pane(id) => Some(pane_auto_label(tree::pane(tabs, id).ok()?).to_owned()),
+        rename::Target::Tab(id) => {
+            let siblings = tree::siblings(tabs, id)?;
+            Some(tab_auto_label(
+                siblings.get(&id)?,
+                siblings.get_index_of(&id)?,
+            ))
+        }
+    }
 }
 
 /// `~` for the home directory, else the path's last component, else the path

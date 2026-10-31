@@ -48,17 +48,29 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 3. The rename field
 
-- [ ] 3.1 Add `tui-input` to the workspace and `ship-client` manifests with `default-features = false, features = ["crossterm"]`, and confirm one crossterm and one ratatui with `cargo tree -d`.
-- [ ] 3.2 Add `crates/ship-client/src/ui/rename.rs`, plus `ClientTab::Rename` and `ClientPane::Rename` in `crates/ship-client/src/keymap.rs`.
-- [ ] 3.3 In `crates/ship-client/src/ui/mod.rs`:
+- [x] 3.1 Add `tui-input` to the workspace and `ship-client` manifests with `default-features = false, features = ["crossterm"]`, and confirm one crossterm and one ratatui with `cargo tree -d`.
+- [x] 3.2 Add `crates/ship-client/src/ui/rename.rs`, plus `ClientTab::Rename` and `ClientPane::Rename` in `crates/ship-client/src/keymap.rs`.
+- [x] 3.3 In `crates/ship-client/src/ui/mod.rs`:
   - Add `Overlay::Rename`, the two `act` arms and `reconcile_rename`.
   - Keep the field open on resize and cut.
-- [ ] 3.4 In `crates/ship-client/src/ui/draw.rs`, split the label functions, add `placeholder`, and draw the field row and its cursor in place of the mode bar.
-- [ ] 3.5 Add both `r` bindings to `defaults.toml`.
+- [x] 3.4 In `crates/ship-client/src/ui/draw.rs`, split the label functions, add `placeholder`, and draw the field row and its cursor in place of the mode bar.
+- [x] 3.5 Add both `r` bindings to `defaults.toml`.
 - [x] 3.6 Write the slice-3 deltas:
   - `specs/keymap/spec.md`: MODIFIED "Client actions" and "Default tabs keys", ADDED "Rename actions".
   - `specs/terminal-client/spec.md`: ADDED the six rename field requirements.
-- [ ] 3.7 Verify every slice-3 check in `design/program.md`.
+- [x] 3.7 Verify every slice-3 check in `design/program.md`.
+
+### Slice-3 evidence
+
+- Added `ui/rename.rs`, both client rename actions and both `r` bindings. The field reuses the input lane, menu pick result and existing server name-set commands. It holds one fixed target and a `tui-input` buffer; drawing reads the automatic label from the replica. Closed targets are reconciled before queued input runs. No server, protocol, CLI, sidebar accent or menu-entry changes.
+- Cargo added only `tui-input` 0.15.5, with defaults off and `crossterm` enabled. `cargo tree -d`, inverse trees and the lockfile confirm one version each of crossterm (0.29.0) and ratatui (0.30.2). The feature tree shows tui-input enables crossterm defaults, already enabled by existing dependencies.
+- P1, P2's keyboard cases and P4 passed in a running client, with 21 direct and 24 delayed checkpoints. Read back stored names with `ship tab get` and `ship pane get`. Verified prefill and end cursor, dim automatic placeholders, trimming and clearing, line editing, multiline paste, mode preservation, hidden-sidebar and lone-pane fields, missing-target no-ops, fixed targets after selection changes, and local text winning over a concurrent rename.
+- With 500 ms each way, create then `alt-p r foo` Enter passed 10/10: only the new pane is named `foo`, and neither shell receives `foo`. Queued tab navigation then rename names the newly selected tab. A second client sees no field or half-typed name, then sees the submitted name after Enter.
+- Esc and drawn left/right clicks left `ship tab list` byte-for-byte unchanged; clicks neither changed selection nor reached a program or opened a menu. Pane exit and external tab closure closed the field with `pane closed` or `tab closed`; after closure and geometry updates settled, tab-list bytes stayed unchanged. A deliberately raced delayed rename received HTTP 404 and showed the ordinary request-failed status.
+- Title and directory placeholders updated during editing. Unicode grapheme editing and cursor placement, horizontal scrolling, resize, and config reload passed. A cut preserved field text; offline Enter closed it, and the restarted owned server's log contained no PATCH after reconnect.
+- Seven additional delayed checks passed: queued left and right clicks, queued wheel suppression with a mouse-tracking positive control, live directory changes, an empty nested tab's sibling-number placeholder, and retaining/submitting text across a two-column, two-row terminal. Fourteen existing idle, offline, menu, mouse, drag, reload, paste and resize regression checkpoints also passed.
+- macOS: formatting, Clippy with warnings denied, workspace tests (80 passed, 1 ignored), build, strict OpenSpec validation and `git diff --check` passed. No permanent tests added. Linux and physical-terminal interaction remain unverified.
+- Disposable verifiers: `/tmp/ship-ui-slice3-verify.py` and `/tmp/ship-ui-slice3-extra.py`. Final evidence, screen captures and logs: `/tmp/ship-ui-s3-waxhwek0/` (direct), `/tmp/ship-ui-s3-sm_948fs/` (delayed), and `/tmp/ship-ui-s3-extra-h7uoayv_/` (extra). Regression evidence: `/tmp/ship-ui-s1-rqhfxrk7/` and `/tmp/ship-ui-s1-ee9s4ln2/`. All used isolated owned servers; servers and tmux sessions were stopped.
 
 ## 4. Accent and menu items
 

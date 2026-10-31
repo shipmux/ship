@@ -11,6 +11,7 @@ mod mouse;
 mod observer;
 mod outbox;
 mod panes;
+mod rename;
 mod run;
 mod sidebar;
 mod terminal;
@@ -68,6 +69,7 @@ use self::{
     mouse::{Clicked, Mouse},
     observer::Observer,
     outbox::Outbox,
+    rename::Rename,
     sidebar::{Sidebar, movable},
     terminal::TerminalGuard,
 };
@@ -392,7 +394,9 @@ async fn drive(
                 Some(Ok(Event::Resize(cols, rows))) => {
                     terminal = (cols, rows);
                     guard.resize(terminal)?;
-                    local.overlay = None;
+                    if matches!(local.overlay, Some(Overlay::Menu(_))) {
+                        local.overlay = None;
+                    }
                     true
                 }
                 Some(Ok(Event::Mouse(event))) if local.overlay.is_none() && guard.mouse() && local.observer.connected => {
@@ -467,6 +471,7 @@ async fn drive(
             reconnect = Some(Box::pin(attach_after(client, request.clone(), backoff)));
             visible = true;
         }
+        visible |= local.reconcile_rename();
         while let Some(item) = lane.next(&local.observer, client.written()) {
             // Program input may still be buffered or in flight. Finish it
             // before an action or click can take effect.
@@ -534,6 +539,7 @@ async fn drive(
 /// At most one overlay captures input before the mode machine.
 enum Overlay {
     Menu(Menu),
+    Rename(Rename),
 }
 
 /// Client-local state used to resolve each input at its turn.
@@ -588,23 +594,51 @@ impl<'a> Local<'a> {
     /// Interpret input once, through the overlay or the active mode.
     fn read(&mut self, event: Event) -> Handled {
         let handled = match &mut self.overlay {
-            Some(Overlay::Menu(menu)) => match menu.handle(&event) {
-                Picked::Run(action) => {
-                    self.overlay = None;
-                    Handled::Action(action)
+            Some(overlay) => {
+                let picked = match overlay {
+                    Overlay::Menu(menu) => menu.handle(&event),
+                    Overlay::Rename(rename) => rename.handle(&event),
+                };
+                match picked {
+                    Picked::Run(action) => {
+                        self.overlay = None;
+                        Handled::Action(action)
+                    }
+                    Picked::Close => {
+                        self.overlay = None;
+                        Handled::None
+                    }
+                    Picked::Open => Handled::None,
                 }
-                Picked::Close => {
-                    self.overlay = None;
-                    Handled::None
-                }
-                Picked::Open => Handled::None,
-            },
+            }
             None => self.keys.handle(event),
         };
         if matches!(handled, Handled::Action(_)) {
             self.message = None;
         }
         handled
+    }
+
+    /// Close a field whose fixed target has disappeared from the published tree.
+    fn reconcile_rename(&mut self) -> bool {
+        let Some(Overlay::Rename(rename)) = &self.overlay else {
+            return false;
+        };
+        let Some(replica) = &self.observer.replica else {
+            return false;
+        };
+        let closed = match rename.target() {
+            rename::Target::Tab(tab) => tree::tab(&replica.tabs, tab).err().map(|_| "tab closed"),
+            rename::Target::Pane(pane) => {
+                tree::pane(&replica.tabs, pane).err().map(|_| "pane closed")
+            }
+        };
+        if let Some(message) = closed {
+            self.overlay = None;
+            self.message = Some(message.into());
+            return true;
+        }
+        false
     }
 
     /// Disconnected input is read immediately and never held for reconnect.
@@ -815,7 +849,9 @@ impl<'a> Local<'a> {
     fn cut(&mut self, area: Size) -> Option<AttachRequest> {
         self.outbox.clear();
         self.mouse = Mouse::default();
-        self.overlay = None;
+        if matches!(self.overlay, Some(Overlay::Menu(_))) {
+            self.overlay = None;
+        }
         self.observer.connected = false;
         self.observer.remembered(area)
     }
@@ -895,6 +931,25 @@ impl<'a> Local<'a> {
                 }));
             }
             Action::Client(action) => match action {
+                ClientAction::Tab(ClientTab::Rename {}) => {
+                    if let Some(selected) = self.observer.selected() {
+                        self.overlay = Some(Overlay::Rename(Rename::open(
+                            rename::Target::Tab(selected.tab.id),
+                            selected.tab.name.as_deref(),
+                        )));
+                    }
+                    Ok(())
+                }
+                ClientAction::Pane(ClientPane::Rename {}) => {
+                    if let Some(pane) = self.observer.selected().and_then(|selected| selected.pane)
+                    {
+                        self.overlay = Some(Overlay::Rename(Rename::open(
+                            rename::Target::Pane(pane.id),
+                            pane.name.as_deref(),
+                        )));
+                    }
+                    Ok(())
+                }
                 ClientAction::Pane(ClientPane::Swap { direction }) => {
                     if let Some(replica) = &self.observer.replica
                         && let Some(NodeId::Pane(from)) = selection
