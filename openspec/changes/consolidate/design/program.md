@@ -1,6 +1,6 @@
 # Consolidate the server and client: program
 
-Status: Locked on 2026-10-31, approved by Cyan in chat when asked to start slice 1 ("Lock it, then build"). O-2 and O-3 stay open until their slices. Cyan chose to skip the product and architecture papers for this change, because it keeps product behavior the same. This paper is the only design paper.
+Status: Locked on 2026-10-31. Cyan first approved the ten-slice draft in chat when asking to start slice 1 ("Lock it, then build"), then, in a second session, settled O-1, asked for the four slices and the `docs/agents/code.md` fixes, and approved this revision ("also lock them before committing"). Cyan chose to skip the product and architecture papers for this change, because it keeps product behavior the same. This paper is the only design paper. O-2 and O-3 stay open: O-2 keeps its default until Cyan decides, and O-3 is settled with Cyan at task 1.6.
 
 ## Rationale
 
@@ -18,7 +18,7 @@ Behavior stays the same, with three visible differences, all on the wire rather 
 - A commit can no longer fail with `Unavailable` after its edit, since publishing the replica can't fail (KD-1).
 - Reads stop waiting behind queued writes in the actor's mailbox (KD-1). A read issued after a write's response still sees that write.
 
-New shapes follow `docs/agents/code.md`: a flag, default or special case gets a named type or variant (`SavedTabs`, `Reattach`, `Fold`), new tuples become named structs (`Checked`, `Startup`'s fields), and an existing shape is reused where it fits (`Starter` in `ServeOptions`, `PaneStatus` in `PaneEvent`). Two cleanups were dropped for the same reason: deriving `Ord` on `ui::agents::Display` would make its ranking implicit in variant order, so the explicit `rank()` stays, and dropping `Identified` would leave `IdOf<T>` as an alias that only restates `Id<T>`.
+New shapes follow `docs/agents/code.md`: a flag, default or special case gets a named type or variant (`SavedTabs`, `Reattach`, `Fold`, `Hop::Collapse` and `Hop::Expand`), new tuples become named structs (`Checked`, `Prepared`, `Startup`'s fields), and an existing shape is reused where it fits (`Starter` in `ServeOptions`, `PaneStatus` in `PaneEvent`, `CycleDirection` in `Step`). Two cleanups were dropped for the same reason: deriving `Ord` on `ui::agents::Display` would make its ranking implicit in variant order, so the explicit `rank()` stays, and dropping `Identified` would leave `IdOf<T>` as an alias that only restates `Id<T>`.
 
 Kept on purpose, by Cyan's choice: `#[serde(rename_all = "snake_case")]` on structs, explicit `err!(…, @external: error)` at call sites, wildcard imports, the `RelayBus`, and the two documented `too_many_arguments` expectations on the sidebar draw functions unless open choice O-2 says otherwise.
 
@@ -30,7 +30,7 @@ Paths are relative to `crates/` unless they start with the repository root.
 
 ### Added
 
-#### `ship-client/src/ui/nav.rs` (slice 7)
+#### `ship-client/src/ui/nav.rs` (slice 3)
 
 ```rust
 //! Where navigation keys and tab-tree actions go, read from one view of
@@ -39,6 +39,7 @@ Paths are relative to `crates/` unless they start with the repository root.
 use ship_core::{
     command::Command,
     id::IdOf,
+    layout::CycleDirection,
     model::{NodeId, Pane, Switch, Tab},
     protocol::MoveTab,
     tree::Tabs,
@@ -47,18 +48,21 @@ use ship_core::{
 use super::{lane::TabMove, memory::Memory, sidebar::Sidebar};
 use crate::keymap::TabDirection;
 
-/// Moved from `ui/mod.rs`, unchanged.
+/// Moved from `ui/mod.rs`. The bare `forward: bool` becomes the layout's
+/// own `CycleDirection`.
 #[derive(Clone, Copy)]
 pub(super) enum Step {
-    Tab { forward: bool },
-    Pane { forward: bool },
+    Tab(CycleDirection),
+    Pane(CycleDirection),
     Focus(ship_core::command::Direction),
 }
 
 /// What `client.tab.collapse` or `client.tab.expand` does on the viewed
-/// tab's row. `Select` carries the landing node, not the tab.
+/// tab's row. Was `Fold { collapsed: bool }`; each fold now has its own
+/// variant. `Select` carries the landing node, not the tab.
 pub(super) enum Hop {
-    Fold { tab: IdOf<Tab>, collapsed: bool },
+    Collapse(IdOf<Tab>),
+    Expand(IdOf<Tab>),
     Select(NodeId),
 }
 
@@ -106,10 +110,10 @@ impl<'a> View<'a> {
 /// Moved from `ui/mod.rs`, unchanged.
 pub(super) fn set_zoom(pane: IdOf<Pane>, zoomed: Option<IdOf<Pane>>) -> Command;
 pub(super) fn leaves_zoom(action: &crate::keymap::Action) -> bool;
-fn step(index: usize, len: usize, forward: bool) -> usize;
+fn step(index: usize, len: usize, direction: CycleDirection) -> usize;
 ```
 
-#### `ship-client/src/ui/connection.rs` (slice 8)
+#### `ship-client/src/ui/connection.rs` (slice 3)
 
 ```rust
 //! The attach stream and everything that keeps it open: the first attach,
@@ -187,8 +191,8 @@ Moves `attach_after`, `refused`, `FIRST_BACKOFF` and `MAX_BACKOFF` here from `ui
 
 ### Moved
 
-- `ui/mod.rs` → `ui/nav.rs`: `Step`, `Hop`, `navigate`, `collapse` and `expand` (as `View` methods), `shift`, `typing_pane`, `zoomed_pane`, `zoom`, `set_zoom`, `leaves_zoom`, `step` (slice 7).
-- `ui/mod.rs` → `ui/connection.rs`: `attach_after`, `refused`, the backoff constants, and the reconnect, cut and PUT handling now inline in `drive` (slice 8).
+- `ui/mod.rs` → `ui/nav.rs`: `Step`, `Hop`, `navigate`, `collapse` and `expand` (as `View` methods), `shift`, `typing_pane`, `zoomed_pane`, `zoom`, `set_zoom`, `leaves_zoom`, `step` (slice 3).
+- `ui/mod.rs` → `ui/connection.rs`: `attach_after`, `refused`, the backoff constants, and the reconnect, cut and PUT handling now inline in `drive` (slice 3).
 
 ### Replaced
 
@@ -305,16 +309,16 @@ pub(crate) fn id_map_schema<K: Prefixed>(value: &str) -> utoipa::openapi::Object
 struct RectSchema { x: u16, y: u16, width: u16, height: u16 }
 ```
 
-#### `ship-core/src/error.rs` (slice 1 and slice 2)
+#### `ship-core/src/error.rs` (slice 1)
 
 ```rust
 impl AppError {
-    /// By value: `ErrorCode` is `Copy`. Drops `*error.code()` at call sites. (slice 1)
+    /// By value: `ErrorCode` is `Copy`. Drops `*error.code()` at call sites.
     pub fn code(&self) -> ErrorCode;
-    fn data_mut(&mut self) -> &mut Option<Value>;   // shared by `with_data` and `with_serialized_data` (slice 1)
+    fn data_mut(&mut self) -> &mut Option<Value>;   // shared by `with_data` and `with_serialized_data`
 }
 
-// slice 2: `err!` turns a bare variant into a path once, at the entry,
+// `err!` turns a bare variant into a path once, at the entry,
 // instead of six `#[allow(unused_imports)] use ErrorCode::*`.
 macro_rules! err {
     ($code:ident, $($rest:tt)+) => { $crate::err!(@code $crate::error::ErrorCode::$code, $($rest)+) };
@@ -324,7 +328,7 @@ macro_rules! err {
 }
 ```
 
-#### Workspace lints, `Cargo.toml` (slice 2)
+#### Workspace lints, `Cargo.toml` (slice 1)
 
 Proposed settings:
 
@@ -339,7 +343,7 @@ unwrap_used = "warn"                      # `expect("why")`, as the rest of the 
 
 `vendor/ratatui-ghostty` inherits the workspace lints. It has 32 `let _ =` and one `.unwrap()`; see open choice O-3.
 
-#### Lint fixes (slice 2)
+#### Lint fixes (slice 1)
 
 ```rust
 // ship-server/src/lib.rs: replaces the `too_many_arguments` expectation.
@@ -384,7 +388,7 @@ async fn drive(
     events: Events,
     signaled: impl Future<Output = ()>,
     run_output: impl Fn() -> Result<File> + Send + Sync + 'static,
-) -> Result<Exit>; // slice 8 folds `request` and `events` into `Connection`
+) -> Result<Exit>; // slice 3 folds `request` and `events` into `Connection`
 
 // ship-server/src/attach.rs: `let _ = &guard;` goes. The guard moves into
 // `Progress`, so the unfold state owns it and drops it with the stream.
@@ -396,11 +400,11 @@ struct Progress {
 
 `ship/src/runlog.rs`: six `.lock().unwrap()` and one `file_name().unwrap()` become `expect` with a reason.
 
-#### `ship-core/src/relay.rs` (slice 2)
+#### `ship-core/src/relay.rs` (slice 1)
 
-Removed, unused: the `Sink` impls for `mpsc::Sender`, `Recipient` and closures, `SinkExt`, `FilterSink`, `FilterMapSink`, and `SendResult::Full`. Kept: `RelayBus`, `Subscribe`, `Publish`, `Sink`, and the impls for `mpsc::UnboundedSender` and `watch::Sender`. Slice 3 then removes the `watch::Sender` impl, whose only user was `ReplicaSink`.
+Removed, unused: the `Sink` impls for `mpsc::Sender`, `Recipient` and closures, `SinkExt`, `FilterSink`, `FilterMapSink`, and `SendResult::Full`. Kept: `RelayBus`, `Subscribe`, `Publish`, `Sink`, and the impls for `mpsc::UnboundedSender` and `watch::Sender`. Slice 2 then removes the `watch::Sender` impl, whose only user was `ReplicaSink`.
 
-#### Server local cleanups (slice 2)
+#### Server local cleanups (slice 1)
 
 ```rust
 // state.rs
@@ -438,20 +442,20 @@ impl Saver {
 fn pty_size(size: Size) -> PtySize;   // two copies of the four-field literal
 ```
 
-#### Client local cleanups (slice 1 and slice 2)
+#### Client local cleanups (slice 1)
 
 ```rust
-// ui/rename.rs (slice 1): `Target` was the same shape as `NodeId`.
+// ui/rename.rs: `Target` was the same shape as `NodeId`.
 pub fn open(target: NodeId, stored: Option<&str>) -> Self;
 pub fn target(&self) -> NodeId;
 
-// ui/attention.rs (slice 2)
+// ui/attention.rs
 impl Watched { fn new(state: ReportedState) -> Self; }
 
-// ui/sidebar/mod.rs (slice 2): one entry point, dispatching on `direction.axis()`.
+// ui/sidebar/mod.rs: one entry point, dispatching on `direction.axis()`.
 pub fn nudge(&mut self, direction: Direction, amount: u16, cols: u16); // `nudge_split` folds in
 
-// ui/observer.rs (slice 2)
+// ui/observer.rs
 impl Observer {
     /// `record()?.selection`, written out six times.
     pub fn selection(&self) -> Option<NodeId>;
@@ -459,9 +463,9 @@ impl Observer {
 }
 ```
 
-`ui/mouse.rs` (slice 2): the `Up` and `Drag` arms merge; only `Up` takes `held`.
+`ui/mouse.rs`: the `Up` and `Drag` arms merge; only `Up` takes `held`.
 
-#### `ship/src` (slice 2)
+#### `ship/src` (slice 1)
 
 ```rust
 // main.rs: three `server` subcommand arms, `connect` and bare `ship`
@@ -484,7 +488,7 @@ async fn first_signal(a: impl Future<Output = Option<()>>, b: impl Future<Output
 
 `diagnostics::init` builds its two fmt layers from one closure, and `startup_filter` states the `SHIP_LOG` error once.
 
-#### `ship-server/src/replicas.rs`, `app.rs`, `lib.rs` (slice 3)
+#### `ship-server/src/replicas.rs`, `app.rs`, `lib.rs` (slice 2)
 
 ```rust
 // replicas.rs
@@ -514,7 +518,7 @@ impl Replicas {
 
 `serve` stops subscribing the replica sink on the bus. `ServerState::new` creates the `ReplicaSink` with an empty first replica, restores, publishes the restored replica, and `serve` takes `state.replicas()` before spawning the actor. When the state actor stops, it drops the sink, which ends every attach stream with `server_shutdown`, as dropping the bus does today.
 
-#### `ship-server/src/state.rs` (slice 3)
+#### `ship-server/src/state.rs` (slice 2)
 
 ```rust
 pub struct ServerState {
@@ -533,7 +537,7 @@ impl ServerState {
 
 Removed messages and their handlers: `ListTabs`, `Get<Tab>`, `Get<Pane>`, `ListViews`, `GetView` and `CheckAttachment`. Their routes (`list_tabs`, `get_tab`, `get_pane`, `list_views`, `get_view`), `input`'s attachment check and `order::lane` read `app.replicas.current()`. `commit` publishes with `self.replicas.publish(..)` instead of `bus.tell(Publish(..)).await`, so its `Unavailable` path goes. `Attach` returns the replica it just published.
 
-#### `ship-server/src/pane.rs` and `state.rs` (slice 4)
+#### `ship-server/src/pane.rs` and `state.rs` (slice 2)
 
 ```rust
 /// The pane's reported state as it stands, sent after a publish in which
@@ -554,7 +558,7 @@ pub(crate) struct PaneEvent {
 
 `PaneChange`, `PaneTask::set_dir` and `PaneTask::event` go. `PaneTask` keeps the last event it sent and sends a new one when it differs. The `Message<PaneEvent>` handler writes the four fields, commits only if the pane differs, and on an exit that closes the pane commits the removal second, as now, so every-revision feeds still see the exit before the pane goes.
 
-#### `ship-server/src/state.rs` and `state/geometry.rs` (slice 5)
+#### `ship-server/src/state.rs` and `state/geometry.rs` (slice 2)
 
 ```rust
 // state/geometry.rs
@@ -571,7 +575,7 @@ fn placeholder(id: IdOf<Pane>) -> Pane;
 
 `CreatePane` calls `start_size` in place of the `halves`, `Block::bordered().inner`, `MIN_CONTENT` and title-row arithmetic.
 
-#### `ship-client/src/ui/keys.rs`, `mouse.rs`, `mod.rs`, `panes.rs` (slice 6)
+#### `ship-client/src/ui/keys.rs`, `mouse.rs`, `mod.rs`, `panes.rs` (slice 3)
 
 ```rust
 // keys.rs: `Handled` goes; its variants were `Item::Action`, `Item::Key`,
@@ -615,19 +619,19 @@ impl Scene<'_> {
 
 `Picked` stays: overlays need its open, close and run cases.
 
-#### `ship-client/src/ui/mod.rs` (slices 7 and 8)
+#### `ship-client/src/ui/mod.rs` (slice 2)
 
 ```rust
 impl<'a> Local<'a> {
-    /// `None` before the first replica. (slice 7)
+    /// `None` before the first replica.
     fn view(&self) -> Option<View<'_>>;
     /// Was the event arm's follow-ups: the observer, attention, memory and
-    /// the sidebar's reveal. Returns whether anything visible changed. (slice 8)
+    /// the sidebar's reveal. Returns whether anything visible changed.
     fn apply(&mut self, event: SseEvent) -> bool;
-    /// Was the loop's tail: rename, sidebar and mouse reconciliation. (slice 8)
+    /// Was the loop's tail: rename, sidebar and mouse reconciliation.
     fn reconcile(&mut self) -> bool;
     /// Fold the row or select the landing node, for `client.tab.collapse`
-    /// and `client.tab.expand`. (slice 7)
+    /// and `client.tab.expand`.
     fn hop(&mut self, client: &'a Client, hop: Hop) -> Turn<'a>;
 }
 
@@ -647,7 +651,7 @@ async fn drive(
 fn tolerant<'a, T>(request: impl Future<Output = Result<T>> + 'a, gone: &'static [ErrorCode]) -> Turn<'a>;
 ```
 
-#### `ship-client/src/lib.rs` and `api.rs` (slice 9)
+#### `ship-client/src/lib.rs` and `api.rs` (slice 4)
 
 ```rust
 impl Client {
@@ -660,25 +664,30 @@ impl Client {
         expect: StatusCode,
     ) -> Result<T>;
 
-    /// The request with `x-ship-order` and, when given, the attachment
-    /// header; and its URL without credentials, for errors.
-    fn build(&self, method: Method, path: &str, attachment: Option<IdOf<Attachment>>, order: Option<Order>) -> (RequestBuilder, Url);
+    /// The request with `x-ship-order` and, when given, the attachment header.
+    fn build(&self, method: Method, path: &str, attachment: Option<IdOf<Attachment>>, order: Option<Order>) -> Prepared;
 
     /// Send within `TIMEOUT`, check the status, record `x-ship-revision`,
     /// then `read` the response. The one copy of the timeout and context.
     async fn exchange<T>(
         &self,
-        request: RequestBuilder,
-        safe: Url,
+        prepared: Prepared,
         expect: StatusCode,
         read: impl AsyncFnOnce(Response) -> Result<T>,
     ) -> Result<T>;
+}
+
+/// A request ready to send. Named rather than a `(RequestBuilder, Url)` tuple.
+struct Prepared {
+    request: RequestBuilder,
+    /// The URL without credentials, for errors.
+    safe: Url,
 }
 ```
 
 `request`, `numbered`, `stream` and `NO_BODY` go. `read` (text), `attach` (stream, head only), `input` and `set_view` (attachment header) use `build` and `exchange` directly. `pane_edit` stays as a thin `call`.
 
-#### `ship-client/src/execute.rs` (slice 9)
+#### `ship-client/src/execute.rs` (slice 4)
 
 ```rust
 impl Scope {
@@ -696,7 +705,7 @@ impl Client {
 
 `tab_target`, `current_tab`, `pane_at`, `pane_target` and `select_attachment` keep their names and errors, written over these.
 
-#### `ship-client/src/ui/sidebar/tabs.rs` (slice 10)
+#### `ship-client/src/ui/sidebar/tabs.rs` (slice 3)
 
 ```rust
 /// One visible row, from one walk of the tree under unfolded ancestors.
@@ -725,7 +734,7 @@ pub(in crate::ui) struct Tabs {
 }
 ```
 
-Replaces the `TreeState` mirror, `items`, the `rendered_at` row rebuild and its dedup, and the marker-column arithmetic copied from the widget. `visible` becomes the same walk. Proposed settings: remove `tui-tree-widget` from the workspace and `ship-client` manifests.
+`Tabs::fold(tab, collapsed: bool)` becomes `collapse(tab)` and `expand(tab)`, matching `Hop`. Replaces the `TreeState` mirror, `items`, the `rendered_at` row rebuild and its dedup, and the marker-column arithmetic copied from the widget. `visible` becomes the same walk. Proposed settings: remove `tui-tree-widget` from the workspace and `ship-client` manifests.
 
 ### Untouched
 
@@ -735,17 +744,17 @@ Replaces the `TreeState` mirror, `items`, the `rendered_at` row rebuild and its 
 - `order.rs`'s numbering, the `x-ship-order` protocol and the outbox.
 - `protocol.rs`, `model.rs`'s entity fields, `defaults.toml`, `keymap.rs`, `automation.rs`, `sound.rs`, `watch.rs`, `claim.rs`, `body.rs`, `records.rs`, `endpoint.rs`, `config.rs`.
 - `ship/src/runlog.rs`, apart from the `unwrap` fixes.
-- Docs: no user-visible change, so `README.md` and `docs/site/` stay. `docs/agents/code.md` gains one line naming the new lints (slice 2).
+- Docs: no user-visible change, so `README.md` and `docs/site/` stay. `docs/agents/code.md` gains one line naming the new lints (slice 1).
 
 ### Open choices and blocking unknowns
 
-- **O-1, settled: hand-drawn sidebar tree (slice 10).** Cyan chose to draw the tree from Ship's own rows and drop `tui-tree-widget`. The widget's model differs from Ship's at every point the sidebar uses: it keys folds by path and opens nothing by default, where Ship keys them by tab ID and opens by default, so a server-side move would reset a fold and a tab gaining its first child would show folded. Its `click_at` selects locally and toggles on a second click, where Ship folds from the marker and leaves selection to the server. Its `scroll_down` lets the last row reach the top. Using it as designed would change those behaviors and save about 25 lines; dropping it keeps them and saves about 85. Ship owns the offset clamp and the scroll-into-view on a new selection in exchange.
+- **O-1, settled: hand-drawn sidebar tree (slice 3).** Cyan chose to draw the tree from Ship's own rows and drop `tui-tree-widget`. The widget's model differs from Ship's at every point the sidebar uses: it keys folds by path and opens nothing by default, where Ship keys them by tab ID and opens by default, so a server-side move would reset a fold and a tab gaining its first child would show folded. Its `click_at` selects locally and toggles on a second click, where Ship folds from the marker and leaves selection to the server. Its `scroll_down` lets the last row reach the top. Using it as designed would change those behaviors and save about 25 lines; dropping it keeps them and saves about 85. Ship owns the offset clamp and the scroll-into-view on a new selection in exchange.
 - **O-2: the sidebar draw expectations.** Cyan approved the two `too_many_arguments` expectations on `Sidebar::draw` and `Tabs::draw` "for now" in ui-rename. A small view struct would remove them. Default: keep.
 - **O-3: the new lints in the vendored crate.** Cargo can't combine `workspace = true` with overrides. Either convert the vendor's 32 `let _ =` and one `unwrap` (recommended: it's a workspace member Ship already edits), or give the vendor its own lint table, or set the new lints as crate attributes in the five Ship crates instead.
-- **U-1: `Connection::next` borrows.** One future over three `Option` fields should borrow cleanly; confirm at slice 8 that `drive`'s `select!` preconditions on `connection.idle()` compile alongside it.
-- **U-2: the attach response's revision.** `exchange` records `x-ship-revision` on every response, including `attach`, which `stream` didn't. It can only equal or trail a `state` event, so it shouldn't stall the lane; confirm at slice 9, or skip recording for streams.
+- **U-1: `Connection::next` borrows.** One future over three `Option` fields should borrow cleanly; confirm at slice 3 that `drive`'s `select!` preconditions on `connection.idle()` compile alongside it.
+- **U-2: the attach response's revision.** `exchange` records `x-ship-revision` on every response, including `attach`, which `stream` didn't. It can only equal or trail a `state` event, so it shouldn't stall the lane; confirm at slice 4, or skip recording for streams.
 - **U-3: one `ratatui-core`.** `Cargo.lock` has one `ratatui-core` (0.1.2) today, so `ratatui::style::Color` and core's are one type. Slice 1 confirms with `cargo tree -d`.
-- **U-4: openspec without spec deltas.** This change modifies no requirement. Confirm `openspec validate consolidate --type change --strict` accepts a change with no deltas; if not, the proposal says so and validation is skipped.
+- **U-4, settled: openspec without spec deltas.** `openspec validate --strict` refuses a change with no deltas unless its `.openspec.yaml` sets `skip_specs: true`. This change sets it, and `openspec validate consolidate --type change --strict` passes.
 
 ## Build order
 
@@ -755,82 +764,63 @@ Every slice keeps behavior as it was, so its completion evidence is the regressi
 
 **Every slice also runs:** `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo build`, `cargo test --workspace`, and `cloc --include-lang=Rust crates` against the previous slice's count. Checks run on the implementing machine; the other priority platform is reported unverified.
 
-### 1. Shared shapes
+### 1. Shared shapes and lints
 
-- **Files:** `ship-core`: `tree.rs`, `screen.rs`, `layout.rs`, `command.rs`, `id.rs`, `model.rs`, `geometry.rs`, `error.rs` (`code`, `data_mut`). `ship-server`: `state/tree.rs` and every call site of the replaced helpers. `ship-client`: `api.rs` (`Resource`), `ui/agents.rs`, `ui/rename.rs`, `ui/panes.rs`, `ui/draw.rs`, and call sites.
-- **Delivers:** KD-5's shapes. Screens, styles, schemas and lookups are produced by one definition each.
-- **Done when:** the regression walk passes; a styled program (colors, bold, underline, italics) looks the same in a client; `cargo tree -d` shows one `ratatui-core` (U-3); the OpenAPI document diffs only in the `Rect` maximum and is otherwise byte-identical, checked by saving `ship_server::openapi()` before and after; about 125 code lines fewer.
+- **Files:** workspace `Cargo.toml` (lints). `ship-core`: `tree.rs`, `screen.rs`, `layout.rs`, `command.rs`, `id.rs`, `model.rs`, `geometry.rs`, `error.rs`, `relay.rs`. `ship-server`: `lib.rs`, `attach.rs`, `state.rs`, `state/tree.rs`, `state/layout.rs`, `routes.rs`, `views.rs`, `saver.rs`, `pane.rs`. `ship-client`: `api.rs` (`Resource`), `ui/{mod.rs, agents.rs, attention.rs, draw.rs, mouse.rs, observer.rs, panes.rs, rename.rs, sidebar/mod.rs}`. `ship/src/{main.rs, cli.rs, diagnostics.rs, runlog.rs}`. The vendor per O-3, `docs/agents/code.md`, and the call sites of every replaced helper.
+- **Delivers:** KD-5. Screens, styles, schemas and lookups are produced by one definition each, the local cleanups land, no `#[allow]` remains in Ship's crates, and the only expectations left are O-2's.
+- **Done when:**
+  - The regression walk passes.
+  - A styled program (colors, bold, underline, italics) looks the same in a client.
+  - `cargo tree -d` shows one `ratatui-core` (U-3).
+  - The OpenAPI document diffs only in the `Rect` maximum and is otherwise byte-identical, checked by saving `ship_server::openapi()` before and after.
+  - `grep -rn '#\[allow' crates` is empty, and Clippy passes with the new lints.
+  - Closing an attach stream (client quits) still detaches its attachment, seen in `ship view list`.
+  - The saver still writes after a change and on stop.
+  - About 335 code lines fewer.
 
-### 2. Lints and local cleanups
+### 2. Server: replica reads, pane reports and new-pane sizing
 
-- **Files:** workspace `Cargo.toml` (lints), `error.rs` (`err!`), `relay.rs`, `ship-server/src/{lib.rs, attach.rs, state.rs, state/layout.rs, routes.rs, views.rs, saver.rs, pane.rs}`, `ship-client/src/ui/{mod.rs, attention.rs, observer.rs, mouse.rs, sidebar/mod.rs}`, `ship/src/{main.rs, cli.rs, diagnostics.rs, runlog.rs}`, the vendor per O-3, `docs/agents/code.md`.
-- **Delivers:** KD-5's lint half and the local cleanups. No `#[allow]` remains in Ship's crates; the only expectations left are O-2's.
-- **Done when:** the regression walk passes; `grep -rn '#\[allow' crates` is empty; Clippy passes with the new lints; closing an attach stream (client quits) still detaches its attachment, seen in `ship view list`; the saver still writes after a change and on stop; about 210 code lines fewer.
-
-### 3. Reads from the published replica
-
-- **Files:** `replicas.rs`, `app.rs`, `lib.rs`, `state.rs`, `routes.rs`, `views.rs`, `input.rs`, `order.rs`, `relay.rs` (the `watch::Sender` impl).
-- **Delivers:** KD-1. Reads stop going through the actor, the revision has one home, and publishing can't fail a commit.
+- **Files:** `replicas.rs`, `app.rs`, `lib.rs`, `state.rs`, `state/geometry.rs`, `routes.rs`, `views.rs`, `input.rs`, `order.rs`, `pane.rs`, `relay.rs` (the `watch::Sender` impl).
+- **Delivers:** KD-1, KD-2 and KD-3. Reads stop going through the actor, the revision has one home, publishing can't fail a commit, one frame is at most one commit, and new panes are sized by `geometry::tab`.
 - **Done when:**
   - The regression walk passes.
   - Every response's `x-ship-revision` equals the revision of the replica a following GET returns, over 100 create, set and remove calls from a script.
   - A GET issued right after a write's response sees the write, 100 of 100.
   - Profiled before and after with `SHIP_TRACE`: GET latency while 20 panes print output, and commit latency. GETs no slower; commits no slower.
   - `ship server stop` with a client attached ends its stream with `server_shutdown` and exits within the five-second bound.
-  - About 110 code lines fewer.
-
-### 4. Pane reports
-
-- **Files:** `pane.rs`, `state.rs` (`Message<PaneEvent>`).
-- **Delivers:** KD-2.
-- **Done when:**
-  - The regression walk passes.
   - Counting `publishing replica` debug lines for one `cd` at a zsh and a bash prompt, before and after: after is no more than one per frame.
   - `ship pane wait` and `send --wait` against a program reporting OSC 7501 states give the same results as before.
   - A pane whose program exits with `exit_behavior = keep_failed` and a failing code stays, showing its exit; with `close`, an every-revision feed sees the exit status before the pane goes.
-  - About 45 code lines fewer.
-
-### 5. New-pane sizing
-
-- **Files:** `state.rs` (`CreatePane`), `state/geometry.rs`.
-- **Delivers:** KD-3.
-- **Done when:**
-  - The regression walk passes.
   - For split right, split down, stack onto a single pane, stack onto a stack, stack into a zoomed slot, and stack into a slot hidden by another zoom: the program's first `stty size` equals the published content size, on 80x24 and 200x60 clients.
   - Splitting a pane already at the minimum still refuses with "no space for new pane".
-  - About 35 code lines fewer.
+  - About 190 code lines fewer.
 
-### 6. Input items straight from keys and mouse
+### 3. Client loop and sidebar
 
-- **Files:** `ui/keys.rs`, `ui/mouse.rs`, `ui/sidebar/mod.rs`, `ui/mod.rs` (`read`, `offline`, `turn`, the mouse arm, `Scene`), `ui/panes.rs`.
-- **Delivers:** KD-4's input half. `Handled` and `Clicked` are gone.
-- **Done when:** the regression walk passes; every mouse gesture behaves as before: click a tab, fold, drag a tab to each gap kind, drag the sidebar edge and split, wheel over both sidebar sections, click a pane title behind the front, border drags at a junction, right-click with and without passthrough, drags and wheel to a mouse-tracking program; with the 500 ms delay proxy earlier changes used, typed keys and clicks still land in order; about 70 code lines fewer.
+- **Files:** `ui/nav.rs` and `ui/connection.rs` (new), `ui/mod.rs`, `ui/keys.rs`, `ui/mouse.rs`, `ui/panes.rs`, `ui/sidebar/mod.rs`, `ui/sidebar/tabs.rs`, workspace and `ship-client` manifests.
+- **Delivers:** KD-4 and the hand-drawn tab tree (O-1). `Handled` and `Clicked` are gone, navigation reads one `View` per turn, `drive` reads as a dispatcher, and `tui-tree-widget` is gone. The sidebar's mouse routing and the tree's hit-testing change together, so the click path is reworked once.
+- **Done when:**
+  - The regression walk passes.
+  - Every mouse gesture behaves as before: click a tab, fold, drag a tab to each gap kind, drag the sidebar edge and split, wheel over both sidebar sections, click a pane title behind the front, border drags at a junction, right-click with and without passthrough, drags and wheel to a mouse-tracking program.
+  - With the 500 ms delay proxy earlier changes used, typed keys and clicks still land in order.
+  - Tab next and prev over folded rows, pane next and prev, focus in all four directions with ties going to the most recent pane, collapse and expand on leaves, folded rows and open rows, tab move up, down, in and out at both edges, zoom toggling, and `client.agents.next` all match their current behavior.
+  - Stopping the server under a client shows "disconnected, reconnecting", and a restart within 5 s reattaches with the previous selection. A client that falls behind an every-revision feed reattaches. A refused number reattaches without losing the screen.
+  - Resizing the terminal sends one area PUT per frame at most, seen in the server's debug log.
+  - Side by side with the previous build, the tab tree's indentation, fold markers, selected band, rename accent, zoom flag and rollup icons look the same. Clicks on markers and labels, drop gaps at every depth, wheel scrolling to the end, folding or closing a tab while scrolled to the end, and a newly selected row scrolling into view behave the same.
+  - `cargo tree` no longer lists `tui-tree-widget`.
+  - About 255 code lines fewer.
 
-### 7. Navigation view
-
-- **Files:** `ui/nav.rs` (new), `ui/mod.rs` (`act`, `land`, `run`'s first selection).
-- **Delivers:** KD-4's navigation half.
-- **Done when:** the regression walk passes; tab next and prev over folded rows, pane next and prev, focus in all four directions with ties going to the most recent pane, collapse and expand on leaves, folded rows and open rows, tab move up, down, in and out at both edges, zoom toggling, and `client.agents.next` all match their current behavior; about 60 code lines fewer.
-
-### 8. Connection
-
-- **Files:** `ui/connection.rs` (new), `ui/mod.rs` (`drive`, `Local::apply`, `Local::reconcile`).
-- **Delivers:** KD-4's connection half; `drive` reads as a dispatcher.
-- **Done when:** the regression walk passes; stopping the server under a client shows "disconnected, reconnecting", and a restart within 5 s reattaches with the previous selection; a client that falls behind an every-revision feed reattaches; a refused number reattaches without losing the screen; resizing the terminal sends one area PUT per frame at most, seen in the server's debug log; about 40 code lines fewer.
-
-### 9. Client API
+### 4. Client API
 
 - **Files:** `ship-client/src/lib.rs`, `api.rs`, `execute.rs`.
 - **Delivers:** one request path and one target resolver.
-- **Done when:** the regression walk passes; every `ship tab` and `ship pane` subcommand prints the same JSON as before for the same inputs, including its errors (missing `--pane` outside a pane, unknown IDs, a stopped server's "no server running", a timeout from a server paused with `SIGSTOP`); U-2 is settled; about 75 code lines fewer.
+- **Done when:**
+  - The regression walk passes.
+  - Every `ship tab` and `ship pane` subcommand prints the same JSON as before for the same inputs, including its errors (missing `--pane` outside a pane, unknown IDs, a stopped server's "no server running", a timeout from a server paused with `SIGSTOP`).
+  - U-2 is settled.
+  - About 75 code lines fewer.
 
-### 10. Sidebar tree
-
-- **Files:** `ui/sidebar/tabs.rs`, workspace and `ship-client` manifests.
-- **Delivers:** the tab tree drawn from Ship's own rows.
-- **Done when:** the regression walk passes; side by side with the previous build: indentation, fold markers, the selected band, the rename accent, the zoom flag and rollup icons look the same; clicks on markers and labels, drop gaps at every depth, wheel scrolling to the end, folding or closing a tab while scrolled to the end, and a newly selected row scrolling into view behave the same; `cargo tree` no longer lists `tui-tree-widget`; about 85 code lines fewer.
-
-Expected size, estimated and not measured: about 770 code lines fewer by `cloc` across slices 1 to 9 (about 5.6% of 13,732), and about 855 with slice 10. No test code, as `docs/agents/code.md` asks.
+Expected size, estimated and not measured: about 855 code lines fewer by `cloc` (about 6.2% of 13,732). No test code, as `docs/agents/code.md` asks.
 
 The change ships as one pull request. The slices are its build order, not review units.
 

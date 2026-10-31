@@ -21,7 +21,7 @@ Visible on the wire only: every-revision feeds see fewer, merged revisions; a co
 
 ## Capabilities
 
-None modified. No requirement in `openspec/specs/` changes, so this change has no spec deltas.
+None modified. No requirement in `openspec/specs/` changes, so this change has no spec deltas, and its `.openspec.yaml` sets `skip_specs: true`.
 
 ## Impact
 
