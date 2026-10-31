@@ -2,7 +2,8 @@
 
 use std::collections::VecDeque;
 
-use crossterm::event::KeyEvent;
+use crossterm::event::{Event, KeyEvent};
+use ratatui::layout::Position;
 use ship_core::{
     id::IdOf,
     layout::Axis,
@@ -11,8 +12,8 @@ use ship_core::{
     protocol::{InputFrame, MoveTab},
 };
 
-use super::{Request, finish, observer::Observer};
-use crate::keymap::Action;
+use super::{Request, finish, menu, observer::Observer};
+use crate::keymap::{Action, ClientAction};
 
 /// A shared border, named by its left or upper pane.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -34,9 +35,17 @@ pub(super) struct TabMove {
     pub to: MoveTab,
 }
 
+/// A right-click keeps its target and pointer position until its turn.
+pub(super) struct MenuAt {
+    pub target: menu::Target,
+    pub at: Position,
+}
+
 /// Selection-dependent targets are resolved only when this item runs.
 pub(super) enum Item {
     Action(Action),
+    /// A key, paste or overlay mouse event, unread until its turn.
+    Event(Event),
     Key(KeyEvent),
     Paste(String),
     /// Clicks keep the target hit at press.
@@ -45,6 +54,7 @@ pub(super) enum Item {
     Mouse(InputFrame),
     Resize(EdgeAt),
     Move(TabMove),
+    Menu(MenuAt),
 }
 
 pub(super) enum Turn<'a> {
@@ -53,6 +63,8 @@ pub(super) enum Turn<'a> {
     /// Run these first, in order, including any item that needs retrying.
     First(Vec<Item>),
     Detach,
+    /// Client-only actions needing the terminal guard and config path.
+    Local(ClientAction),
 }
 
 #[derive(Default)]

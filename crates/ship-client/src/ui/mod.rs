@@ -11,6 +11,7 @@ mod mouse;
 mod observer;
 mod outbox;
 mod panes;
+mod rename;
 mod run;
 mod sidebar;
 mod terminal;
@@ -62,12 +63,13 @@ use self::{
     attention::Attention,
     draw::Status,
     keys::{Handled, Keys},
-    lane::{Item, Lane, TabMove, Turn},
+    lane::{Item, Lane, MenuAt, TabMove, Turn},
     memory::Memory,
     menu::{Menu, Picked},
     mouse::{Clicked, Mouse},
     observer::Observer,
     outbox::Outbox,
+    rename::Rename,
     sidebar::{Sidebar, movable},
     terminal::TerminalGuard,
 };
@@ -132,8 +134,8 @@ pub enum InitialSelection {
 /// every `Attached` it numbers its requests for that attachment. Keys go
 /// through the keymap loaded from `config`, or the defaults with the error on
 /// the status line, and reloaded when the file is saved; a bad save keeps the
-/// running keymap and shows the error. Bound keys queue their actions, which
-/// run one at a time.
+/// running keymap and shows the error. Keys queue unread and are interpreted
+/// one at a time, against the state left by earlier input.
 /// Keys, clicks and actions share one ordered lane. Server requests wait for
 /// their reply and the replica before the next turn; input goes out through
 /// the outbox. The frame tick sends area only. A cut connection or a refused
@@ -234,7 +236,7 @@ async fn drive(
         sidebar: Sidebar::new(settings.sidebar_width),
         keys: Keys::new(settings.keymap),
         mouse: Mouse::default(),
-        menu: None,
+        overlay: None,
         outbox: Outbox::new(client),
         message,
         attention: Attention::default(),
@@ -392,10 +394,12 @@ async fn drive(
                 Some(Ok(Event::Resize(cols, rows))) => {
                     terminal = (cols, rows);
                     guard.resize(terminal)?;
-                    local.menu = None;
+                    if matches!(local.overlay, Some(Overlay::Menu(_))) {
+                        local.overlay = None;
+                    }
                     true
                 }
-                Some(Ok(Event::Mouse(event))) if local.menu.is_none() && guard.mouse() && local.observer.connected => {
+                Some(Ok(Event::Mouse(event))) if local.overlay.is_none() && guard.mouse() && local.observer.connected => {
                     let mut mouse = mem::take(&mut local.mouse);
                     let was_dragging = mouse.dragging();
                     let clicked = mouse.route(event, &local.scene(Rect::new(0, 0, terminal.0, terminal.1)), lane.busy());
@@ -406,13 +410,7 @@ async fn drive(
                             Clicked::Select(node) => lane.push(Item::Select(node)),
                             Clicked::Fold(tab) => lane.push(Item::Fold(tab)),
                             Clicked::Move(tab) => lane.push(Item::Move(tab)),
-                            Clicked::Menu(target, at) => {
-                                local.menu = Menu::open(menu::items(&local.keys.keymap.menus, target), at, Rect::new(0, 0, terminal.0, terminal.1));
-                                if local.menu.is_some() && let Some(node) = target.node() {
-                                    lane.push(Item::Select(node));
-                                }
-                                visible = true;
-                            }
+                            Clicked::Menu(target, at) => lane.push(Item::Menu(MenuAt { target, at })),
                             Clicked::Frame(frame) => lane.push(Item::Mouse(frame)),
                             Clicked::Resize(positions) => {
                                 for position in positions { lane.push(Item::Resize(position)); }
@@ -433,46 +431,17 @@ async fn drive(
                     }
                     visible
                 }
-                Some(Ok(Event::Mouse(_))) if local.menu.is_none() => false,
+                Some(Ok(Event::Mouse(_))) if local.overlay.is_none() => false,
                 Some(Ok(event)) => {
-                    let before = local.keys.shown_mode().cloned();
-                    let mut now = false;
-                    let handled = if let Some(menu) = &mut local.menu {
-                        now = true;
-                        match menu.handle(&event) {
-                            Picked::Run(action) => {
-                                local.menu = None;
-                                keys::handled(action)
-                            }
-                            Picked::Close => {
-                                local.menu = None;
-                                Handled::None
-                            }
-                            Picked::Open => Handled::None,
-                        }
+                    if local.observer.connected {
+                        lane.push(Item::Event(event));
+                        false
                     } else {
-                        local.keys.handle(event)
-                    };
-                    match handled {
-                        Handled::Queue(item) => {
-                            if matches!(item, Item::Action(_)) {
-                                local.message = None;
-                            }
-                            // Detach is still available while disconnected, but
-                            // no other waiting input survives to a new connection.
-                            if local.observer.connected {
-                                lane.push(item);
-                            } else if matches!(item, Item::Action(Action::Client(ClientAction::Detach {}))) {
-                                return Ok(Exit::Detached);
-                            }
+                        if let Some(exit) = local.offline(event, guard, config, terminal.0) {
+                            return Ok(exit);
                         }
-                        Handled::Now(action) => {
-                            local.message = local.now(action, guard, config, terminal.0).err().map(|error| error.to_string());
-                            now = true;
-                        }
-                        Handled::None => {}
+                        true
                     }
-                    now || local.keys.shown_mode() != before.as_ref()
                 }
                 Some(Err(error)) => return Err(err!(Io, "cannot read the terminal", @external: error)),
                 None => return Err(err!(Io, "terminal input closed")),
@@ -502,17 +471,44 @@ async fn drive(
             reconnect = Some(Box::pin(attach_after(client, request.clone(), backoff)));
             visible = true;
         }
+        visible |= local.reconcile_rename();
         while let Some(item) = lane.next(&local.observer, client.written()) {
+            // Program input may still be buffered or in flight. Finish it
+            // before an action or click can take effect.
+            if !local.outbox.is_empty()
+                && matches!(
+                    item,
+                    Item::Action(_)
+                        | Item::Select(_)
+                        | Item::Fold(_)
+                        | Item::Resize(_)
+                        | Item::Move(_)
+                        | Item::Menu(_)
+                )
+            {
+                lane.first(vec![item]);
+                break;
+            }
             // Input frames change only the server's screen; redraw on its
             // publication, not on each keystroke or mouse frame.
             visible |= matches!(
                 item,
-                Item::Action(_) | Item::Select(_) | Item::Fold(_) | Item::Move(_)
+                Item::Action(_) | Item::Select(_) | Item::Fold(_) | Item::Move(_) | Item::Menu(_)
             );
-            match local.turn(client, item) {
+            let interpreting = matches!(item, Item::Event(_));
+            let overlay = local.overlay.is_some();
+            let mode = local.keys.shown_mode().cloned();
+            match local.turn(client, item, Rect::new(0, 0, terminal.0, terminal.1)) {
                 Turn::Done => {}
                 Turn::Wait(request) => lane.wait(request),
                 Turn::First(items) => lane.first(items),
+                Turn::Local(action) => {
+                    local.message = local
+                        .now(action, guard, config, terminal.0)
+                        .err()
+                        .map(|error| error.to_string());
+                    visible = true;
+                }
                 Turn::Detach => {
                     // Queued input must reach the server before the attachment
                     // ends, otherwise it is lost.
@@ -527,6 +523,8 @@ async fn drive(
                     return Ok(Exit::Detached);
                 }
             }
+            visible |= interpreting
+                && (overlay || local.overlay.is_some() || local.keys.shown_mode() != mode.as_ref());
         }
         if let Some(replica) = &local.observer.replica {
             local.sidebar.tabs.reconcile(&replica.tabs);
@@ -538,6 +536,12 @@ async fn drive(
     }
 }
 
+/// At most one overlay captures input before the mode machine.
+enum Overlay {
+    Menu(Menu),
+    Rename(Rename),
+}
+
 /// Client-local state used to resolve each input at its turn.
 struct Local<'a> {
     observer: Observer,
@@ -545,7 +549,7 @@ struct Local<'a> {
     sidebar: Sidebar,
     keys: Keys,
     mouse: Mouse,
-    menu: Option<Menu>,
+    overlay: Option<Overlay>,
     outbox: Outbox<'a>,
     message: Option<String>,
     attention: Attention,
@@ -587,6 +591,96 @@ impl<'a> Local<'a> {
         }
     }
 
+    /// Interpret input once, through the overlay or the active mode.
+    fn read(&mut self, event: Event) -> Handled {
+        let handled = match &mut self.overlay {
+            Some(overlay) => {
+                let picked = match overlay {
+                    Overlay::Menu(menu) => menu.handle(&event),
+                    Overlay::Rename(rename) => rename.handle(&event),
+                };
+                match picked {
+                    Picked::Run(action) => {
+                        self.overlay = None;
+                        Handled::Action(action)
+                    }
+                    Picked::Close => {
+                        self.overlay = None;
+                        Handled::None
+                    }
+                    Picked::Open => Handled::None,
+                }
+            }
+            None => self.keys.handle(event),
+        };
+        if matches!(handled, Handled::Action(_)) {
+            self.message = None;
+        }
+        handled
+    }
+
+    /// Close a field whose target disappeared or is no longer selected by this client.
+    fn reconcile_rename(&mut self) -> bool {
+        let Some(Overlay::Rename(rename)) = &self.overlay else {
+            return false;
+        };
+        let Some(replica) = &self.observer.replica else {
+            return false;
+        };
+        let closed = match rename.target() {
+            rename::Target::Tab(tab) => tree::tab(&replica.tabs, tab).err().map(|_| "tab closed"),
+            rename::Target::Pane(pane) => {
+                tree::pane(&replica.tabs, pane).err().map(|_| "pane closed")
+            }
+        };
+        if let Some(message) = closed {
+            self.overlay = None;
+            self.message = Some(message.into());
+            return true;
+        }
+        let selected = self.observer.selected();
+        let moved = match rename.target() {
+            rename::Target::Tab(tab) => selected.map(|selected| selected.tab.id) != Some(tab),
+            rename::Target::Pane(pane) => {
+                selected
+                    .and_then(|selected| selected.pane)
+                    .map(|pane| pane.id)
+                    != Some(pane)
+            }
+        };
+        if moved {
+            self.overlay = None;
+        }
+        moved
+    }
+
+    /// Disconnected input is read immediately and never held for reconnect.
+    fn offline(
+        &mut self,
+        event: Event,
+        guard: &mut TerminalGuard,
+        config: &Path,
+        cols: u16,
+    ) -> Option<Exit> {
+        match self.read(event) {
+            Handled::Action(Action::Client(ClientAction::Detach {})) => {
+                return Some(Exit::Detached);
+            }
+            Handled::Action(Action::Client(
+                action @ (ClientAction::Mode(_)
+                | ClientAction::Sidebar(_)
+                | ClientAction::Config(_)),
+            )) => {
+                self.message = self
+                    .now(action, guard, config, cols)
+                    .err()
+                    .map(|error| error.to_string());
+            }
+            _ => {}
+        }
+        None
+    }
+
     fn now(
         &mut self,
         action: ClientAction,
@@ -611,7 +705,7 @@ impl<'a> Local<'a> {
                 Ok(())
             }
             ClientAction::Config(ConfigAction::Reload {}) => self.reload(guard, config),
-            _ => unreachable!("Keys only returns press-time actions"),
+            _ => unreachable!("only mode, sidebar and config actions run locally"),
         }
     }
 
@@ -621,7 +715,7 @@ impl<'a> Local<'a> {
         let settings = ClientSettings::load(config)?;
         guard.set_mouse(settings.mouse)?;
         self.mouse = Mouse::default();
-        self.menu = None;
+        self.overlay = None;
         self.sidebar.configure(settings.sidebar_width);
         self.keys.replace(settings.keymap);
         self.agents = settings.agents;
@@ -629,8 +723,25 @@ impl<'a> Local<'a> {
     }
 
     #[traced]
-    fn turn(&mut self, client: &'a Client, item: Item) -> Turn<'a> {
+    fn turn(&mut self, client: &'a Client, item: Item, screen: Rect) -> Turn<'a> {
         match item {
+            Item::Event(event) => match self.read(event) {
+                Handled::Action(action) => Turn::First(vec![Item::Action(action)]),
+                Handled::Key(key) => Turn::First(vec![Item::Key(key)]),
+                Handled::Paste(text) => Turn::First(vec![Item::Paste(text)]),
+                Handled::None => Turn::Done,
+            },
+            Item::Menu(MenuAt { target, at }) => {
+                self.overlay = Menu::open(menu::items(&self.keys.keymap.menus, target), at, screen)
+                    .map(Overlay::Menu);
+                if self.overlay.is_some()
+                    && let Some(node) = target.node()
+                {
+                    return self.land(client, node);
+                }
+                Turn::Done
+            }
+            Item::Mouse(_) | Item::Resize(_) if self.overlay.is_some() => Turn::Done,
             Item::Action(action) => self.act(client, action),
             Item::Key(key) => {
                 if let Some(pane) = typing_pane(&self.observer, &self.memory) {
@@ -645,22 +756,11 @@ impl<'a> Local<'a> {
                 Turn::Done
             }
             Item::Select(node) => {
-                let Some(replica) = &self.observer.replica else {
-                    return Turn::Done;
-                };
-                if tree::path(&replica.tabs, node).is_none() {
-                    return Turn::Done;
-                }
-                let node = match node {
-                    NodeId::Tab(id) => match tree::tab(&replica.tabs, id) {
-                        Ok(tab) => self.memory.landing(tab),
-                        Err(_) => return Turn::Done,
-                    },
-                    pane => pane,
-                };
-                self.select(client, node)
+                self.overlay = None;
+                self.land(client, node)
             }
             Item::Fold(tab) => {
+                self.overlay = None;
                 if self
                     .observer
                     .replica
@@ -676,6 +776,7 @@ impl<'a> Local<'a> {
                 Turn::Done
             }
             Item::Move(moving) => {
+                self.overlay = None;
                 if !self
                     .observer
                     .replica
@@ -733,6 +834,24 @@ impl<'a> Local<'a> {
         }
     }
 
+    /// Select a clicked target, using the tab's remembered landing pane.
+    fn land(&mut self, client: &'a Client, node: NodeId) -> Turn<'a> {
+        let Some(replica) = &self.observer.replica else {
+            return Turn::Done;
+        };
+        if tree::path(&replica.tabs, node).is_none() {
+            return Turn::Done;
+        }
+        let node = match node {
+            NodeId::Tab(id) => match tree::tab(&replica.tabs, id) {
+                Ok(tab) => self.memory.landing(tab),
+                Err(_) => return Turn::Done,
+            },
+            pane => pane,
+        };
+        self.select(client, node)
+    }
+
     #[traced]
     fn send(&mut self, frame: InputFrame) {
         self.outbox.push(frame);
@@ -743,7 +862,9 @@ impl<'a> Local<'a> {
     fn cut(&mut self, area: Size) -> Option<AttachRequest> {
         self.outbox.clear();
         self.mouse = Mouse::default();
-        self.menu = None;
+        if matches!(self.overlay, Some(Overlay::Menu(_))) {
+            self.overlay = None;
+        }
         self.observer.connected = false;
         self.observer.remembered(area)
     }
@@ -823,6 +944,25 @@ impl<'a> Local<'a> {
                 }));
             }
             Action::Client(action) => match action {
+                ClientAction::Tab(ClientTab::Rename {}) => {
+                    if let Some(selected) = self.observer.selected() {
+                        self.overlay = Some(Overlay::Rename(Rename::open(
+                            rename::Target::Tab(selected.tab.id),
+                            selected.tab.name.as_deref(),
+                        )));
+                    }
+                    Ok(())
+                }
+                ClientAction::Pane(ClientPane::Rename {}) => {
+                    if let Some(pane) = self.observer.selected().and_then(|selected| selected.pane)
+                    {
+                        self.overlay = Some(Overlay::Rename(Rename::open(
+                            rename::Target::Pane(pane.id),
+                            pane.name.as_deref(),
+                        )));
+                    }
+                    Ok(())
+                }
                 ClientAction::Pane(ClientPane::Swap { direction }) => {
                     if let Some(replica) = &self.observer.replica
                         && let Some(NodeId::Pane(from)) = selection
@@ -920,7 +1060,10 @@ impl<'a> Local<'a> {
                     run::start(&self.runner, client, &self.observer, command)
                 }
                 ClientAction::Detach {} => return Turn::Detach,
-                _ => unreachable!("press-time actions and navigation handled before the lane"),
+                action @ (ClientAction::Mode(_)
+                | ClientAction::Sidebar(_)
+                | ClientAction::Config(_)) => return Turn::Local(action),
+                _ => unreachable!("navigation handled before the action match"),
             },
         };
         if let Err(error) = done {

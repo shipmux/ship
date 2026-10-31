@@ -22,14 +22,26 @@ With no bindings in the file, normal mode SHALL bind `alt-n` (new sibling tab wi
 - **THEN** the chord reaches the program rather than attempting row selection
 
 ### Requirement: Default pane keys
-With no bindings in the file, normal mode SHALL bind `alt--`/`alt-|` (split down/right), `alt-shift-x` (close pane), `alt-h/j/k/l` (pane focus), `alt-tab` (next pane), `alt-f` (`client.pane.zoom = { zoomed = "toggle" }`) and `alt-shift-h/j/k/l` (client directional swap).
+With no bindings in the file, normal mode SHALL bind `alt--`/`alt-|` (split down/right), `alt-shift-x` (close pane), `alt-h/j/k/l` (pane focus), `alt-tab` (next pane), `alt-f` (`client.pane.zoom = { zoomed = "toggle" }`) and `alt-p` (`client.mode = "panes"`). Normal mode SHALL NOT bind `alt-shift-h/j/k/l`.
 
 #### Scenario: Zoom and swap defaults
-- **WHEN** a user with no config presses `alt-f` and later uses `alt-shift-l` in an unzoomed split tab
-- **THEN** `alt-f` invokes `client.pane.zoom = { zoomed = "toggle" }`, and `alt-shift-l` invokes `client.pane.swap` to resolve the right neighbor and submit its explicit ID pair
+- **WHEN** a user with no config presses `alt-f` in an unzoomed split tab, and later presses `alt-p`
+- **THEN** `alt-f` invokes `client.pane.zoom = { zoomed = "toggle" }`, and `alt-p` enters `panes` mode
+
+#### Scenario: Shifted focus chord reaches the program
+- **WHEN** a pane runs a program that prints its input and a user with no config presses `alt-shift-l` in normal mode
+- **THEN** nothing happens in Ship and the program receives the chord
 
 ### Requirement: Default view keys
-With no bindings in the file, normal mode SHALL bind `alt-left`/`alt-right` (previous/next visible tab row), `alt-b` (sidebar), `alt-g`/`alt-r` (tabs/resize mode), `alt-pageup`/`alt-pagedown` (scroll the selected pane up/down one page) and `alt-a` (`client.agents.next`).
+With no bindings in the file, normal mode SHALL bind `alt-left`/`alt-right` (previous/next visible tab row), `alt-b` (sidebar), `alt-t`/`alt-r` (tabs/resize mode), `alt-pageup`/`alt-pagedown` (scroll the selected pane up/down one page) and `alt-a` (`client.agents.next`). `alt-g` SHALL NOT be bound by default.
+
+#### Scenario: Tabs mode mnemonic
+- **WHEN** a user with no config presses `alt-t`
+- **THEN** the client enters tabs mode
+
+#### Scenario: Former tabs chord reaches the program
+- **WHEN** a pane runs a program that prints its input and the user presses `alt-g` in normal mode
+- **THEN** the client stays in normal mode and the program receives the chord
 
 #### Scenario: Scroll defaults
 - **WHEN** a user with no config presses `alt-pageup` in a shell pane with a long history, then `alt-pagedown`
@@ -62,7 +74,7 @@ Every binding SHALL name one action, under `server.` or `client.`. A `server.` a
 - **THEN** the binding works from its key, and `ship run` is reported as an unknown command
 
 ### Requirement: Client actions
-`client.` actions SHALL have no CLI form and SHALL be reachable only from keys and the mouse. They SHALL change only that client's view, except: `client.pane.swap` SHALL resolve direction locally and submit the explicit server swap pair; `client.pane.zoom` SHALL resolve its switch locally and submit the tab's zoomed pane; `client.tab.move` SHALL resolve direction locally and submit one explicit tab move; `client.run` SHALL start a command on the client's machine (see run-actions).
+`client.` actions SHALL have no CLI form and be reachable only from keys and the mouse. They SHALL change only this client's view, except: `client.pane.swap` resolves direction locally and submits an explicit server swap pair; `client.pane.zoom` resolves its switch locally and submits the tab's zoomed pane; `client.tab.move` resolves direction locally and submits one explicit tab move; rename actions submit the typed name; `client.run` starts a command locally (see run-actions).
 
 #### Scenario: Local resolution submits shared swap
 - **WHEN** a user invokes `client.pane.swap` right in an unzoomed tab
@@ -79,6 +91,10 @@ Every binding SHALL name one action, under `server.` or `client.`. A `server.` a
 #### Scenario: Client run starts a local command
 - **WHEN** a user invokes `client.run = { command = ["touch", "/tmp/hit"] }`
 - **THEN** `/tmp/hit` exists on the client's machine and no other client sees any change
+
+#### Scenario: A rename reaches every viewer on Enter
+- **WHEN** a user invokes `client.tab.rename`, types `frontend` and presses Enter
+- **THEN** that client sends one `server.tab.set` naming the tab by ID with the name `frontend`, and all viewers see the new name
 
 ### Requirement: Relative tab moves
 `client.tab.move` SHALL take a required `direction` of `"up"`, `"down"`, `"in"` or `"out"`. It SHALL move the selected tab, or the selected pane's tab, with its subtree and panes, in one tab move: `up` to just before its previous sibling, `down` to just after its next sibling, `in` to the last child of its previous sibling, and `out` to just after its parent, leaving its siblings in place. Folded siblings SHALL count. The moved tab, or the pane selected in it, SHALL stay selected.
@@ -123,11 +139,11 @@ Every binding SHALL name one action, under `server.` or `client.`. A `server.` a
 - **THEN** both produce the same tree
 
 ### Requirement: Default tabs keys
-Default `tabs` mode SHALL bind `j`/`k` to `client.tab.next`/`prev`, `h`/`l` to `client.tab.collapse`/`expand`, `esc` to normal, and `shift-k`, `shift-j`, `shift-l` and `shift-h` to `client.tab.move` `up`, `down`, `in` and `out`, with the labels `move up`, `move down`, `move in` and `move out`.
+Default `tabs` mode SHALL bind `j`/`k` to `client.tab.next`/`prev`, `h`/`l` to `client.tab.collapse`/`expand`, `r` to `client.tab.rename`, `esc` to normal, and `shift-k`, `shift-j`, `shift-l` and `shift-h` to `client.tab.move` `up`, `down`, `in` and `out`, with the labels `move up`, `move down`, `move in` and `move out`.
 
 #### Scenario: Labels in tabs mode
-- **WHEN** a user with no config presses `alt-g`
-- **THEN** the status line shows `move up`, `move down`, `move in` and `move out` for the four shifted keys
+- **WHEN** a user with no config presses `alt-t`
+- **THEN** the status line shows `move up`, `move down`, `move in` and `move out` for the four shifted keys, and `rename` for `r`
 
 ### Requirement: Bindings in any mode
 Any action SHALL be bindable in any mode.
@@ -163,7 +179,7 @@ A chord in the file SHALL replace the default binding on that chord in that mode
 - **THEN** in resize mode `h` does nothing and `esc` returns to normal
 
 ### Requirement: Modes
-`normal` SHALL always exist and SHALL be the mode a client starts in. Setting `kind` on `normal` SHALL change nothing. Users SHALL be able to define modes under `[client.modes.<name>]` with `kind` set to `sticky` or `oneshot`. `client.mode` SHALL enter the named mode. Naming an undefined mode SHALL load, and pressing the key SHALL show the error on the status line and change nothing. The defaults SHALL define sticky `tabs` and `resize` and an empty one-shot `prefix` that no key enters.
+`normal` SHALL always exist and SHALL be the mode a client starts in. Setting `kind` on `normal` SHALL change nothing. Users SHALL be able to define modes under `[client.modes.<name>]` with `kind` set to `sticky` or `oneshot`. `client.mode` SHALL enter the named mode. Naming an undefined mode SHALL load, and pressing the key SHALL show the error on the status line and change nothing. The defaults SHALL define sticky `tabs`, `panes` and `resize` and an empty one-shot `prefix` that no key enters.
 
 #### Scenario: Undefined mode
 - **WHEN** a binding is `{ action = { client.mode = "pnaes" } }`, no `pnaes` mode is defined, and the user presses it
@@ -185,7 +201,7 @@ In normal mode, an unbound key SHALL reach the selected pane's program. In a sti
 - **THEN** the client returns to normal and nothing else happens
 
 ### Requirement: Key actions act on the selection
-A key binding SHALL act on the client's selection as it is at the binding's turn in the client's input order, not at press (see terminal-client's Ordered input). A `server.` action whose target is not selected, such as `server.pane.close` with only a tab selected, SHALL report that on the status line and change nothing. `client.mode`, `client.sidebar.toggle`, `client.sidebar.resize` and `client.config.reload` SHALL apply at press, ahead of any input still waiting.
+A key binding SHALL act on the client's selection as it is at the binding's turn in the client's input order, not at press (see terminal-client's Ordered input). A `server.` action whose target is not selected, such as `server.pane.close` with only a tab selected, SHALL report that on the status line and change nothing. Every action SHALL take its turn, including `client.mode`, `client.sidebar.toggle`, `client.sidebar.resize` and `client.config.reload`.
 
 #### Scenario: Close the selected pane
 - **WHEN** a pane is selected and the user presses `alt-shift-x`
@@ -201,7 +217,11 @@ A key binding SHALL act on the client's selection as it is at the binding's turn
 
 #### Scenario: Mode change while input waits
 - **WHEN** on a slow link the user presses `alt-n` then `alt-r` before the tab appears
-- **THEN** the status line shows `resize` at once, and the tab is created as usual
+- **THEN** the tab is created as usual, and the status line shows `resize` once it has
+
+#### Scenario: Mode change on an idle link
+- **WHEN** nothing is waiting and the user presses `alt-t`
+- **THEN** the status line shows `tabs` at once
 
 ### Requirement: New tabs from keys
 `server.tab.create` from a key with no placement SHALL create the tab after the selected tab under the same parent, or at the end of the top level when nothing is selected. Child placement SHALL append under the selected tab or the selected pane's tab, falling back to the top level with nothing selected. With `starter = "shell"`, the tab SHALL open with one pane running the configured shell. Whether the client selects the new tab or its pane follows Selecting creates from keys.
@@ -349,7 +369,7 @@ For `client.sidebar.resize`, `up` and `down` SHALL move the divider between the 
 - **THEN** the divider between the sidebar's sections moves 3 rows up, unless the tabs section would drop below its limit
 
 ### Requirement: Sidebar resize availability
-`client.sidebar.resize` SHALL apply at press, SHALL do nothing while the sidebar is hidden, and SHALL have no CLI command.
+`client.sidebar.resize` SHALL take its turn like any action, SHALL do nothing while the sidebar is hidden, and SHALL have no CLI command.
 
 #### Scenario: Hidden sidebar
 - **WHEN** the sidebar is hidden and the user presses `shift-l` in resize mode
@@ -439,3 +459,37 @@ Create actions SHALL send their target and `place` to the server. The server SHA
 #### Scenario: Placement comes from the server
 - **WHEN** a binding targets an existing pane with `place = "stack"`
 - **THEN** the server stacks the new pane there and the client renders the published layout
+
+### Requirement: Rename actions
+`client.tab.rename = {}` SHALL open the rename field for the selected tab, or the selected pane's tab. `client.pane.rename = {}` SHALL open it for the selected pane. Each SHALL resolve its target at its turn, and SHALL do nothing when nothing it can rename is selected. Both SHALL be usable from any mode's bindings and from menu items.
+
+#### Scenario: Rename the tab of a selected pane
+- **WHEN** a pane in tab `web` is selected and the user invokes `client.tab.rename`
+- **THEN** the rename field opens for `web`
+
+#### Scenario: Nothing to rename
+- **WHEN** a tab without panes is selected and the user invokes `client.pane.rename`
+- **THEN** no field opens and nothing changes
+
+#### Scenario: Target follows input order
+- **WHEN** on a slow link the user presses `j` then `r` in `tabs` mode before the selection moves
+- **THEN** the field opens for the tab `j` selected
+
+### Requirement: Default panes keys
+Default `panes` mode SHALL be sticky and bind `h`, `j`, `k` and `l` to `client.pane.focus` left, down, up and right; `shift-h`, `shift-j`, `shift-k` and `shift-l` to `client.pane.swap` in those directions, labeled `swap left`, `swap down`, `swap up` and `swap right`; `.` and `,` to `server.pane.cycle` next and previous; `r` to `client.pane.rename`; and `esc` to normal.
+
+#### Scenario: Focus stays in panes mode
+- **WHEN** a tab has two panes side by side, the left one is selected, and the user presses `alt-p` then `l`
+- **THEN** the right pane is selected and the client is still in `panes` mode
+
+#### Scenario: Swap from panes mode
+- **WHEN** the same tab is shown and the user presses `shift-l` in `panes` mode
+- **THEN** the two panes swap places and the moved pane stays selected
+
+#### Scenario: Cycle a stack
+- **WHEN** a stack holds three panes and the user presses `.` in `panes` mode
+- **THEN** the next pane in the stack comes to the front
+
+#### Scenario: Labels in panes mode
+- **WHEN** a user with no config presses `alt-p`
+- **THEN** the status line shows `swap left`, `swap down`, `swap up` and `swap right` for the four shifted keys, and `rename` for `r`

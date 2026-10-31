@@ -1,29 +1,19 @@
 //! The mode machine: terminal events to bindings in the active mode.
 
 use crokey::KeyCombination;
-use crossterm::event::{Event, KeyEventKind};
+use crossterm::event::{Event, KeyEvent, KeyEventKind};
 use ship_core::prelude::*;
 
-use super::lane::Item;
-use crate::keymap::{Action, Binding, ClientAction, Keymap, ModeKind, ModeName};
+use crate::keymap::{Action, Binding, Keymap, ModeKind, ModeName};
 
+/// What input means; the lane decides when it runs.
 pub(super) enum Handled {
-    /// A bound action, key or paste with its target resolved at its turn.
-    Queue(Item),
-    /// Mode, sidebar and reload actions apply at press, ahead of the lane.
-    Now(ClientAction),
-    /// An unbound key outside normal.
+    Action(Action),
+    /// Unbound in normal: for the selected pane's program.
+    Key(KeyEvent),
+    Paste(String),
+    /// Unbound outside normal, or not a key or paste.
     None,
-}
-
-/// The same press-time/ordered-lane split for bindings and menu picks.
-pub(super) fn handled(action: Action) -> Handled {
-    match action {
-        Action::Client(
-            action @ (ClientAction::Mode(_) | ClientAction::Sidebar(_) | ClientAction::Config(_)),
-        ) => Handled::Now(action),
-        action => Handled::Queue(Item::Action(action)),
-    }
 }
 
 pub(super) struct Keys {
@@ -40,7 +30,7 @@ impl Keys {
     }
 
     /// `KeyCombination::from(key)`, looked up in the active mode. Unbound:
-    /// a queued key in normal, dropped in any other mode. A one-shot mode
+    /// a program key in normal, dropped in any other mode. A one-shot mode
     /// returns to normal after any key unless the binding enters a mode itself.
     pub fn handle(&mut self, event: Event) -> Handled {
         match event {
@@ -57,12 +47,12 @@ impl Keys {
                     self.active = ModeName::normal();
                 }
                 match binding.and_then(|binding| binding.action) {
-                    Some(action) => handled(action),
-                    None if normal => Handled::Queue(Item::Key(key)),
+                    Some(action) => Handled::Action(action),
+                    None if normal => Handled::Key(key),
                     None => Handled::None,
                 }
             }
-            Event::Paste(text) => Handled::Queue(Item::Paste(text)),
+            Event::Paste(text) => Handled::Paste(text),
             _ => Handled::None,
         }
     }

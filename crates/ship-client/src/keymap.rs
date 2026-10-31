@@ -293,6 +293,8 @@ pub enum ClientAction {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 #[strum(serialize_all = "snake_case")]
 pub enum ClientTab {
+    /// Rename the selected tab, or the selected pane's tab, resolved at its turn.
+    Rename {},
     Next {},
     Prev {},
     Select {
@@ -327,6 +329,8 @@ pub enum TabDirection {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 #[strum(serialize_all = "snake_case")]
 pub enum ClientPane {
+    /// Rename the selected pane, resolved at its turn.
+    Rename {},
     Next {},
     Prev {},
     Focus {

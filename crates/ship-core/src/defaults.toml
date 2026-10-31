@@ -40,11 +40,13 @@ pane = [
   { label = "edit scrollback", action = { server.pane.create = { place = "stack", select = true, exit_behavior = "keep_failed", name = "scrollback", command = ["sh", "-c", "exec \"$SHIP_BIN\" pane edit-scrollback"] } } },
   { label = "zoom", action = { client.pane.zoom = { zoomed = "toggle" } } },
   { label = "right-click passthrough", action = { server.pane.set = { right_click_passthrough = "toggle" } } },
+  { label = "rename", action = { client.pane.rename = {} } },
   { label = "close", action = { server.pane.close = {} } },
 ]
 tab = [
   { label = "new tab", action = { server.tab.create = { starter = "shell", select = true } } },
   { label = "new child tab", action = { server.tab.create = { starter = "shell", child = true, select = true } } },
+  { label = "rename", action = { client.tab.rename = {} } },
   { label = "close", action = { server.tab.close = {} } },
 ]
 global = [
@@ -76,12 +78,9 @@ global = [
 "alt-l"       = { action = { client.pane.focus.direction = "right" } }
 "alt-tab"     = { action = { client.pane.next = {} } }
 "alt-f"       = { action = { client.pane.zoom = { zoomed = "toggle" } } }
-"alt-shift-h" = { action = { client.pane.swap.direction = "left" } }
-"alt-shift-j" = { action = { client.pane.swap.direction = "down" } }
-"alt-shift-k" = { action = { client.pane.swap.direction = "up" } }
-"alt-shift-l" = { action = { client.pane.swap.direction = "right" } }
+"alt-p"       = { action = { client.mode = "panes" } }
 "alt-b"       = { action = { client.sidebar.toggle = {} } }
-"alt-g"       = { action = { client.mode = "tabs" } }
+"alt-t"       = { action = { client.mode = "tabs" } }
 "alt-r"       = { action = { client.mode = "resize" } }
 "alt-q"       = { action = { client.detach = {} } }
 "alt-a"       = { action = { client.agents.next = {} } }
@@ -100,6 +99,24 @@ kind = "sticky"
 "shift-j" = { action = { client.tab.move.direction = "down" }, label = "move down" }
 "shift-l" = { action = { client.tab.move.direction = "in" }, label = "move in" }
 "shift-h" = { action = { client.tab.move.direction = "out" }, label = "move out" }
+"r"       = { action = { client.tab.rename = {} } }
+"esc"     = { action = { client.mode = "normal" } }
+
+[client.modes.panes]
+kind = "sticky"
+
+[client.modes.panes.keys]
+"h"       = { action = { client.pane.focus.direction = "left" } }
+"j"       = { action = { client.pane.focus.direction = "down" } }
+"k"       = { action = { client.pane.focus.direction = "up" } }
+"l"       = { action = { client.pane.focus.direction = "right" } }
+"shift-h" = { action = { client.pane.swap.direction = "left" }, label = "swap left" }
+"shift-j" = { action = { client.pane.swap.direction = "down" }, label = "swap down" }
+"shift-k" = { action = { client.pane.swap.direction = "up" }, label = "swap up" }
+"shift-l" = { action = { client.pane.swap.direction = "right" }, label = "swap right" }
+"."       = { action = { server.pane.cycle = { direction = "next" } } }
+","       = { action = { server.pane.cycle = { direction = "prev" } } }
+"r"       = { action = { client.pane.rename = {} } }
 "esc"     = { action = { client.mode = "normal" } }
 
 [client.modes.resize]
