@@ -3,12 +3,14 @@ use std::{collections::HashMap, sync::Arc};
 use ship_core::{
     id::{Attachment, IdOf},
     model::{NodeId, Pane, Tab},
-    protocol::{AttachRequest, PaneScreen, Replica, SseEvent, ViewingRecord},
+    protocol::{AttachRequest, PaneScreen, Replica, SseEvent, ViewInput, ViewingRecord},
     screen::{Screen, Size},
     tree::{self, Tabs},
 };
 
 use ship_macros::traced;
+
+use super::connection::Resize;
 
 /// The client's copy of server-owned state: the replica and the latest screen
 /// of each pane it has been sent.
@@ -101,6 +103,15 @@ impl Observer {
         })
     }
 
+    /// The area PUT when `area` differs from the record's. `None` before
+    /// the first `Attached` or when they match.
+    pub fn resized(&self, area: Size) -> Option<Resize> {
+        (self.record()?.area != Some(area)).then_some(Resize {
+            attachment: self.attachment?,
+            view: ViewInput { area },
+        })
+    }
+
     /// Drawn in the selected tab: a key of its `geometry.panes`, which the
     /// server narrows to the zoomed pane.
     pub fn in_view(&self, pane: IdOf<Pane>) -> bool {
@@ -111,13 +122,18 @@ impl Observer {
 
     /// `None` when nothing is selected or before the first `Attached`.
     pub fn selected(&self) -> Option<Selected<'_>> {
-        let selection = self.selection()?;
-        let tabs = self.tabs()?;
+        Selected::resolve(self.tabs()?, self.selection()?)
+    }
+}
+
+impl<'a> Selected<'a> {
+    /// `selection` in `tabs`; `None` when it's gone.
+    pub fn resolve(tabs: &'a Tabs, selection: NodeId) -> Option<Self> {
         let tab = tree::tab(tabs, tree::viewed_tab(tabs, selection)?).ok()?;
         let pane = match selection {
             NodeId::Pane(id) => tab.pane(id),
             NodeId::Tab(_) => None,
         };
-        Some(Selected { tab, pane })
+        Some(Self { tab, pane })
     }
 }

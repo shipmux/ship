@@ -24,7 +24,7 @@ pub(super) use self::{
     agents::Agents,
     tabs::{Gap, Tabs, movable},
 };
-use super::{attention::Attention, observer::Observer};
+use super::{attention::Attention, mouse::SidebarEdit, observer::Observer};
 use crate::keymap::Token;
 
 const MIN_WIDTH: u16 = 10;
@@ -94,7 +94,16 @@ impl Sidebar {
         }
     }
 
-    pub fn set_width(&mut self, width: u16, cols: u16) {
+    /// A mouse edit, against a terminal `cols` wide.
+    pub fn edit(&mut self, edit: SidebarEdit, cols: u16) {
+        match edit {
+            SidebarEdit::Width(width) => self.set_width(width, cols),
+            SidebarEdit::Split(row) => self.set_split(row),
+            SidebarEdit::Scroll { at, scroll } => self.scroll(at, scroll),
+        }
+    }
+
+    fn set_width(&mut self, width: u16, cols: u16) {
         self.chosen = Some(Self::clamp(width, cols));
     }
 
@@ -132,7 +141,7 @@ impl Sidebar {
     }
 
     /// Move the divider row to `y`, within the split's limits.
-    pub fn set_split(&mut self, y: u16) {
+    fn set_split(&mut self, y: u16) {
         let height = self.area.height;
         if self.shown && height > 0 {
             let offset = split_clamp(y.saturating_sub(self.area.y), height);
@@ -141,7 +150,7 @@ impl Sidebar {
     }
 
     /// Sent to the section under `at`.
-    pub fn scroll(&mut self, at: Position, scroll: Scroll) {
+    fn scroll(&mut self, at: Position, scroll: Scroll) {
         if !self.shown || !self.area.contains(at) {
             return;
         }

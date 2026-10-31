@@ -57,6 +57,32 @@ pub(super) enum Item {
     Menu(MenuAt),
 }
 
+impl Item {
+    /// Takes effect against what the screen shows, so program input still
+    /// buffered or in flight goes first.
+    pub fn waits_for_input(&self) -> bool {
+        matches!(
+            self,
+            Self::Action(_)
+                | Self::Select(_)
+                | Self::Fold(_)
+                | Self::Resize(_)
+                | Self::Move(_)
+                | Self::Menu(_)
+        )
+    }
+
+    /// Changes what this client draws at its turn. Keys, pastes, mouse
+    /// frames and border drags change only server state, so they redraw on
+    /// its publication, not on each keystroke or drag step.
+    pub fn redraws(&self) -> bool {
+        matches!(
+            self,
+            Self::Action(_) | Self::Select(_) | Self::Fold(_) | Self::Move(_) | Self::Menu(_)
+        )
+    }
+}
+
 pub(super) enum Turn<'a> {
     Done,
     Wait(Request<'a>),

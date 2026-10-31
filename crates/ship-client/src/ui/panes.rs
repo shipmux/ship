@@ -38,13 +38,7 @@ pub(super) fn draw(
     let geometry = scene.geometry?;
     let selected = scene.selected;
     let screens = scene.screens;
-    let offset = |rect: Rect| {
-        area.intersection(Rect {
-            x: area.x.saturating_add(rect.x),
-            y: area.y.saturating_add(rect.y),
-            ..rect
-        })
-    };
+    let offset = |rect: Rect| area.intersection(scene.on_screen(rect));
     let size = geometry.size;
     fill(
         frame.buffer_mut(),
@@ -183,16 +177,12 @@ pub(super) fn title_row(scene: &Scene, front: IdOf<Pane>) -> Option<Rect> {
         return None;
     }
     let inset = u16::from(bordered);
-    let mut row = scene.panes.intersection(Rect::new(
-        scene
-            .panes
-            .x
-            .saturating_add(pane.frame.x)
-            .saturating_add(inset),
-        scene.panes.y.saturating_add(pane.frame.y),
+    let mut row = scene.panes.intersection(scene.on_screen(Rect::new(
+        pane.frame.x.saturating_add(inset),
+        pane.frame.y,
         pane.frame.width.saturating_sub(inset * 2),
         pane.frame.height.min(1),
-    ));
+    )));
     if bordered && let Some(scrolled) = scene.screens.get(&front).and_then(|screen| screen.scrolled)
     {
         let badge = Line::from(scrolled.to_string()).width();

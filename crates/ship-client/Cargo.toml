@@ -31,7 +31,6 @@ tempfile.workspace = true
 tokio = { workspace = true, features = ["process"] }
 toml.workspace = true
 tui-input.workspace = true
-tui-tree-widget.workspace = true
 tokio-stream.workspace = true
 
 [lints]
