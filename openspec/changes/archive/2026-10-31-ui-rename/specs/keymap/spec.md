@@ -33,7 +33,7 @@ With no bindings in the file, normal mode SHALL bind `alt--`/`alt-|` (split down
 - **THEN** nothing happens in Ship and the program receives the chord
 
 ### Requirement: Client actions
-A `client.` action SHALL change only that client's view and SHALL be reachable only from keys and the mouse, except `client.pane.swap`, which SHALL resolve direction locally and submit the explicit server swap pair, `client.pane.zoom`, which SHALL resolve its switch locally and submit the tab's zoomed pane, `client.tab.move`, which SHALL resolve its direction locally and submit one explicit tab move, and `client.tab.rename` and `client.pane.rename`, which SHALL submit the name typed into the rename field. None of them SHALL have a CLI form.
+Client actions SHALL be reachable only from keys and the mouse, with no CLI form. They SHALL change only this client's view except: `client.pane.swap` resolves direction locally and submits an explicit server swap pair; `client.pane.zoom` resolves its switch locally and submits the tab's zoomed pane; `client.tab.move` resolves direction locally and submits one explicit tab move; `client.tab.rename` and `client.pane.rename` submit the name typed into the rename field.
 
 #### Scenario: Local resolution submits shared swap
 - **WHEN** a user invokes `client.pane.swap` right in an unzoomed tab

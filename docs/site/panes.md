@@ -1,7 +1,7 @@
 # Panes
 
 <!--
-Scope: Splitting, moving between, zooming and closing panes, what happens when a pane's program exits, and the matching CLI commands.
+Scope: Splitting, moving between, renaming, zooming and closing panes, what happens when a pane's program exits, and the matching CLI commands.
 Not here: scrolling and copying (scrolling-copying-and-the-mouse.md), scripting recipes (scripting/).
 -->
 
@@ -15,7 +15,7 @@ Every pane runs a program in its own terminal, your shell unless you say otherwi
 | `alt-e` | Open the pane's scrollback in your editor |
 | `alt-h` / `alt-j` / `alt-k` / `alt-l` | Move to the pane left, below, above or right |
 | `alt-tab` | Next visible pane in the tab, skipping panes behind |
-| `alt-shift-h` / `j` / `k` / `l` | Swap with the neighbor in that direction |
+| `alt-p` | Panes mode: `h` / `j` / `k` / `l` select a neighbor; `shift-h` / `shift-j` / `shift-k` / `shift-l` swap with it; `,` / `.` cycle the stack; `r` renames; `esc` leaves |
 | `alt-f` | Zoom the pane to fill the tab, or unzoom |
 | `alt-r` | Resize mode: `h` / `j` / `k` / `l` move the pane's edge, `esc` leaves |
 | `alt-shift-x` | Close the pane |
@@ -50,6 +50,12 @@ ship pane move --pane "$PANE" --beside "$OTHER" --direction right
 ```
 
 `OTHER` can be in another tab, or in the same stack when taking a pane out into its own split. Use `--direction down` to put it below instead. The pane keeps its ID, output and running program. Clients with it selected follow it; the destination unzooms if needed to keep it visible. An emptied old slot disappears, but its tab stays.
+
+## Renaming
+
+Press `alt-p` then `r`, or right-click the pane and choose **rename**. Editing, saving and clearing work [the same way as tab renaming](tabs.md#renaming); clearing a pane's name restores its program's title, or its command if it has no title. Press `esc` after renaming to leave panes mode.
+
+Moving to another pane cancels without saving. This includes another client bringing a different pane to the front of your stack, which also changes your selected pane.
 
 ## Edit scrollback
 

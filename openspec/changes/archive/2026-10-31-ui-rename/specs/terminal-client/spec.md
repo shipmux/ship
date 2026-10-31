@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Ordered input
-A client's bound actions, menu items, typed keys, pastes, `client.send`, clicks, fold clicks, wheel turns, drags and mouse input to programs SHALL take effect on the server in the order they happened. Anything that depends on the selection, the layout or the folds SHALL be resolved against the state after everything before it has taken effect. This SHALL hold for `server.` actions too: an action SHALL take effect only after keys typed before it. What a key or paste means, through the active mode, an open menu or the rename field, SHALL also be decided at its turn.
+A client's bindings, menu items, keys, pastes, `client.send`, clicks, fold clicks, wheel turns, drags and program mouse input SHALL take effect on the server in input order, including `server.` actions after earlier typing. Anything depending on selection, layout or folds SHALL resolve against the state after earlier input takes effect. Keys and pastes SHALL be interpreted through the active mode, menu or rename field at their turn.
 
 #### Scenario: Type right after a new tab
 - **WHEN** 500 ms of delay is added each way between client and server, and the user presses `alt-n` then types `echo hi` and Enter at once
@@ -35,7 +35,7 @@ A client's bound actions, menu items, typed keys, pastes, `client.send`, clicks,
 While a client is disconnected, it SHALL read keys and pastes as they arrive. Mode changes, sidebar actions and config reloads SHALL apply, detach SHALL detach, and every other action, key and paste SHALL be dropped.
 
 #### Scenario: Mode change while disconnected
-- **WHEN** the server is stopped and the client shows `disconnected, reconnecting`, and the user presses `alt-g`
+- **WHEN** the server is stopped and the client shows `disconnected, reconnecting`, and the user presses `alt-t`
 - **THEN** the client enters `tabs` mode
 
 #### Scenario: Detach while disconnected

@@ -1,11 +1,11 @@
 # Keys
 
 <!--
-Scope: Every default key, the resize and tabs modes, and the mouse, one line each.
+Scope: Every default key, resize, tabs and panes modes, and the mouse, one line each.
 Not here: how to rebind (configuration.md), how scrolling and selection behave (scrolling-copying-and-the-mouse.md).
 -->
 
-All of Ship's default keys are Alt chords. Any other key goes to the program in the selected pane. On macOS, your terminal needs [Option set as Alt](README.md#first-run) for them to work.
+In normal mode, Ship's default keys are Alt chords. Any other key goes to the program in the selected pane. On macOS, your terminal needs [Option set as Alt](README.md#first-run) for them to work.
 
 | Key | Does |
 | --- | --- |
@@ -21,7 +21,7 @@ All of Ship's default keys are Alt chords. Any other key goes to the program in 
 | `alt-h` / `alt-j` / `alt-k` / `alt-l` | Move to the pane left, below, above or right |
 | `alt-tab` | Next pane in the tab |
 | `alt-a` | Jump to the next agent that needs you |
-| `alt-shift-h` / `j` / `k` / `l` | Swap the pane with its neighbor in that direction |
+| `alt-p` | Panes mode (below) |
 | `alt-f` | Zoom the pane to fill the tab, or unzoom |
 | `alt-r` | Resize mode (below) |
 | `alt-t` | Tabs mode (below) |
@@ -29,9 +29,15 @@ All of Ship's default keys are Alt chords. Any other key goes to the program in 
 | `alt-pageup` / `alt-pagedown` | Scroll the pane up / down a page |
 | `alt-q` | Detach |
 
-## Resize and tabs modes
+## Resize, tabs and panes modes
 
-In resize mode, `h` / `j` / `k` / `l` move the pane's edge, `shift-h` / `shift-l` resize the sidebar and `shift-j` / `shift-k` move the line between tabs and agents. In tabs mode, `j` / `k` select tabs, `h` folds an open row or selects its parent, and `l` unfolds a folded row or selects its first child. `shift-k` / `shift-j` move a tab up / down among its siblings, while `shift-l` / `shift-h` move it [in / out](tabs.md). `esc` leaves either mode.
+These modes stay active until you press `esc`.
+
+In resize mode, `h` / `j` / `k` / `l` move the pane's edge, `shift-h` / `shift-l` resize the sidebar and `shift-j` / `shift-k` move the line between tabs and agents.
+
+In tabs mode, `j` / `k` select tabs, `h` folds an open row or selects its parent, and `l` unfolds a folded row or selects its first child. `shift-k` / `shift-j` move a tab up / down among its siblings, while `shift-l` / `shift-h` move it [in / out](tabs.md). `r` [renames the tab](tabs.md#renaming).
+
+In panes mode, `h` / `j` / `k` / `l` select the pane left, below, above or right, and `shift-h` / `shift-j` / `shift-k` / `shift-l` swap with that neighbor. `,` / `.` cycle the stack and `r` [renames the pane](panes.md#renaming). The former `alt-shift-h` / `j` / `k` / `l` chords are no longer bound in normal mode and go to the program instead.
 
 ## The mouse
 

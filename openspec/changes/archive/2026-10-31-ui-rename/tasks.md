@@ -99,7 +99,7 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ### Follow-up: default tabs shortcut
 
-- Cyan approved replacing normal mode's `alt-g` with `alt-t`, without an alias, and updating its guide tables and current OpenSpec records. The three locked papers carry the approved amendment; current keymap and terminal-client delta scenarios use `alt-t`. Earlier evidence remains a record of the former binding. Only the shortcut entries in `docs/site/keys.md` and `docs/site/tabs.md` changed; task 5.1 remains pending.
+- Cyan approved replacing normal mode's `alt-g` with `alt-t`, without an alias, and updating its guide tables and current OpenSpec records. The three locked papers carry the approved amendment; current keymap and terminal-client delta scenarios use `alt-t`. Earlier evidence remains a record of the former binding. Only the shortcut entries in `docs/site/keys.md` and `docs/site/tabs.md` changed at that checkpoint; task 5.1 remained pending.
 - The final shortcut verifier passed seven direct and eight delayed checkpoints through the approved 500 ms each-way Unix-socket proxy. A raw-input program received exactly `ESC g` for `alt-g` in normal mode; `alt-t` opened tabs mode without reaching the program. Navigation, remembered-pane landing, `alt-t r` rename, returning to normal mode, and queued `alt-t j r` all passed. `alt-p`, `alt-r` and `alt-tab` retained their existing actions.
 - Delayed create then `alt-t j r` and immediate typing passed 10/10: beta was renamed rather than alpha or the newly created tab, and no draft reached either shell or the raw-input program. All probes used owned temporary servers with isolated XDG config/state/runtime directories; servers and tmux sessions were stopped.
 - macOS: formatting, Clippy with warnings denied, workspace tests (80 passed, 1 ignored), build, strict OpenSpec validation, diff checks and the website build (`pnpm --dir website build`, 21 pages) passed. No permanent tests added. Linux and physical terminals remain unverified.
@@ -107,4 +107,15 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 5. Docs
 
-- [ ] 5.1 Following `docs/agents/docs.md`, update `docs/site/keys.md`, `docs/site/tabs.md` and `docs/site/panes.md` for panes mode, `alt-p`, renaming, and the removal of `alt-shift-hjkl` from normal mode.
+- [x] 5.1 Following `docs/agents/docs.md`, update `docs/site/keys.md`, `docs/site/tabs.md` and `docs/site/panes.md` for panes mode, `alt-p`, renaming, and the removal of `alt-shift-hjkl` from normal mode.
+
+### Slice-5 and archive evidence
+
+- Cyan approved finishing the docs before syncing, archiving and opening the PR. Revised the three existing guides for sticky panes mode, focus/swap/stack keys, `alt-t r` and `alt-p r`, both rename menu entries, saving, clearing, cancellation and returning to normal mode. Removed the retired swap chords from the normal-mode tables and explained their passthrough in the keys guide. The pane guide links to the tab guide's shared field-editing instructions rather than duplicating them.
+- Updated the keys scope to include panes mode and the panes scope to include renaming; the PR quotes both scope comments for review. No new page or README change.
+- `pnpm --dir website build` passed on macOS: 18 prepared guide pages and 21 built site pages. Eighteen disposable checks passed against `defaults.toml` and the built HTML: mode-entry bindings, retired chords, both `r` actions, rename content and anchors, clearing, mode overview and cross-page rename links. No permanent tests added.
+- Synced all four delta specs into the existing main specs: 13 modified requirements and 11 additions. A comparison verified every delta requirement matches, every original scenario survives, untouched requirements and each spec's preamble remain unchanged, and no delta operation headers entered the main specs. Reapplying the deltas would make no further changes.
+- Corrected the remaining disconnected-mode example from `alt-g` to `alt-t`. Cyan separately approved shortening the `Client actions` and `Ordered input` descriptions without changing their behavior or scenarios; they now contain 471 and 436 characters, within the strict 500-character limit.
+- All 21 main specs and the active change pass strict OpenSpec validation; diff checks pass. Existing implementation checks and runtime evidence remain recorded above. Linux and physical terminals remain unverified.
+- The two approved, local sidebar argument-count lint exemptions remain deferred to [#98](https://github.com/shipmux/ship/issues/98). No interface redesign is chosen here.
+- With all 20 tasks complete and no pending spec merges, archive this change at `openspec/changes/archive/2026-10-31-ui-rename/`, preserving its papers, deltas, evidence and `.openspec.yaml`.
