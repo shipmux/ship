@@ -25,7 +25,8 @@ h2 .place {
   white-space: nowrap;
 }
 h2,
-h3 {
+h3,
+h4 {
   text-wrap: balance;
 }
 .intro {
@@ -73,7 +74,7 @@ section[id] {
 }
 .cloud.a {
   top: 150px;
-  left: 50%;
+  left: 52%;
 }
 .cloud.b {
   top: 560px;
@@ -166,6 +167,12 @@ section[id] {
   line-height: 1.5;
   max-width: 34ch;
   margin: 0 0 36px;
+}
+/* the sentence that says what ship does: a step up from body text, so it reads second after the lede (on a phone the lede is
+   already this size, so it stays at body size there) */
+.hero-text > p:not(.lede) {
+  font-size: var(--t-lg);
+  max-width: 44ch;
 }
 .install-quick {
   max-width: 620px;
@@ -399,8 +406,180 @@ section[id] {
   list-style: none;
   margin: 0;
   padding: 0;
-  --dash: linear-gradient(to right, color-mix(in srgb, var(--ink) 38%, transparent) 4px, transparent 4px) 0 0 / 8px 2px
-    repeat-x;
+  --rule: color-mix(in srgb, var(--ink) 38%, transparent);
+  --dash: linear-gradient(to right, var(--rule) 4px, transparent 4px) 0 0 / 8px 2px repeat-x;
+}
+/* the ten rows come in three groups, each headed by a crewmate standing on the group's first rule (solid, so it is the
+   ground), then the plain label. A row is the same ledger row as before, so the climbing navigator and the selected
+   row work as they did */
+.works-groups {
+  display: grid;
+  gap: 40px;
+}
+.wg-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: calc(-3 * var(--px)); /* the frame has three empty rows under the feet */
+}
+.wg-head h3 {
+  margin: 0 0 10px;
+  color: var(--sea);
+}
+.wg-crew {
+  position: relative;
+  flex: none;
+  display: block;
+  line-height: 0;
+  margin-left: calc(-9 * var(--px)); /* the crewmate's left arm lines up with the rows' bullets */
+}
+.wgroup .works li:first-child {
+  --dash: linear-gradient(var(--rule) 0 0) 0 0 / 100% 2px no-repeat;
+}
+/* a crewmate that does one thing when you press it, and is otherwise still: frame 0 of its sheet is the resting pose, and
+   the press plays the sheet once (site.js, crew.js, adds .react to the host). At night the outline is bright blue, as the diver's */
+.act1 {
+  display: block;
+  flex: none;
+  width: calc(var(--w) * var(--px));
+  height: calc(var(--h) * var(--px));
+  background: no-repeat 0 0 / calc(var(--w) * var(--n) * var(--px)) calc(var(--h) * var(--px));
+  image-rendering: pixelated;
+}
+.react > .act1 {
+  animation: act calc(var(--n) * var(--bdt)) steps(var(--n)) 1;
+}
+.react > .eyes {
+  opacity: 0 !important;
+  animation: none;
+}
+.b-captain {
+  --w: 36;
+  --h: 28;
+  --n: 10;
+  --bdt: 0.1s;
+  background-image: url("../art/beat-captain.svg");
+}
+.b-lookout {
+  --w: 36;
+  --h: 28;
+  --n: 12;
+  --bdt: 0.085s;
+  background-image: url("../art/beat-lookout.svg");
+}
+.b-deckhand {
+  --w: 36;
+  --h: 28;
+  --n: 10;
+  --bdt: 0.1s;
+  background-image: url("../art/beat-deckhand.svg");
+}
+[data-mode="dark"] .b-captain {
+  background-image: url("../art/beat-captain-night.svg");
+}
+[data-mode="dark"] .b-lookout {
+  background-image: url("../art/beat-lookout-night.svg");
+}
+[data-mode="dark"] .b-deckhand {
+  background-image: url("../art/beat-deckhand-night.svg");
+}
+/* the props over the deck crew (tools/beats.py): 44 by 40, with the crew's own 36 by 28 frame at (4, 8) so there is room above
+   the hat. Frame 0 is empty, so at rest nothing shows; a press plays the sheet once (crew.js adds .react) and lights the plate
+   as alt-a does. They are drawn beside and above the crewmate, never over its face, so the glyph, the colour and the word
+   keep saying the state. */
+.member > .fx {
+  position: absolute;
+  left: calc(-8 * var(--px));
+  top: calc(-8 * var(--px));
+  z-index: 1;
+  pointer-events: none;
+  --w: 44;
+  --h: 40;
+  --n: 10;
+  --bdt: 0.1s;
+}
+.fx-lookout {
+  background-image: url("../art/fx-lookout.svg");
+}
+.fx-navigator {
+  background-image: url("../art/fx-navigator.svg");
+}
+.fx-deckhand {
+  background-image: url("../art/fx-deckhand.svg");
+}
+.fx-cook {
+  background-image: url("../art/fx-cook.svg");
+}
+.fx-captain {
+  background-image: url("../art/fx-captain.svg");
+}
+[data-mode="dark"] .fx-lookout {
+  background-image: url("../art/fx-lookout-night.svg");
+}
+[data-mode="dark"] .fx-navigator {
+  background-image: url("../art/fx-navigator-night.svg");
+}
+[data-mode="dark"] .fx-deckhand {
+  background-image: url("../art/fx-deckhand-night.svg");
+}
+[data-mode="dark"] .fx-cook {
+  background-image: url("../art/fx-cook-night.svg");
+}
+[data-mode="dark"] .fx-captain {
+  background-image: url("../art/fx-captain-night.svg");
+}
+/* the nest lookout, pressed: one quick sweep of the glass, then back to its slow one */
+@keyframes act-once {
+  to {
+    background-position-x: calc(var(--w) * var(--n) * var(--px) * -1);
+  }
+}
+.nest.react > .a-spyglass {
+  animation: act-once calc(var(--n) * 0.07s) steps(var(--n)) 1;
+}
+/* the diver, pressed: a string of bubbles from the helmet (the sprite's own loop carries on) */
+.diver {
+  pointer-events: auto;
+}
+.diver > .pop {
+  position: absolute;
+  left: calc(var(--x) * var(--px));
+  top: calc(4 * var(--px));
+  width: calc(3 * var(--px));
+  height: calc(3 * var(--px));
+  background: url("../art/bubble.svg") 0 0 / 100% 100%;
+  image-rendering: pixelated;
+  opacity: 0;
+  pointer-events: none;
+}
+.diver.react > .pop {
+  animation: blow 1.4s steps(8) var(--d) 1 forwards;
+}
+@keyframes blow {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--dx) * var(--px)), calc(var(--rise) * var(--px) * -1));
+  }
+}
+/* what can be pressed says so with the pointer, and the deck crew take a small hop when you come near (a pixel, not a loop) */
+@media (prefers-reduced-motion: no-preference) {
+  [data-react],
+  .member {
+    cursor: pointer;
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .member:hover > .act,
+  .member:hover > .fx {
+    transform: translateY(calc(-1 * var(--px)));
+  }
 }
 .works::after {
   content: "";
@@ -410,21 +589,21 @@ section[id] {
 }
 .works li {
   display: grid;
-  grid-template-columns: 344px minmax(0, 1fr); /* wide enough for the longest title and its link marker on a line */
+  grid-template-columns: 344px minmax(0, 1fr); /* from 1280px the column is wide enough for the longest title, its bullet and its marker on one line (below, the long ones wrap) */
   gap: 0 40px;
   align-items: baseline;
   margin: 0;
   padding: 18px 0 16px;
   background: var(--dash);
 }
-.works h3 {
+.works h4 {
   margin: 0;
   color: var(--ink);
   display: flex;
   gap: 12px;
   align-items: baseline;
 }
-.works h3::before {
+.works h4::before {
   content: "";
   flex: none;
   width: 12px;
@@ -436,6 +615,11 @@ section[id] {
   margin: 0;
   max-width: 62ch;
   font-size: var(--t-base);
+}
+@media (min-width: 1280px) {
+  .works li {
+    grid-template-columns: 440px minmax(0, 1fr);
+  }
 }
 .notyet {
   margin-top: 24px;
@@ -604,6 +788,12 @@ section[id] {
 .slop div {
   animation: slosh 60s ease-in-out infinite alternate;
 }
+/* the first row under the waves is the only one with no copy over it, so it is the one that gets read: bright blue,
+   about 3:1 on the sea. The first line (under the swell's dither) and the rest (behind the copy) stay faint. It is
+   decoration and aria-hidden, so the page reads the same without it */
+.slop div:nth-child(2) {
+  color: var(--c12);
+}
 .slop div:nth-child(even) {
   animation-direction: alternate-reverse;
   margin-left: -300px;
@@ -662,15 +852,17 @@ section[id] {
     tail 0.7s steps(1) infinite,
     swim 60s linear infinite;
 }
+/* the three here swim through the empty water under the copy (the section's last 150px, above the seafloor), so none
+   crosses a caption */
 .fish.s1 {
-  bottom: 230px;
+  bottom: 118px;
   left: 0;
   animation-delay:
     0s,
     -10s;
 }
 .fish.s2 {
-  bottom: 170px;
+  bottom: 92px;
   left: 0;
   animation-delay:
     -0.3s,
@@ -678,7 +870,7 @@ section[id] {
   animation-duration: 0.8s, 80s;
 }
 .fish.s3 {
-  bottom: 300px;
+  bottom: 104px;
   left: 0;
   animation-delay:
     -0.5s,
@@ -841,45 +1033,41 @@ section[id] {
   width: max-content;
   line-height: 0;
 }
-/* each room is a sheet of stills with the crewmate at work in it: stirring, pointing, pulling a lever, handing a note, counting cargo */
-.a-galley {
-  --w: 68;
-  --h: 52;
-  --n: 4;
-  --dt: 0.55s;
-  --lag: -0.8s;
+/* each room is a sheet of one beat: the room at rest in frame 0, then anticipation, action and reaction, back to rest
+   (tools/crewrooms.py). It plays once when the room scrolls into view and again when you press it (crew.js adds .react) */
+.r-galley {
+  --w: 84;
+  --h: 56;
+  --n: 18;
+  --bdt: 0.1s;
   background-image: url("../art/room-galley.svg");
 }
-.a-chart {
-  --w: 68;
-  --h: 52;
-  --n: 8;
-  --dt: 0.75s;
-  --lag: -3.1s;
+.r-chart {
+  --w: 84;
+  --h: 56;
+  --n: 17;
+  --bdt: 0.11s;
   background-image: url("../art/room-chart.svg");
 }
-.a-telegraph {
-  --w: 56;
-  --h: 52;
+.r-telegraph {
+  --w: 84;
+  --h: 56;
   --n: 16;
-  --dt: 0.3s;
-  --lag: -1.9s;
+  --bdt: 0.1s;
   background-image: url("../art/room-telegraph.svg");
 }
-.a-handoff {
-  --w: 76;
-  --h: 40;
-  --n: 12;
-  --dt: 0.33s;
-  --lag: -2.4s;
+.r-handoff {
+  --w: 84;
+  --h: 56;
+  --n: 16;
+  --bdt: 0.11s;
   background-image: url("../art/room-handoff.svg");
 }
-.a-hold {
-  --w: 76;
-  --h: 52;
-  --n: 12;
-  --dt: 0.45s;
-  --lag: -4s;
+.r-hold {
+  --w: 84;
+  --h: 56;
+  --n: 20;
+  --bdt: 0.1s;
   background-image: url("../art/room-hold.svg");
 }
 .floor-text h3 {
@@ -904,23 +1092,6 @@ section[id] {
 }
 .floor-fig .cmd pre {
   font-size: var(--code-sm);
-}
-.steam {
-  position: absolute;
-  background: url("../art/steam.svg") 0 0 / calc(27 * var(--px)) calc(14 * var(--px));
-  image-rendering: pixelated;
-  animation: puff 2.4s steps(1) infinite;
-}
-@keyframes puff {
-  0% {
-    background-position: 0 0;
-  }
-  33% {
-    background-position: calc(-9 * var(--px)) 0;
-  }
-  66% {
-    background-position: calc(-18 * var(--px)) 0;
-  }
 }
 .beam {
   background-image: url("../art/beam.svg");
@@ -1313,7 +1484,7 @@ section[id] {
   .below,
   .hold {
     --edge: max(var(--gut), calc(50% - 664px));
-    --roomw: calc(76 * var(--px));
+    --roomw: calc(84 * var(--px));
   }
   .beam.last {
     position: relative;
@@ -1713,17 +1884,17 @@ html .term.mount {
 /* ---- deck ledger: the titles are links into the docs, a row you point at or Tab to turns into the selected row
    (ship's own cyan, ink text), and the navigator rides the ratlines up to it. site.js adds .sel to the row and
    sets --dy and --n on the climber. To drop all of it, remove this block and ledgerClimb() in site.js. */
-.works h3 a {
+.works h4 a {
   color: inherit;
   text-decoration: none;
 }
-.works h3 a::after {
+.works h4 a::after {
   content: "›";
   margin-left: 0.4em;
   color: var(--chev, var(--sea));
 }
 @media (hover: hover) {
-  .works h3 a:hover {
+  .works h4 a:hover {
     text-decoration: underline;
     text-decoration-thickness: 2px;
   }
@@ -1735,13 +1906,13 @@ html .term.mount {
     calc(3.5 * var(--px)) 0 0 var(--c6);
   color: var(--ink);
 }
-.works li.sel h3,
-.works li.sel h3 a::after,
+.works li.sel h4,
+.works li.sel h4 a::after,
 .works li.sel p,
 .works li.sel code {
   color: var(--ink);
 } /* every word in the row, in both modes: night colours the page's text cream, which the cyan band cannot take */
-.works li.sel h3::before {
+.works li.sel h4::before {
   background: var(--ink);
 }
 /* the global focus ring is cyan at night and would vanish on the cyan band: ring the whole row in ink instead */
@@ -1751,7 +1922,7 @@ html .term.mount {
     calc(-3.5 * var(--px)) 0 0 var(--c6),
     calc(3.5 * var(--px)) 0 0 var(--c6);
 }
-.works h3 a:focus-visible {
+.works h4 a:focus-visible {
   outline: 0;
   text-decoration: underline;
   text-decoration-thickness: 2px;
@@ -1792,9 +1963,23 @@ html .term.mount {
 }
 
 /* ------------------------------------------------ narrower screens */
+/* between 900 and 1299px the headline's three locked lines run past the text column, right where the first cloud
+   drifts, and below 1020px the first gull crosses the second line: lift the cloud into the open band above the headline
+   and let that one gull sit out the narrow widths */
+@media (min-width: 900px) and (max-width: 1299px) {
+  .cloud.a {
+    top: 12px;
+    left: 38%;
+  }
+}
+@media (min-width: 900px) and (max-width: 1019px) {
+  .g1 {
+    display: none;
+  }
+}
 @media (max-width: 1099px) {
   .floor {
-    grid-template-columns: calc(76 * var(--px)) minmax(0, 1fr);
+    grid-template-columns: calc(84 * var(--px)) minmax(0, 1fr);
   }
   .floor-fig,
   .floor .recording {
@@ -1812,6 +1997,11 @@ html .term.mount {
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 760px) {
+  .floor {
+    grid-template-columns: minmax(0, 1fr);
+  } /* the rooms are 84 art pixels wide: beside them the words would be under 300px */
+}
 @media (max-width: 1099px) {
   .crew > li.prop {
     display: none;
@@ -1822,7 +2012,10 @@ html .term.mount {
 }
 @media (max-width: 899px) {
   .hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(
+      0,
+      1fr
+    ); /* not 1fr: the install block's unwrapped commands would hold the column open past the screen */
     gap: 0;
   }
   .hero-text {
@@ -1922,6 +2115,13 @@ html .term.mount {
   }
   .lede {
     font-size: var(--t-lg);
+  }
+  .hero-text > p:not(.lede) {
+    font-size: var(--t-base);
+  }
+  .wg-head h3 {
+    font-size: 22px;
+    line-height: 33px;
   }
   .sky {
     padding-top: 76px;
@@ -2062,4 +2262,78 @@ html .term.mount {
   .cmd pre {
     font-size: var(--code-sm);
   }
+}
+
+/* key and command chips in the landing's prose stay on one line: they are all short, and `alt-` / `a` reads as two keys */
+p code {
+  white-space: nowrap;
+}
+
+/* a recording this build has no take of: the bezel holds a crewmate and a line saying so (site.js, noTake) */
+.screen.no-take {
+  aspect-ratio: 16 / 9;
+  display: grid;
+}
+.no-take-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--c7); /* the rooms' wall, so the crewmate's ink outline shows in both modes */
+  color: var(--c0);
+  padding: 24px;
+  text-align: center;
+  font-size: var(--t-sm);
+}
+.no-take-card img {
+  width: calc(20 * var(--px));
+  height: auto;
+}
+.no-take-card p {
+  color: var(--c0); /* the hold's .crate-col p is wall coloured, which would vanish on the card */
+  font-size: var(--t-sm);
+  margin: 0;
+  max-width: 34ch;
+}
+
+/* the footer's first row: the latest from the captain's log (the blog), above the licence and links */
+.foot .log {
+  flex: 1 1 100%;
+  max-width: none;
+  margin: 0 0 8px;
+  padding-bottom: 20px;
+  border-bottom: 2px dashed color-mix(in srgb, var(--c15) 35%, transparent);
+  text-wrap: pretty;
+}
+.foot .log .pixel {
+  color: var(--c15); /* c14 fell short of 4.5:1 on the footer's c8 */
+  margin-right: 10px;
+}
+
+/* the hold's recordings, each under its own words, and a second row of three: agents, mouse and saved tabs */
+.crate-col .recording {
+  margin: 8px 0 20px;
+}
+.crate-col .recording figcaption {
+  font-size: var(--t-sm);
+}
+.cargo-more {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 72px;
+  padding-top: 56px;
+  border-top: 2px dashed var(--c8);
+}
+@media (min-width: 1280px) {
+  .cargo-more {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1099px) {
+  .cargo-more {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.floor-fig .sketch[hidden] {
+  display: none;
 }

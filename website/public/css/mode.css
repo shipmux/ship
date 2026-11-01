@@ -104,11 +104,16 @@
     margin-left: 0;
   }
 }
-@media (max-width: 479px) {
-  /* the 404's plain links don't leave room for it: it joins the logo and the links take their own row */
-  .bar-in > nav:has(+ .mode) {
-    order: 1;
-    flex-basis: 100%;
+@media (max-width: 600px) {
+  /* a phone's first row: the mark, then places or search taking what's left, then the toggle */
+  .bar-in > .places,
+  .bar-in > .search {
+    flex: 1 1 0;
+    margin: 0 0 0 4px;
+  }
+  .bar-in > .places + .mode,
+  .bar-in > .search + .mode {
+    margin-left: 12px;
   }
 }
 
@@ -141,7 +146,7 @@
 /* ---------------------------------------------------------------- night: the landing's sky and deck */
 [data-mode="dark"] .hero h1,
 [data-mode="dark"] .deck h2,
-[data-mode="dark"] .works h3,
+[data-mode="dark"] .works h4,
 [data-mode="dark"] .notyet h3 {
   color: var(--night-head);
 }
@@ -149,10 +154,12 @@
   color: var(--night-accent);
 }
 [data-mode="dark"] .works {
-  --dash: linear-gradient(to right, color-mix(in srgb, var(--c7) 34%, transparent) 4px, transparent 4px) 0 0 / 8px 2px
-    repeat-x;
+  --rule: color-mix(in srgb, var(--c7) 34%, transparent);
 }
-[data-mode="dark"] .works h3::before {
+[data-mode="dark"] .wg-head h3 {
+  color: var(--night-accent);
+}
+[data-mode="dark"] .works h4::before {
   background: var(--night-accent);
 }
 [data-mode="dark"] .notyet {
@@ -379,6 +386,15 @@
 [data-mode="dark"] .doc .starlight-aside,
 [data-mode="dark"] .docs-foot {
   border-color: var(--night-line);
+}
+[data-mode="dark"] .a-log {
+  background-image: url("../art/crew-captain-clipboard-loop-night.svg");
+}
+[data-mode="dark"] .doc .place {
+  color: var(--night-accent);
+}
+[data-mode="dark"] .blog-end {
+  border-top-color: var(--night-line);
 }
 [data-mode="dark"] .doc .expressive-code .frame {
   border-color: var(--c8);

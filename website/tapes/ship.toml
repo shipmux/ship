@@ -7,3 +7,10 @@ sidebar_width = 23
 [client.agents.sounds.default]
 done = "off"
 attention = "off"
+
+# VHS can't type two of the default keys: it sends Alt+"|" as alt-\ and Alt+"s"
+# not at all. These copies let the tapes split right and stack with the same
+# actions as alt-| and alt-s; what the video shows is unchanged.
+[client.modes.normal.keys]
+"alt-\\"      = { action = { server.pane.create = { place = "right", select = true } } }
+"alt-shift-s" = { action = { server.pane.create = { place = "stack", select = true } } }

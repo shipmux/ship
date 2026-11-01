@@ -1,8 +1,10 @@
 ---
 import { titleId } from "../title-id";
 import { sourceOf } from "../version";
+import { isBlogIndex } from "../blog";
 const route = Astro.locals.starlightRoute;
-const { toc, entry } = route;
+const { entry } = route;
+const toc = isBlogIndex(route.id) ? undefined : route.toc; // the post list has one heading, so no "on this page"
 const id = titleId(route);
 const items = toc?.items ?? [];
 const source = sourceOf(Astro.url.pathname);

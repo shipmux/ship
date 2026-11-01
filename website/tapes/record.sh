@@ -3,6 +3,10 @@
 # <tape>.webm (muted), <tape>.png (poster) and <tape>.gif (for the README).
 #
 #   website/tapes/record.sh waterline.tape          real take, real models
+#   website/tapes/record.sh panes.tape --shell      a tape with no agents in it:
+#                                                   shells and an editor only,
+#                                                   so every take is the same
+#                                                   and needs no model or login
 #   website/tapes/record.sh waterline.tape --dry    stub agents, for tuning
 #                                                   timing for free; writes
 #                                                   out/dry/, never ship it
@@ -30,8 +34,8 @@
 #
 # A real take spends Claude (haiku) and Codex (gpt-6-luna) usage.
 #
-# Everything runs from /tmp/ship-demo: temp XDG dirs, a Ship server on port
-# 43331 built by setup.sh, and an isolated Pi agent dir. That dir gets the
+# Everything runs from /tmp/ship-demo: temp XDG dirs, a Ship server named demo
+# (its socket under $ROOT/run) built by setup.sh, and an isolated Pi agent dir. That dir gets the
 # openai-codex access token copied from ~/.pi/agent/auth.json without its
 # refresh token, so a take can never rotate Cyan's login. The whole directory,
 # token included, is deleted when the script exits.
@@ -40,8 +44,9 @@ set -euo pipefail
 TAPES=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$TAPES/../.." && pwd)
 ROOT=/tmp/ship-demo
-PORT=43331
+SERVER=demo
 DRY=false
+SHELL_WORLD=false
 PROXY_MODE=""
 PROXY_DIR=""
 PROXY_PORT=43332
@@ -50,11 +55,12 @@ OPENROUTER=false
 say() { printf 'record: %s\n' "$*" >&2; }
 die() { say "$*"; exit 1; }
 
-usage="usage: record.sh <tape in website/tapes> [--dry | --record DIR | --replay DIR | --openrouter]"
+usage="usage: record.sh <tape in website/tapes> [--shell | --dry | --record DIR | --replay DIR | --openrouter]"
 tape=${1:-}
 [[ -n $tape && -f $TAPES/$tape ]] || die "$usage"
 case ${2:-} in
   --dry) DRY=true ;;
+  --shell) SHELL_WORLD=true ;;
   --openrouter)
     OPENROUTER=true
     [[ -n ${OPENROUTER_API_KEY:-} ]] || die "--openrouter needs OPENROUTER_API_KEY in the environment"
@@ -66,17 +72,14 @@ case ${2:-} in
     PROXY_DIR=$(cd "$3" && pwd)
     ;;
 esac
-name=$(basename "$tape" .tape)
+name=$(basename "$tape"); name=${name%.tape}; name=${name%.mjs}
 
 for tool in vhs ttyd ffmpeg jq python3 lsof; do
   command -v "$tool" >/dev/null || die "$tool is not on PATH"
 done
-$DRY || for tool in claude pi; do
+$DRY || $SHELL_WORLD || for tool in claude pi; do
   command -v "$tool" >/dev/null || die "$tool is not on PATH"
 done
-if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null; then
-  die "port $PORT is already in use; stop whatever holds it first"
-fi
 if [[ -n $PROXY_MODE ]] && lsof -nP -iTCP:"$PROXY_PORT" -sTCP:LISTEN >/dev/null; then
   die "port $PROXY_PORT is already in use; stop whatever holds it first"
 fi
@@ -85,14 +88,17 @@ fi
 
 # On a machine where claude has never run (CI), it opens on a theme picker
 # instead of the prompt. An existing ~/.claude.json is left alone.
-if ! $DRY && [[ ! -e $HOME/.claude.json ]]; then
+if ! $DRY && ! $SHELL_WORLD && [[ ! -e $HOME/.claude.json ]]; then
   echo '{"hasCompletedOnboarding": true}' >"$HOME/.claude.json"
 fi
 
-export TAPES ROOT PORT DRY PROXY_MODE OPENROUTER
+export TAPES ROOT SERVER DRY SHELL_WORLD PROXY_MODE OPENROUTER
 [[ -n $PROXY_MODE ]] && export PROXY_URL=http://127.0.0.1:$PROXY_PORT
-export SHIP_SERVER_URL=http://127.0.0.1:$PORT
-export SHIP_CONFIG=$TAPES/ship.toml
+# a named server whose socket, saved tabs and logs all live under $ROOT, so a take never meets the
+# recording machine's own Ship server or its tabs
+export SHIP_SERVER_NAME=$SERVER XDG_RUNTIME_DIR=$ROOT/run
+# a copy, so a tape can edit the config while it records (config.tape) without touching the repo
+export SHIP_CONFIG=$ROOT/ship.toml
 export PATH=$REPO/target/release:$PATH
 
 cleanup() {
@@ -113,8 +119,9 @@ cleanup() {
 trap cleanup EXIT
 
 rm -rf "$ROOT"
-mkdir -p "$ROOT"/xdg/{state,config,data,cache} "$ROOT/pi" "$ROOT/bin"
-chmod 700 "$ROOT" "$ROOT/pi"
+mkdir -p "$ROOT"/xdg/{state,config,data,cache} "$ROOT/pi" "$ROOT/bin" "$ROOT/run"
+chmod 700 "$ROOT" "$ROOT/pi" "$ROOT/run"
+cp "$TAPES/ship.toml" "$SHIP_CONFIG"
 export XDG_STATE_HOME=$ROOT/xdg/state XDG_CONFIG_HOME=$ROOT/xdg/config \
   XDG_DATA_HOME=$ROOT/xdg/data XDG_CACHE_HOME=$ROOT/xdg/cache
 # On Linux, fontconfig finds user fonts under $XDG_DATA_HOME/fonts, so the
@@ -142,7 +149,7 @@ elif $OPENROUTER; then
   # catalogue caps the free router at 4K output tokens, too few to write a
   # file in one call.
   echo '{"providers": {"openrouter": {"modelOverrides": {"openrouter/free": {"maxTokens": 32768}}}}}' >"$ROOT/pi/models.json"
-elif ! $DRY; then
+elif ! $DRY && ! $SHELL_WORLD; then
   # Refuse a token near expiry: with no refresh token, pi couldn't renew it
   # mid-take. Running pi normally once renews the one in ~/.pi.
   python3 - "$ROOT/pi" <<'EOF' || die "copying pi's openai-codex token failed"
@@ -190,7 +197,12 @@ chmod +x "$ROOT/bin/ttyd"
 export DEMO_PROJECT=$ROOT/harbor DEMO_WORLD=$ROOT/world.env
 export PATH=$ROOT/agents:$PATH
 cd "$TAPES"
-PATH=$ROOT/bin:$PATH vhs -q -o "$out/$name.webm" "$tape"
+if [[ $tape == *.mjs ]]; then
+  # a scripted take VHS can't make (mouse.mjs drives the same terminal with a mouse)
+  node "$TAPES/$tape" "$out/$name.webm"
+else
+  PATH=$ROOT/bin:$PATH vhs -q -o "$out/$name.webm" "$tape"
+fi
 
 ffmpeg -loglevel error -y -ss "${POSTER_AT:-9}" -i "$out/$name.webm" -frames:v 1 "$out/$name.png"
 # GitHub won't play a hotlinked webm in the README. Half size at 10 fps keeps

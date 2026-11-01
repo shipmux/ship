@@ -1,0 +1,10 @@
+---
+import { withBase } from "../base";
+// The end of a blog post: two quiet links under a dashed rule, so a reader who has finished has somewhere to go.
+// The post's own markdown stays untouched; this comes from BlogMarkdownContent.astro.
+---
+
+<nav class="blog-end" aria-label="after the post">
+  <a href={withBase("/#install")}>try ship</a>
+  <a href={withBase("/blog/")}>back to the log</a>
+</nav>

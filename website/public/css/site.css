@@ -278,6 +278,16 @@ code {
   background-image: url("../art/crew-cook-reach-loop.svg");
 }
 
+/* the captain with his clipboard, beside the blog's heading: the same long rests and short burst as the others */
+.a-log {
+  --w: 28;
+  --h: 24;
+  --n: 14;
+  --dt: 0.45s;
+  --lag: -4.6s;
+  background-image: url("../art/crew-captain-clipboard-loop.svg");
+}
+
 /* lists with a pixel bullet: a square on the same grid as the headings' squares */
 .doc ul,
 .needs,
@@ -634,6 +644,29 @@ pre[tabindex] {
   :root {
     --px: 3px;
     --gut: 20px;
+    --bar-h: 92px; /* two rows: the mark, places (or search) and the toggle, then the links */
+  }
+  /* the links take the second row, so the first holds the mark, the places menu or search, and the toggle */
+  .bar-in > nav {
+    order: 3;
+    flex: 1 1 100%;
+  }
+  .bar-in > .places,
+  .bar-in > .search {
+    order: 1;
+    min-width: 0;
+  }
+  .bar-in > .mode {
+    order: 2;
+  }
+  .places summary {
+    min-width: 0;
+  }
+  .places .here {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -643,5 +676,20 @@ pre[tabindex] {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* the install commands keep each line whole and scroll sideways on a narrow screen, so a URL never breaks mid-word */
+.cmd pre[tabindex] {
+  white-space: pre;
+  overflow-x: auto;
+}
+@media (max-width: 600px) {
+  /* on a phone the copy button gets its own strip above the lines, which then scroll sideways clear of it */
+  .cmd:has(pre[tabindex]) {
+    padding-top: 42px;
+  }
+  .cmd pre[tabindex] {
+    padding-right: 0;
   }
 }

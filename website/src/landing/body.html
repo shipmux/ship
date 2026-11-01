@@ -8,7 +8,7 @@
         <li><a href="#deck"><span class="nau">deck</span><span class="pl">what works today</span></a></li>
         <li><a href="#waterline"><span class="nau">waterline</span><span class="pl">why ship</span></a></li>
         <li><a href="#below-deck"><span class="nau">below deck</span><span class="pl">how it works</span></a></li>
-        <li><a href="#hold"><span class="nau">the hold</span><span class="pl">install, keys, config</span></a></li>
+        <li><a href="#hold"><span class="nau">the hold</span><span class="pl">install, keys and more</span></a></li>
         <li><a href="#seabed"><span class="nau">seabed</span><span class="pl">start here</span></a></li>
       </ol>
     </details>
@@ -33,19 +33,20 @@
       <p>run your editor, shells and agents side by side, see who needs you, and close the window without stopping the work.</p>
       <div class="install-quick">
         <div class="term cmd">
-          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship &amp;&amp; cargo install --path crates/ship">copy</button>
-<pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
-<span class="t-prompt">$ </span>cd ship &amp;&amp; cargo install --path crates/ship</pre>
+          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
+<pre tabindex="0" role="region" aria-label="install commands, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
+<span class="t-prompt">$ </span>cd ship
+<span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
         </div>
         <p>a work in progress you can try today. builds from source with rust and zig 0.17.</p>
-        <div class="links"><a href="#install">build and try ship</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
+        <div class="links"><a href="#install">build and try ship</a><a href="#waterline" class="watch">watch a real session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
       </div>
     </div>
     <div class="rig">
       <div class="mast" aria-hidden="true"></div>
       <div class="mast-foot" aria-hidden="true"></div>
       <div class="ratlines" aria-hidden="true"></div>
-      <div class="nest" aria-hidden="true">
+      <div class="nest" data-react aria-hidden="true">
         <img class="px art" style="--w:44;--h:48" src="art/crows-nest.svg" alt="">
         <span class="act a-spyglass"></span>
         <i class="eyes" style="--x:13;--y:20;animation-delay:-2s"></i>
@@ -61,7 +62,7 @@
             <li><span class="s-idle">○</span> crush idle<span class="tab">notes</span></li>
           </ul>
         </div>
-        <figcaption>one agent needs permission, another is working, and one finished while you were looking elsewhere. a sketch of ship's real sidebar, with the ones that need you at the top.</figcaption>
+        <figcaption>an agent needs permission, another is working, and one finished while you were away. a sketch of ship's real sidebar.</figcaption>
       </figure>
     </div>
   </div>
@@ -75,20 +76,44 @@
   <div class="deck-in">
     <h2 id="deck-title" class="pixel p33"><span class="place">deck</span> what works today</h2>
     <p class="intro">keep a project together while several things are happening at once. these all work today, with successful use on linux and macos. windows is best effort.</p>
-    <ul class="works">
-      <li><h3 class="pixel p22"><a href="/docs/windows-and-the-server/">leave and come back</a></h3><p>close the window or press <code>alt-q</code>, and your programs keep running on the background server. run <code>ship</code> again to carry on.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/saved-tabs/">get your layout back</a></h3><p>after a server restart or reboot, your tabs, splits, stacks and directories return with fresh shells. the layout comes back, not the old running programs.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/agents/">know who needs you</a></h3><p>see who's working, waiting for an answer or finished unseen. a sound lets you know when something needs attention, and <code>alt-a</code> takes you there.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/tabs/">a tab for the whole project</a></h3><p>keep the api, docs and review under one project tab. fold the parts you aren't looking at, and move or rename tabs with the keyboard or mouse.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/panes/">split panes and stacks</a></h3><p>split when you want things side by side, or press <code>alt-s</code> for a shell on top without making your panes smaller. the pane behind it keeps running.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/windows-and-the-server/">several windows, same work</a></h3><p>open ship from more than one terminal. each window chooses what to look at, while the tabs, panes and running programs are shared.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/panes/#edit-scrollback">search in your own editor</a></h3><p>press <code>alt-e</code> to open scrollback in your editor and search with familiar keys. or drag to copy straight from a pane.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/scripting/">a cli for scripts and agents</a></h3><p>open panes, send text or keys and read output with <code>ship</code> commands. use explicit pane ids so changing your selection doesn't redirect a script.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/scripting/handing-work-to-another-agent/">hand work to another agent</a></h3><p>an agent can open a second pane, give another agent a task, wait for its status report and read the reply. no sdk or plugin needed.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/configuration/">keep your habits</a></h3><p>change keys and menus, add a tmux-style prefix, or run your own scripts from a key. save the config and open windows pick up the changes.</p></li>
-    </ul>
+    <div class="works-groups">
+      <div class="wgroup" role="group" aria-labelledby="wg-running">
+        <div class="wg-head">
+          <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-captain"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-1s"></i></span>
+          <h3 id="wg-running" class="pixel p33">it keeps running</h3>
+        </div>
+        <ul class="works">
+          <li><h4 class="pixel p22"><a href="/docs/windows-and-the-server/">leave and come back</a></h4><p>close the window or press <code>alt-q</code>, and your programs keep running on the background server. run <code>ship</code> again to carry on.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/saved-tabs/">get your layout back</a></h4><p>after a server restart or reboot, your tabs, splits, stacks and directories return with fresh shells. the layout comes back, not the old running programs.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/windows-and-the-server/">several windows, same work</a></h4><p>open ship from more than one terminal. each window chooses what to look at, while the tabs, panes and running programs are shared.</p></li>
+        </ul>
+      </div>
+      <div class="wgroup" role="group" aria-labelledby="wg-loop">
+        <div class="wg-head">
+          <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-lookout"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-3s"></i></span>
+          <h3 id="wg-loop" class="pixel p33">it keeps you in the loop</h3>
+        </div>
+        <ul class="works">
+          <li><h4 class="pixel p22"><a href="/docs/agents/">know who needs you</a></h4><p>see who's working, waiting for an answer or finished unseen. a sound lets you know when something needs attention, and <code>alt-a</code> takes you there.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/tabs/">a tab for the whole project</a></h4><p>keep the api, docs and review under one project tab. fold the parts you aren't looking at, and move or rename tabs with the keyboard or mouse.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/panes/">split panes and stacks</a></h4><p>split when you want things side by side, or press <code>alt-s</code> for a shell on top without making your panes smaller. the pane behind it keeps running.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/panes/#edit-scrollback">search in your own editor</a></h4><p>press <code>alt-e</code> to open scrollback in your editor and search with familiar keys. or drag to copy straight from a pane.</p></li>
+        </ul>
+      </div>
+      <div class="wgroup" role="group" aria-labelledby="wg-script">
+        <div class="wg-head">
+          <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-deckhand"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-5s"></i></span>
+          <h3 id="wg-script" class="pixel p33">it's yours to script</h3>
+        </div>
+        <ul class="works">
+          <li><h4 class="pixel p22"><a href="/docs/scripting/">a cli for scripts and agents</a></h4><p>open panes, send text or keys and read output with <code>ship</code> commands. use explicit pane ids so changing your selection doesn't redirect a script.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/scripting/handing-work-to-another-agent/">hand work to another agent</a></h4><p>an agent can open a second pane, give another agent a task, wait for its status report and read the reply. no sdk or plugin needed.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/configuration/">keep your habits</a></h4><p>change keys and menus, add a tmux-style prefix, or run your own scripts from a key. save the config and open windows pick up the changes.</p></li>
+        </ul>
+      </div>
+    </div>
 
-    <aside class="notyet" aria-labelledby="notyet-title">
+    <div class="notyet" role="group" aria-labelledby="notyet-title">
       <h3 id="notyet-title" class="pixel p22">not built yet</h3>
       <ul>
         <li>releases and packages.</li>
@@ -96,9 +121,9 @@
         <li>resuming agent conversations or rerunning programs after a server restart. saved tabs start fresh shells.</li>
         <li>a combined view of servers on several machines. you can already <a href="/docs/windows-and-the-server/#using-ship-on-another-machine">run ship over ssh or forward a remote socket</a>.</li>
       </ul>
-    </aside>
+    </div>
 
-    <p class="crew-note">the crew below stand in for agents. each plate shows the glyph and the word ship would show for that state.</p>
+    <p class="crew-note">the crew stand in for agents. each plate shows the glyph and the word ship would show for that state. press <code>alt-a</code>, as you would in ship, to call the next one who needs you.</p>
   </div>
 
   <div class="stagewrap">
@@ -108,23 +133,28 @@
         <li class="prop"><img class="px art" style="--w:12;--h:14" src="art/barrel.svg" alt=""><img class="px art" style="--w:14;--h:14" src="art/crate.svg" alt=""></li>
         <li class="member">
           <span class="act a-error" aria-hidden="true"></span>
+          <span class="act1 fx fx-lookout" aria-hidden="true"></span>
           <p class="plate"><span class="g s-error" aria-hidden="true">✖</span> error<span class="role">lookout</span></p>
         </li>
         <li class="member">
           <span class="act a-blocked" aria-hidden="true"></span>
+          <span class="act1 fx fx-navigator" aria-hidden="true"></span>
           <p class="plate"><span class="g s-blocked" aria-hidden="true">▲</span> blocked<span class="role">navigator</span></p>
         </li>
         <li class="member">
           <span class="act a-working" aria-hidden="true"></span>
+          <span class="act1 fx fx-deckhand" aria-hidden="true"></span>
           <p class="plate"><span class="g s-working" aria-hidden="true">●</span> working<span class="role">deckhand</span></p>
         </li>
         <li class="prop"><img class="px art" style="--w:10;--h:7" src="art/bucket.svg" alt=""><img class="px art" style="--w:16;--h:8" src="art/rope-coil.svg" alt=""></li>
         <li class="member">
           <span class="act a-unseen" aria-hidden="true"></span>
+          <span class="act1 fx fx-cook" aria-hidden="true"></span>
           <p class="plate"><span class="g s-unseen" aria-hidden="true">◆</span> unseen<span class="role">cook</span></p>
         </li>
         <li class="member">
           <span class="act a-idle" aria-hidden="true"></span>
+          <span class="act1 fx fx-captain" aria-hidden="true"></span>
           <p class="plate"><span class="g s-idle" aria-hidden="true">○</span> idle<span class="role">captain</span></p>
         </li>
       </ul>
@@ -183,10 +213,9 @@
     </div>
 
     <article class="floor">
-      <div class="room" aria-hidden="true">
-        <span class="act a-galley"></span>
-        <i class="eyes" style="--x:11;--y:36;animation-delay:-1s"></i>
-        <span class="steam art" style="--w:9;--h:14;left:calc(38*var(--px));top:calc(10*var(--px))"></span>
+      <div class="room" data-react data-play aria-hidden="true">
+        <span class="act1 r-galley"></span>
+        <i class="eyes" style="--x:13;--y:40;animation-delay:-1s"></i>
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">a server that stays up</h3>
@@ -216,16 +245,18 @@
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
 
     <article class="floor">
-      <div class="room" aria-hidden="true">
-        <span class="act a-chart"></span>
-        <i class="eyes" style="--x:13;--y:36;animation-delay:-4s"></i>
+      <div class="room" data-react data-play aria-hidden="true">
+        <span class="act1 r-chart"></span>
+        <i class="eyes" style="--x:13;--y:40;animation-delay:-4s"></i>
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">tabs and panes</h3>
         <p>keep an editor beside a test run, nest smaller tasks under a project tab, or stack a spare shell over a busy pane. new splits and stacked shells open in the directory you were working in. zoom in when you need more room, then return to the same layout.</p>
         <p>claude code, codex, pi and crush report their own state through the <a href="/docs/agents/">program status protocol</a>. ship shows it in the sidebar and on their tabs, so an agent waiting for permission stays visible even when its tab is folded.</p>
       </div>
-      <figure class="floor-fig">
+      <figure class="floor-fig recording">
+        <div class="screen mount"><video src="demo/panes.webm" poster="demo/panes.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="in a ship tab, a shell is split right and then down, a second shell is stacked in front of one pane and put back, and one pane is zoomed to fill the tab and back"></video></div>
+        <div class="sketch" hidden>
         <div class="term mount ui" role="img" aria-label="a sketch of ship's layout: a sidebar with a tree of tabs and a list of agents, and three panes, one running cargo test, one with claude waiting on a question and one with nvim">
           <div class="ui-side" aria-hidden="true"><pre> tabs          ≡
  ▾ ship        <span class="s-blocked">▲</span>
@@ -248,15 +279,16 @@ Apply changes?
             <div class="ui-pane"><pre><span class="t-prompt">$ </span>nvim notes.md</pre></div>
           </div>
         </div>
-        <figcaption>a hand-drawn sketch of the layout, not a recording. the selected pane has the cyan border.</figcaption>
+        </div>
+        <figcaption data-sketch="a hand-drawn sketch of the layout, not a recording. the selected pane has the cyan border.">split right, split down, a shell stacked in front and back, then zoom and back. a real take, recorded in CI for each release; the selected pane has the cyan border.</figcaption>
       </figure>
     </article>
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
 
     <article class="floor">
-      <div class="room" aria-hidden="true">
-        <span class="act a-telegraph"></span>
-        <i class="eyes" style="--x:11;--y:36;animation-delay:-5s"></i>
+      <div class="room" data-react data-play aria-hidden="true">
+        <span class="act1 r-telegraph"></span>
+        <i class="eyes" style="--x:15;--y:40;animation-delay:-5s"></i>
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">use the terminal to drive it</h3>
@@ -281,9 +313,9 @@ Apply changes?
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
 
     <article class="floor">
-      <div class="room" aria-hidden="true">
-        <span class="act a-handoff"></span>
-        <i class="eyes" style="--x:11;--y:24;animation-delay:-3s"></i>
+      <div class="room" data-react data-play aria-hidden="true">
+        <span class="act1 r-handoff"></span>
+        <i class="eyes" style="--x:12;--y:40;animation-delay:-3s"></i>
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">agents driving agents</h3>
@@ -304,12 +336,12 @@ Apply changes?
   <div class="hold-in">
     <div class="hold-head">
       <div>
-        <h2 id="hold-title" class="pixel p33"><span class="place">the hold</span> install, keys and config</h2>
+        <h2 id="hold-title" class="pixel p33"><span class="place">the hold</span> install, keys and more</h2>
         <p class="intro">build ship, open a shell and try a split. these are enough to get started, with the rest in the docs when you want it.</p>
       </div>
-      <div class="room hold-room" aria-hidden="true">
-        <span class="act a-hold"></span>
-        <i class="eyes" style="--x:11;--y:36;animation-delay:-6s"></i>
+      <div class="room hold-room" data-react data-play aria-hidden="true">
+        <span class="act1 r-hold"></span>
+        <i class="eyes" style="--x:12;--y:40;animation-delay:-6s"></i>
       </div>
     </div>
 
@@ -319,11 +351,15 @@ Apply changes?
         <p>ship builds from source for now. install the <a href="/docs/building-from-source/#prerequisites">build prerequisites</a>, including rust, zig 0.17 and <code>git</code>, then:</p>
         <div class="term cmd">
           <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
-<pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
+<pre tabindex="0" role="region" aria-label="install commands in the hold, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
 <span class="t-prompt">$ </span>cd ship
 <span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
         </div>
         <p>run <code>ship</code> to open a shell. try <code>alt-|</code> to split it, then <code>alt-q</code> to detach. run <code>ship</code> again and both shells are still there.</p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/keys.webm" poster="demo/keys.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="a pane prints 400 lines, alt-e opens its whole history in nvim where a search finds line 250, then alt-q detaches and running ship again brings the same pane back"></video></div>
+          <figcaption>the first minute: <code>alt-e</code> opens a pane's whole history in your editor, and <code>alt-q</code> detaches without stopping anything. recorded in CI for each release.</figcaption>
+        </figure>
         <p class="note">on macos, set your terminal to use option as alt, often called "option as meta", or ship's keys will type special characters instead.</p>
         <p class="hold-links"><a href="/docs/building-from-source/">full build and update instructions</a><a href="/docs/">read the docs</a><a href="https://github.com/shipmux/ship">ship on github</a></p>
       </section>
@@ -352,7 +388,7 @@ Apply changes?
             <tr><th scope="row"><kbd>alt-q</kbd></th><td>detach</td></tr>
           </tbody>
         </table>
-        <p>the mouse works too: click a pane, a tab or an agent to select it, scroll with the wheel, drag to select and copy text, and drag borders and sidebar rows to resize and move things. right-click for actions.</p>
+        <p>the mouse works too, <a href="#mouse">a little further down</a>.</p>
       </section>
 
       <section class="crate-col" id="config" aria-labelledby="config-title">
@@ -378,11 +414,47 @@ Apply changes?
         </div>
         <p>copy only what you want to change. this example keeps failed commands open, makes the sidebar wider and adds a tmux-style prefix. <code>ship config check</code> lists any mistakes before you try it.</p>
         <p class="more"><a href="/docs/configuration/">custom keys, menus, sounds and scripts in the docs</a></p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/config.webm" poster="demo/config.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="ship's own config open in nvim inside a ship pane: sidebar_width changes from 23 to 34, and on save the sidebar beside it widens"></video></div>
+          <figcaption>the config open in a pane: change the sidebar's width, save, and the window follows. recorded in CI for each release.</figcaption>
+        </figure>
+      </section>
+    </div>
+
+    <div class="cargo cargo-more">
+      <section class="crate-col" id="agents" aria-labelledby="agents-title">
+        <h3 id="agents-title" class="pixel p22">agents</h3>
+        <p>claude code, codex, pi and crush report their own state, so they show up in the sidebar with no setup. a sound plays when one finishes or needs you, and <code>alt-a</code> takes you there.</p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/agents.webm" poster="demo/agents.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="while you are in the blog tab, a pi in the docs tab writes a readme. the sidebar shows it working, then finished and unseen, and alt-a jumps to it"></video></div>
+          <figcaption>a pi finishes in another tab, and <code>alt-a</code> goes to it. real agents, recorded in CI like the one at the waterline.</figcaption>
+        </figure>
+        <p class="more"><a href="/docs/agents/">agents in the docs</a></p>
+      </section>
+
+      <section class="crate-col" id="mouse" aria-labelledby="mouse-title">
+        <h3 id="mouse-title" class="pixel p22">mouse</h3>
+        <p>click a pane, a tab or an agent to select it, scroll with the wheel and drag to copy text. drag borders to resize, drag sidebar rows to move tabs, and right-click for actions.</p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/mouse.webm" poster="demo/mouse.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="the pointer drags the border between two panes to resize them, right-clicks a pane and splits it down from its menu, then drags a tab to a new place in the sidebar"></video></div>
+          <figcaption>a border dragged, a split from the right-click menu and a tab moved. recorded in CI for each release.</figcaption>
+        </figure>
+        <p class="more"><a href="/docs/scrolling-copying-and-the-mouse/">scrolling, copying and the mouse</a></p>
+      </section>
+
+      <section class="crate-col" id="saved-tabs" aria-labelledby="saved-tabs-title">
+        <h3 id="saved-tabs-title" class="pixel p22">saved tabs</h3>
+        <p>stop the server or restart the machine, and your tabs, splits, stacks and directories come back with fresh shells. the layout comes back, not the programs that were running.</p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/saved-tabs.webm" poster="demo/saved-tabs.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="ship server stop ends the server and everything in it, then running ship starts a new one and the same tabs and splits come back with fresh shells"></video></div>
+          <figcaption><code>ship server stop</code>, then <code>ship</code>: the same tabs, fresh shells. recorded in CI for each release.</figcaption>
+        </figure>
+        <p class="more"><a href="/docs/saved-tabs/">saved tabs in the docs</a></p>
       </section>
     </div>
   </div>
-  <div class="pile" aria-hidden="true"><img class="px art" style="--w:64;--h:40" src="art/pile.svg" alt=""></div>
-  <div class="pile pile-s" aria-hidden="true"><img class="px art" style="--w:40;--h:28" src="art/pile-small.svg" alt=""></div>
+  <div class="pile" aria-hidden="true"><img loading="lazy" class="px art" style="--w:64;--h:40" src="art/pile.svg" alt=""></div>
+  <div class="pile pile-s" aria-hidden="true"><img loading="lazy" class="px art" style="--w:40;--h:28" src="art/pile-small.svg" alt=""></div>
   <div class="floor-boards planks tile" style="--tw:48;--th:18" aria-hidden="true"></div>
 </section>
 
@@ -390,14 +462,15 @@ Apply changes?
 <section class="seabed" id="seabed" aria-labelledby="seabed-title">
   <div class="water">
     <div class="keel tile" style="--tw:48;--th:16" aria-hidden="true"></div>
-    <div class="cable" aria-hidden="true"><i></i><img class="px art" style="--w:16;--h:14" src="art/anchor.svg" alt=""></div>
+    <div class="cable" aria-hidden="true"><i></i><img loading="lazy" class="px art" style="--w:16;--h:14" src="art/anchor.svg" alt=""></div>
     <div class="seabed-in">
       <h2 id="seabed-title" class="pixel p66"><span class="place">seabed</span> run a tight ship</h2>
       <div class="install-final">
         <div class="term cmd">
-          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship &amp;&amp; cargo install --path crates/ship">copy</button>
-<pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
-<span class="t-prompt">$ </span>cd ship &amp;&amp; cargo install --path crates/ship</pre>
+          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
+<pre tabindex="0" role="region" aria-label="install commands at the seabed, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
+<span class="t-prompt">$ </span>cd ship
+<span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
         </div>
         <p>start with one shell, add a split, and see how it fits the way you work. builds from source with rust and zig 0.17.</p>
         <div class="links"><a href="/docs/#first-run">try your first session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
@@ -405,17 +478,18 @@ Apply changes?
     </div>
     <div class="reef" aria-hidden="true">
       <span class="kelp k1 art" style="--w:9;--h:30"></span><span class="kelp k2 art" style="--w:9;--h:30"></span><span class="kelp k3 art" style="--w:9;--h:30"></span>
-      <img class="px art rocks" style="--w:26;--h:11" src="art/rocks.svg" alt="">
-      <img class="px art starfish" style="--w:11;--h:9" src="art/starfish.svg" alt="">
+      <img loading="lazy" class="px art rocks" style="--w:26;--h:11" src="art/rocks.svg" alt="">
+      <img loading="lazy" class="px art starfish" style="--w:11;--h:9" src="art/starfish.svg" alt="">
       <span class="crab art" style="--w:16;--h:9"></span>
       <span class="fish s4 art" style="--w:12;--h:6"></span><span class="fish s5 art" style="--w:12;--h:6"></span>
-      <div class="diver"><i class="hose"></i><span class="act a-diver"></span></div>
-      <img class="bubble px art b4" style="--w:3;--h:3" src="art/bubble.svg" alt=""><img class="bubble px art b5" style="--w:3;--h:3" src="art/bubble.svg" alt=""><img class="bubble px art b6" style="--w:3;--h:3" src="art/bubble.svg" alt="">
+      <div class="diver" data-react data-ms="1700"><i class="hose"></i><span class="act a-diver"></span><i class="pop" style="--x:21;--dx:2;--rise:24;--d:0s"></i><i class="pop" style="--x:23;--dx:-1;--rise:30;--d:.15s"></i><i class="pop" style="--x:20;--dx:3;--rise:36;--d:.3s"></i><i class="pop" style="--x:22;--dx:0;--rise:44;--d:.5s"></i></div>
+      <img loading="lazy" class="bubble px art b4" style="--w:3;--h:3" src="art/bubble.svg" alt=""><img loading="lazy" class="bubble px art b5" style="--w:3;--h:3" src="art/bubble.svg" alt=""><img loading="lazy" class="bubble px art b6" style="--w:3;--h:3" src="art/bubble.svg" alt="">
     </div>
   </div>
   <div class="sand tile" style="--tw:32;--th:14" aria-hidden="true"></div>
   <footer class="foot">
-    <img class="px mark" src="marks/app-large.svg" width="72" height="72" alt="">
+    <p class="log"><span class="pixel">captain's log</span> ship started out more than five times slower than herdr on a keystroke. <a href="/blog/optimal-ish/">optimal-ish</a> is the couple of weeks after that, in the order they happened, with the benchmark if you want to run it yourself.</p>
+    <img loading="lazy" class="px mark" src="marks/app-large.svg" width="72" height="72" alt="">
     <p>ship is licensed under the <a href="https://github.com/shipmux/ship/blob/main/LICENSE">gnu general public license v3.0 or later</a>. it is a work in progress.</p>
     <nav aria-label="footer"><!-- footer links --><a href="#sky">back to the sky</a></nav>
   </footer>

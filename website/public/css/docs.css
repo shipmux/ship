@@ -228,6 +228,51 @@ body.docs {
   overflow-wrap: anywhere;
 }
 
+/* the agent-state glyphs in the text (src/markdown/glyphs.mjs) are chips of the terminal they come from: ink, with the
+   state's own colour from the .s-* tokens. On the page's paper that colour alone would be too faint, which is why the chip is dark */
+code.glyph {
+  background: var(--ink);
+  padding: 1px 7px;
+  font-size: 1em;
+}
+
+/* the blog's post list: "captain's log" in the nautical colour beside the plain "blog", the captain at his clipboard
+   (PageTitle.astro). starlight-blog hides this panel on that page, so it is shown again here */
+.content-panel:has(.log-head) {
+  display: block !important;
+}
+.log-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 0 12px;
+  margin: 0 0 8px;
+}
+.log-head h1 {
+  margin: 0;
+  min-width: 0;
+}
+.log-head .a-log {
+  margin-bottom: calc(-3 * var(--px));
+}
+.doc .place {
+  color: var(--sea);
+  margin-right: 0.35em;
+}
+/* the end of a post: two quiet links under a dashed rule (BlogEnd.astro) */
+.blog-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 56px 0 0;
+  padding-top: 22px;
+  border-top: 2px dashed color-mix(in srgb, var(--ink) 38%, transparent);
+  font-weight: 700;
+}
+/* the date under a post's title: room before the first paragraph, as the docs leave under a title */
+.doc .sl-markdown-content > .sl-blog-metadata {
+  margin-bottom: 40px;
+}
+
 /* a note, with a neutral crewmate standing on the bottom edge */
 .note {
   display: grid;

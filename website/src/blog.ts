@@ -13,3 +13,6 @@ export const isBlogPage = (id: string): boolean => id === "blog" || id.startsWit
 
 /** Whether it is a post, as starlight-blog decides in isAnyBlogPostPage: not a list, tag or author page. */
 export const isBlogPost = (id: string): boolean => /^blog\/(?!(\d+\/?|tags\/.+|authors\/.+)$).+$/.test(id);
+
+/** Whether it is the post list (/blog/ and its numbered pages), which gets a heading of its own and no contents. */
+export const isBlogIndex = (id: string): boolean => /^blog(\/\d+)?$/.test(id);
