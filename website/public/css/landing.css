@@ -73,7 +73,7 @@ section[id] {
 }
 .cloud.a {
   top: 150px;
-  left: 50%;
+  left: 52%;
 }
 .cloud.b {
   top: 560px;
@@ -166,6 +166,12 @@ section[id] {
   line-height: 1.5;
   max-width: 34ch;
   margin: 0 0 36px;
+}
+/* the sentence that says what ship does: a step up from body text, so it reads second after the lede (on a phone the lede is
+   already this size, so it stays at body size there) */
+.hero-text > p:not(.lede) {
+  font-size: var(--t-lg);
+  max-width: 44ch;
 }
 .install-quick {
   max-width: 620px;
@@ -604,6 +610,12 @@ section[id] {
 .slop div {
   animation: slosh 60s ease-in-out infinite alternate;
 }
+/* the first row under the waves is the only one with no copy over it, so it is the one that gets read: bright blue,
+   about 3:1 on the sea. The first line (under the swell's dither) and the rest (behind the copy) stay faint. It is
+   decoration and aria-hidden, so the page reads the same without it */
+.slop div:nth-child(2) {
+  color: var(--c12);
+}
 .slop div:nth-child(even) {
   animation-direction: alternate-reverse;
   margin-left: -300px;
@@ -662,15 +674,17 @@ section[id] {
     tail 0.7s steps(1) infinite,
     swim 60s linear infinite;
 }
+/* the three here swim through the empty water under the copy (the section's last 150px, above the seafloor), so none
+   crosses a caption */
 .fish.s1 {
-  bottom: 230px;
+  bottom: 118px;
   left: 0;
   animation-delay:
     0s,
     -10s;
 }
 .fish.s2 {
-  bottom: 170px;
+  bottom: 92px;
   left: 0;
   animation-delay:
     -0.3s,
@@ -678,7 +692,7 @@ section[id] {
   animation-duration: 0.8s, 80s;
 }
 .fish.s3 {
-  bottom: 300px;
+  bottom: 104px;
   left: 0;
   animation-delay:
     -0.5s,
@@ -1792,6 +1806,20 @@ html .term.mount {
 }
 
 /* ------------------------------------------------ narrower screens */
+/* between 900 and 1299px the headline's three locked lines run past the text column, right where the first cloud
+   drifts, and below 1020px the first gull crosses the second line: lift the cloud into the open band above the headline
+   and let that one gull sit out the narrow widths */
+@media (min-width: 900px) and (max-width: 1299px) {
+  .cloud.a {
+    top: 12px;
+    left: 38%;
+  }
+}
+@media (min-width: 900px) and (max-width: 1019px) {
+  .g1 {
+    display: none;
+  }
+}
 @media (max-width: 1099px) {
   .floor {
     grid-template-columns: calc(76 * var(--px)) minmax(0, 1fr);
@@ -1922,6 +1950,9 @@ html .term.mount {
   }
   .lede {
     font-size: var(--t-lg);
+  }
+  .hero-text > p:not(.lede) {
+    font-size: var(--t-base);
   }
   .sky {
     padding-top: 76px;
