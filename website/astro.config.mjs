@@ -10,6 +10,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { satteri } from "@astrojs/markdown-satteri";
 import { alerts } from "./src/markdown/alerts.mjs";
+import { glyphs } from "./src/markdown/glyphs.mjs";
 import { rebaseLinks } from "./src/markdown/links.mjs";
 import shipDocs from "./src/integrations/ship-docs.mjs";
 import toml from "./src/markdown/toml.mjs";
@@ -50,7 +51,7 @@ export default defineConfig({
   vite: { plugins: [blogPreview] },
   markdown: {
     processor: satteri({
-      mdastPlugins: [alerts, rebaseLinks(base.replace(/\/$/, ""))],
+      mdastPlugins: [alerts, glyphs, rebaseLinks(base.replace(/\/$/, ""))],
       features: { smartPunctuation: false },
     }),
   }, // the guide's straight quotes stay straight
