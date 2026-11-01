@@ -382,6 +382,15 @@
 [data-mode="dark"] .docs-foot {
   border-color: var(--night-line);
 }
+[data-mode="dark"] .a-log {
+  background-image: url("../art/crew-captain-clipboard-loop-night.svg");
+}
+[data-mode="dark"] .doc .place {
+  color: var(--night-accent);
+}
+[data-mode="dark"] .blog-end {
+  border-top-color: var(--night-line);
+}
 [data-mode="dark"] .doc .expressive-code .frame {
   border-color: var(--c8);
 }

@@ -278,6 +278,16 @@ code {
   background-image: url("../art/crew-cook-reach-loop.svg");
 }
 
+/* the captain with his clipboard, beside the blog's heading: the same long rests and short burst as the others */
+.a-log {
+  --w: 28;
+  --h: 24;
+  --n: 14;
+  --dt: 0.45s;
+  --lag: -4.6s;
+  background-image: url("../art/crew-captain-clipboard-loop.svg");
+}
+
 /* lists with a pixel bullet: a square on the same grid as the headings' squares */
 .doc ul,
 .needs,

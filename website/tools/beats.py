@@ -63,11 +63,23 @@ def beat_deckhand(outline=None):
     return [stand("deckhand", pose, 0, dy, fx, outline) for pose, fx, dy in steps]
 
 
+def log_captain(outline=None):
+    """The blog's captain: the docs notes' deckhand loop (long rests, then a few lines written), drawn for the captain.
+    He stands on the page itself, so at night he gets the bright blue outline."""
+    steps = [(0, 0)] * 6 + [(0, 1), (1, 0), (1, 1), (2, 0), (2, 1), (2, 0), (2, 0), (2, 0)]
+    return [crewmate("captain", None, pose="clipboard", fx={"ticks": t, "up": d}, outline=outline) for t, d in steps]
+
+
 BEATS = {"beat-captain": beat_captain, "beat-lookout": beat_lookout, "beat-deckhand": beat_deckhand}
 
 
 def build(out):
     written = []
+    for suffix, outline in (("", None), ("-night", NIGHT)):
+        name = "crew-captain-clipboard-loop" + suffix + ".svg"
+        with open(os.path.join(out, name), "w") as f:
+            f.write(Canvas.sheet(log_captain(outline)).svg(unit=1, decorative=True, colors=PALETTE))
+        written.append(name)
     for name, fn in BEATS.items():
         for suffix, outline in (("", None), ("-night", NIGHT)):
             with open(os.path.join(out, name + suffix + ".svg"), "w") as f:
