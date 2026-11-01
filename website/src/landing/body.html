@@ -356,10 +356,6 @@ Apply changes?
 <span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
         </div>
         <p>run <code>ship</code> to open a shell. try <code>alt-|</code> to split it, then <code>alt-q</code> to detach. run <code>ship</code> again and both shells are still there.</p>
-        <figure class="recording">
-          <div class="screen mount"><video src="demo/keys.webm" poster="demo/keys.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="a pane prints 400 lines, alt-e opens its whole history in nvim where a search finds line 250, then alt-q detaches and running ship again brings the same pane back"></video></div>
-          <figcaption>the first minute: <code>alt-e</code> opens a pane's whole history in your editor, and <code>alt-q</code> detaches without stopping anything. recorded in CI for each release.</figcaption>
-        </figure>
         <p class="note">on macos, set your terminal to use option as alt, often called "option as meta", or ship's keys will type special characters instead.</p>
         <p class="hold-links"><a href="/docs/building-from-source/">full build and update instructions</a><a href="/docs/">read the docs</a><a href="https://github.com/shipmux/ship">ship on github</a></p>
       </section>
@@ -390,6 +386,11 @@ Apply changes?
         </table>
         <p>the mouse works too, <a href="#mouse">a little further down</a>.</p>
       </section>
+
+    <figure class="recording wide">
+      <div class="screen mount"><video src="demo/keys.webm" poster="demo/keys.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="a pane prints 400 lines, alt-e opens its whole history in nvim where a search finds line 250, then alt-q detaches and running ship again brings the same pane back"></video></div>
+      <figcaption>the first minute: <code>alt-e</code> opens a pane's whole history in your editor, and <code>alt-q</code> detaches without stopping anything. recorded in CI for each release.</figcaption>
+    </figure>
 
       <section class="crate-col" id="config" aria-labelledby="config-title">
         <h3 id="config-title" class="pixel p22">config</h3>

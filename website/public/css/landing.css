@@ -924,8 +924,8 @@ section[id] {
   margin: 0 auto;
   padding-top: 99px;
   display: grid;
-  grid-template-columns: minmax(0, 6fr) minmax(0, 6fr);
-  gap: 56px;
+  grid-template-columns: minmax(0, 1fr); /* the words, then the session at the full width, so its text is readable */
+  gap: 48px;
   align-items: start;
 }
 .waterline .place {
@@ -1323,7 +1323,7 @@ section[id] {
    wider than the waterline one at every width here. Narrower screens keep the stacked layout further down. */
 @media (min-width: 1100px) {
   .floor {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); /* the screen gets two thirds: a recording's text is legible */
     grid-template-areas:
       "room fig"
       "text fig";
@@ -1458,6 +1458,11 @@ section[id] {
 #config > .term {
   grid-column: 2;
   grid-row: 1 / span 4;
+}
+/* the hold's recordings take the whole width under their words: in a column their terminal text was too small to read */
+#config > .recording,
+.cargo > .wide {
+  grid-column: 1 / -1;
 }
 #config .cmd pre {
   font-size: var(--code-md);
@@ -2319,19 +2324,26 @@ p code {
   font-size: var(--t-sm);
 }
 .cargo-more {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   margin-top: 72px;
   padding-top: 56px;
   border-top: 2px dashed var(--c8);
 }
-@media (min-width: 1280px) {
-  .cargo-more {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+/* agents, mouse and saved tabs: one row each, the words on the left and the recording on two thirds of the width */
+@media (min-width: 1100px) {
+  .cargo-more > .crate-col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    column-gap: 64px;
+    align-items: start;
   }
-}
-@media (max-width: 1099px) {
-  .cargo-more {
-    grid-template-columns: minmax(0, 1fr);
+  .cargo-more > .crate-col > * {
+    grid-column: 1;
+  }
+  .cargo-more > .crate-col > .recording {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin: 0;
   }
 }
 .floor-fig .sketch[hidden] {
