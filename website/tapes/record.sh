@@ -122,6 +122,10 @@ rm -rf "$ROOT"
 mkdir -p "$ROOT"/xdg/{state,config,data,cache} "$ROOT/pi" "$ROOT/bin" "$ROOT/run"
 chmod 700 "$ROOT" "$ROOT/pi" "$ROOT/run"
 cp "$TAPES/ship.toml" "$SHIP_CONFIG"
+# Playwright (mouse.mjs) finds its browsers under the cache dir, which the next line moves into the throwaway
+# world, so point it at the real one first
+if [ "$(uname)" = Darwin ]; then pw_cache=$HOME/Library/Caches; else pw_cache=${XDG_CACHE_HOME:-$HOME/.cache}; fi
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$pw_cache/ms-playwright}"
 export XDG_STATE_HOME=$ROOT/xdg/state XDG_CONFIG_HOME=$ROOT/xdg/config \
   XDG_DATA_HOME=$ROOT/xdg/data XDG_CACHE_HOME=$ROOT/xdg/cache
 # On Linux, fontconfig finds user fonts under $XDG_DATA_HOME/fonts, so the

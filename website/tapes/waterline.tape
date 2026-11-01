@@ -27,7 +27,7 @@ Wait+Screen@20s /alt-right to open one/
 # Fold infra: from claude in api, tabs mode goes tests, docs, infra.
 Alt+a
 Wait+Screen /▾ api/
-Alt+g
+Alt+t
 Type "jjj"
 Type "h"
 Escape
@@ -42,14 +42,14 @@ Type@10ms "Read tide.py and test_tide.py, then explain in three sentences what t
 Alt+l
 Sleep 300ms
 Type@10ms "Add type hints and one-line docstrings to every function in tide.py, make each function handle an empty list, add a next_high_water(readings, after_hour) function, write tests for all of it in test_tide.py, and run them with python3 -m unittest -v until they pass."
-Alt+g
+Alt+t
 Type "jj"
 Escape
 Sleep 300ms
 Type@10ms "Write a short README.md for this project: one paragraph and a usage example."
 Enter
 # Back to api, which remembers the pi pane, so the docs pi finishes unseen.
-Alt+g
+Alt+t
 Type "kk"
 Escape
 Sleep 300ms
