@@ -4,8 +4,8 @@
 # runs this once per tape, so every tape starts from the same world.
 #
 # Expects from record.sh: ROOT (an empty temp dir, already holding pi/ with
-# the copied token on real takes), PORT, DRY (true or false), TAPES,
-# SHIP_SERVER_URL, SHIP_CONFIG, the XDG_*_HOME dirs, and `ship` on PATH.
+# the copied token on real takes), SERVER, DRY (true or false), TAPES,
+# SHIP_SERVER_NAME, XDG_RUNTIME_DIR, SHIP_CONFIG, the XDG_*_HOME dirs, and `ship` on PATH.
 # With the model proxy, also PROXY_MODE (record or replay) and PROXY_URL.
 # Leaves the server running; its PID is in $ROOT/server.pid, and the world's
 # tab IDs are in $ROOT/world.env for tapes to source.
@@ -40,7 +40,7 @@ EOF
 # plugins or MCP servers, and in manual mode so running the tests needs
 # permission. Pi without extensions, skills or context files.
 mkdir -p "$ROOT/agents"
-if $DRY; then
+if $DRY || ${SHELL_WORLD:-false}; then
   printf '#!/bin/sh\nexec "%s" claude-code 6\n' "$TAPES/stub-agent.sh" >"$ROOT/agents/claude"
   printf '#!/bin/sh\nexec "%s" pi 6\n' "$TAPES/stub-agent.sh" >"$ROOT/agents/pi"
 else
@@ -81,15 +81,60 @@ export PATH=$ROOT/agents:$PATH
 # shell setup or from another Ship session.
 key=()
 ${OPENROUTER:-false} && key=(OPENROUTER_API_KEY="$OPENROUTER_API_KEY")
-(cd "$ROOT/harbor" && exec env -i ${key[@]+"${key[@]}"} HOME="$HOME" PATH="$PATH" LANG=en_US.UTF-8 \
-  TERM=xterm-256color SHELL=/bin/bash BASH_SILENCE_DEPRECATION_WARNING=1 \
+# Shell-world panes get a home of their own whose bashrc sets the tapes' short prompt, `harbor $`, so the
+# recording machine's prompt never shows. Agent worlds keep the real home, where the agents' logins live.
+home=$HOME
+if ${SHELL_WORLD:-false}; then
+  home=$ROOT/home
+  mkdir -p "$home"
+  printf '%s\n' "PS1='\\W \$ '" >"$home/.bashrc"
+  printf '%s\n' '. ~/.bashrc' >"$home/.bash_profile"
+fi
+(cd "$ROOT/harbor" && exec env -i ${key[@]+"${key[@]}"} HOME="$home" PATH="$PATH" LANG=en_US.UTF-8 \
+  TERM=xterm-256color SHELL=/bin/bash BASH_SILENCE_DEPRECATION_WARNING=1 VISUAL="$(command -v nvim || echo vi)" \
   XDG_STATE_HOME="$XDG_STATE_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" \
   XDG_DATA_HOME="$XDG_DATA_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" \
+  XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" SHIP_SERVER_NAME="$SERVER" \
   PI_CODING_AGENT_DIR="$ROOT/pi" PI_SKIP_VERSION_CHECK=1 DISABLE_AUTOUPDATER=1 \
-  ship --config "$SHIP_CONFIG" server --port "$PORT" --no-restore) >"$ROOT/server.log" 2>&1 &
+  ship --config "$SHIP_CONFIG" server --name "$SERVER" --no-restore) >"$ROOT/server.log" 2>&1 &
 echo $! >"$ROOT/server.pid"
 for _ in $(seq 50); do ship server status >/dev/null 2>&1 && break; sleep 0.1; done
 ship server status >/dev/null || die "the server didn't start; see $ROOT/server.log"
+
+# A shell world for the tapes with no agents in them: the same tabs, with shells and an editor where the
+# agents would be, so every take comes out the same.
+#
+#   ▾ ship
+#     ▾ api      shell | shell
+#         tests  shell
+#       docs     editor (tide.py)
+#   ▾ blog       editor | shell
+if ${SHELL_WORLD:-false}; then
+  tab() { ship tab create "$@" | jq -r .id; }
+  pane() { ship pane create "$@" | jq -r .id; }
+  editor=(less)
+  command -v nvim >/dev/null && editor=(nvim)
+  h=$ROOT/harbor
+  ship_tab=$(tab --name ship)
+  api=$(tab --name api "$ship_tab")
+  tests=$(tab --name tests "$api")
+  docs=$(tab --name docs "$ship_tab")
+  blog=$(tab --name blog)
+  left=$(pane --tab "$api" --cwd "$h")
+  pane --pane "$left" --place right --cwd "$h" >/dev/null
+  pane --tab "$tests" --cwd "$h" >/dev/null
+  pane --tab "$docs" --cwd "$h" -- "${editor[@]}" tide.py >/dev/null
+  post=$(pane --tab "$blog" --cwd "$ROOT/blog" -- "${editor[@]}" posts/reading-tide-tables.md)
+  pane --pane "$post" --place right --cwd "$ROOT/blog" >/dev/null
+  cat >"$ROOT/world.env" <<EOF
+SHIP_TAB=$ship_tab
+API_TAB=$api
+DOCS_TAB=$docs
+BLOG_TAB=$blog
+API_PANE=$left
+EOF
+  exit 0
+fi
 
 # The api pi's stub takes longer turns, so it is still busy at the reattach.
 claude=(claude)
@@ -112,13 +157,13 @@ blog=$(tab --name blog)
 
 h=$ROOT/harbor
 claude_pane=$(pane --tab "$api" --cwd "$h" -- "${claude[@]}")
-pi_api_pane=$(pane --pane "$claude_pane" --direction right --cwd "$h" -- "${pi_api[@]}")
+pi_api_pane=$(pane --pane "$claude_pane" --place right --cwd "$h" -- "${pi_api[@]}")
 pane --tab "$tests" --cwd "$h" >/dev/null
 docs_pane=$(pane --tab "$docs" --cwd "$h" -- "${pi[@]}")
 pane --tab "$infra" --cwd "$h" >/dev/null
 deploy_pane=$(pane --tab "$deploy" --cwd "$h" -- "${pi[@]}")
 post=$(pane --tab "$blog" --cwd "$ROOT/blog" -- "${editor[@]}" posts/reading-tide-tables.md)
-pane --pane "$post" --direction right --cwd "$ROOT/blog" >/dev/null
+pane --pane "$post" --place right --cwd "$ROOT/blog" >/dev/null
 
 # Wait until every agent reports idle. Claude asks once whether to trust a
 # new folder, with "No, exit" preselected.

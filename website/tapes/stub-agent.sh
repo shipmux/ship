@@ -27,8 +27,8 @@ while IFS= read -r line; do
   fi
   if [[ $app == claude-code && $line == *"ship CLI"* ]]; then
     # Drive a pi worker the way the real claude is asked to.
-    worker=$(ship pane create --direction right -- pi | jq -r .id)
-    echo "Bash: ship pane create --direction right -- pi"
+    worker=$(ship pane create --place right -- pi | jq -r .id)
+    echo "Bash: ship pane create --place right -- pi"
     ship pane wait --pane "$worker" --status idle >/dev/null
     ship pane send --pane "$worker" "Write tide_cli.py." --key enter --wait >/dev/null
     echo "Bash: ship pane send --pane $worker ... --wait"
