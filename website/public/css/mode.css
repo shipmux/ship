@@ -104,6 +104,18 @@
     margin-left: 0;
   }
 }
+@media (max-width: 600px) {
+  /* a phone's first row: the mark, then places or search taking what's left, then the toggle */
+  .bar-in > .places,
+  .bar-in > .search {
+    flex: 1 1 0;
+    margin: 0 0 0 4px;
+  }
+  .bar-in > .places + .mode,
+  .bar-in > .search + .mode {
+    margin-left: 12px;
+  }
+}
 @media (max-width: 479px) {
   /* the 404's plain links don't leave room for it: it joins the logo and the links take their own row */
   .bar-in > nav:has(+ .mode) {

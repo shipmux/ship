@@ -17,6 +17,12 @@ const cut = (html: string, mark: string) => {
 const [top, afterHeader] = cut(rebase(body), "<!-- site header -->");
 const [places, afterPlaces] = cut(afterHeader, "<!-- site header end -->");
 const [middle, end] = cut(afterPlaces, "<!-- footer links -->");
+// link previews: the page's own URL and one picture, both absolute
+const url = new URL(withBase("/"), Astro.site).href;
+const og = new URL(withBase("/og.png"), Astro.site).href;
+const title = "ship: staying afloat in an ocean of slop";
+const description =
+  "run your editor, shells and coding agents side by side. see who needs you, hand work to another agent, and close the window without stopping the work.";
 const footerLinks = siteLinks()
   .map((l) => `<a href="${l.href}">${l.label}</a>`)
   .join("");
@@ -27,11 +33,23 @@ const footerLinks = siteLinks()
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ship: staying afloat in an ocean of slop</title>
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={url} />
+    <meta name="theme-color" content="#1c1a27" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ship" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={url} />
+    <meta property="og:image" content={og} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta
-      name="description"
-      content="run your editor, shells and coding agents side by side. see who needs you, hand work to another agent, and close the window without stopping the work."
+      property="og:image:alt"
+      content="ship's pixel-art mast and crow's nest beside the words staying afloat in an ocean of slop"
     />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href={withBase("/marks/avatar.svg")} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link

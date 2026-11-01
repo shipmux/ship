@@ -2063,3 +2063,75 @@ html .term.mount {
     font-size: var(--code-sm);
   }
 }
+
+/* key and command chips in the landing's prose stay on one line: they are all short, and `alt-` / `a` reads as two keys */
+p code {
+  white-space: nowrap;
+}
+
+/* a recording this build has no take of: the bezel holds a crewmate and a line saying so (site.js, noTake) */
+.screen.no-take {
+  aspect-ratio: 16 / 9;
+  display: grid;
+}
+.no-take-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--c7); /* the rooms' wall, so the crewmate's ink outline shows in both modes */
+  color: var(--c0);
+  padding: 24px;
+  text-align: center;
+  font-size: var(--t-sm);
+}
+.no-take-card img {
+  width: calc(20 * var(--px));
+  height: auto;
+}
+.no-take-card p {
+  margin: 0;
+  max-width: 34ch;
+}
+
+/* the footer's first row: the latest from the captain's log (the blog), above the licence and links */
+.foot .log {
+  flex: 1 1 100%;
+  max-width: none;
+  margin: 0 0 8px;
+  padding-bottom: 20px;
+  border-bottom: 2px dashed color-mix(in srgb, var(--c15) 35%, transparent);
+  text-wrap: pretty;
+}
+.foot .log .pixel {
+  color: var(--c14);
+  margin-right: 10px;
+}
+
+/* the hold's recordings, each under its own words, and a second row of three: agents, mouse and saved tabs */
+.crate-col .recording {
+  margin: 8px 0 20px;
+}
+.crate-col .recording figcaption {
+  font-size: var(--t-sm);
+}
+.cargo-more {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 72px;
+  padding-top: 56px;
+  border-top: 2px dashed var(--c8);
+}
+@media (min-width: 1280px) {
+  .cargo-more {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1099px) {
+  .cargo-more {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.floor-fig .sketch[hidden] {
+  display: none;
+}

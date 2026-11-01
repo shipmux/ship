@@ -21,6 +21,15 @@ const NAME = /^(\d{4}-\d{2}-\d{2})-([a-z0-9-]+)\.md$/;
 if ((process.env.DOCS_CHANNEL ?? "main") !== "main" || !existsSync(src)) process.exit(0);
 
 const yaml = (s) => JSON.stringify(s);
+// the preview paragraph as plain text, for the post's description in search results and link previews
+const plain = (md) => {
+  const text = md
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length <= 160 ? text : text.slice(0, text.lastIndexOf(" ", 157)).replace(/[,;:.]$/, "") + "...";
+};
 for (const name of readdirSync(src).sort()) {
   if (!name.endsWith(".md")) continue;
   const m = NAME.exec(name);
@@ -38,6 +47,6 @@ for (const name of readdirSync(src).sort()) {
   mkdirSync(out, { recursive: true });
   writeFileSync(
     join(out, `${slug}.md`),
-    `---\ntitle: ${yaml(h1[1].trim())}\ndate: ${date}T12:00:00Z\n---\n\n${withExcerpt}`,
+    `---\ntitle: ${yaml(h1[1].trim())}\ndescription: ${yaml(plain(first[0]))}\ndate: ${date}T12:00:00Z\n---\n\n${withExcerpt}`,
   );
 }

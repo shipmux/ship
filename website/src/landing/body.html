@@ -8,7 +8,7 @@
         <li><a href="#deck"><span class="nau">deck</span><span class="pl">what works today</span></a></li>
         <li><a href="#waterline"><span class="nau">waterline</span><span class="pl">why ship</span></a></li>
         <li><a href="#below-deck"><span class="nau">below deck</span><span class="pl">how it works</span></a></li>
-        <li><a href="#hold"><span class="nau">the hold</span><span class="pl">install, keys, config</span></a></li>
+        <li><a href="#hold"><span class="nau">the hold</span><span class="pl">install, keys and more</span></a></li>
         <li><a href="#seabed"><span class="nau">seabed</span><span class="pl">start here</span></a></li>
       </ol>
     </details>
@@ -33,12 +33,13 @@
       <p>run your editor, shells and agents side by side, see who needs you, and close the window without stopping the work.</p>
       <div class="install-quick">
         <div class="term cmd">
-          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship &amp;&amp; cargo install --path crates/ship">copy</button>
-<pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
-<span class="t-prompt">$ </span>cd ship &amp;&amp; cargo install --path crates/ship</pre>
+          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
+<pre tabindex="0" role="region" aria-label="install commands, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
+<span class="t-prompt">$ </span>cd ship
+<span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
         </div>
         <p>a work in progress you can try today. builds from source with rust and zig 0.17.</p>
-        <div class="links"><a href="#install">build and try ship</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
+        <div class="links"><a href="#install">build and try ship</a><a href="#waterline" class="watch">watch a real session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
       </div>
     </div>
     <div class="rig">
@@ -225,7 +226,9 @@
         <p>keep an editor beside a test run, nest smaller tasks under a project tab, or stack a spare shell over a busy pane. new splits and stacked shells open in the directory you were working in. zoom in when you need more room, then return to the same layout.</p>
         <p>claude code, codex, pi and crush report their own state through the <a href="/docs/agents/">program status protocol</a>. ship shows it in the sidebar and on their tabs, so an agent waiting for permission stays visible even when its tab is folded.</p>
       </div>
-      <figure class="floor-fig">
+      <figure class="floor-fig recording">
+        <div class="screen mount"><video src="demo/panes.webm" poster="demo/panes.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="in a ship tab, a shell is split right and then down, a second shell is stacked in front of one pane and put back, and one pane is zoomed to fill the tab and back"></video></div>
+        <div class="sketch" hidden>
         <div class="term mount ui" role="img" aria-label="a sketch of ship's layout: a sidebar with a tree of tabs and a list of agents, and three panes, one running cargo test, one with claude waiting on a question and one with nvim">
           <div class="ui-side" aria-hidden="true"><pre> tabs          ≡
  ▾ ship        <span class="s-blocked">▲</span>
@@ -248,7 +251,8 @@ Apply changes?
             <div class="ui-pane"><pre><span class="t-prompt">$ </span>nvim notes.md</pre></div>
           </div>
         </div>
-        <figcaption>a hand-drawn sketch of the layout, not a recording. the selected pane has the cyan border.</figcaption>
+        </div>
+        <figcaption data-sketch="a hand-drawn sketch of the layout, not a recording. the selected pane has the cyan border.">split right, split down, a shell stacked in front and back, then zoom and back. a real take, recorded in CI for each release; the selected pane has the cyan border.</figcaption>
       </figure>
     </article>
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
@@ -304,7 +308,7 @@ Apply changes?
   <div class="hold-in">
     <div class="hold-head">
       <div>
-        <h2 id="hold-title" class="pixel p33"><span class="place">the hold</span> install, keys and config</h2>
+        <h2 id="hold-title" class="pixel p33"><span class="place">the hold</span> install, keys and more</h2>
         <p class="intro">build ship, open a shell and try a split. these are enough to get started, with the rest in the docs when you want it.</p>
       </div>
       <div class="room hold-room" aria-hidden="true">
@@ -319,11 +323,15 @@ Apply changes?
         <p>ship builds from source for now. install the <a href="/docs/building-from-source/#prerequisites">build prerequisites</a>, including rust, zig 0.17 and <code>git</code>, then:</p>
         <div class="term cmd">
           <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
-<pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
+<pre tabindex="0" role="region" aria-label="install commands, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
 <span class="t-prompt">$ </span>cd ship
 <span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
         </div>
         <p>run <code>ship</code> to open a shell. try <code>alt-|</code> to split it, then <code>alt-q</code> to detach. run <code>ship</code> again and both shells are still there.</p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/keys.webm" poster="demo/keys.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="a pane prints 400 lines, alt-e opens its whole history in nvim where a search finds line 250, then alt-q detaches and running ship again brings the same pane back"></video></div>
+          <figcaption>the first minute: <code>alt-e</code> opens a pane's whole history in your editor, and <code>alt-q</code> detaches without stopping anything. recorded in CI for each release.</figcaption>
+        </figure>
         <p class="note">on macos, set your terminal to use option as alt, often called "option as meta", or ship's keys will type special characters instead.</p>
         <p class="hold-links"><a href="/docs/building-from-source/">full build and update instructions</a><a href="/docs/">read the docs</a><a href="https://github.com/shipmux/ship">ship on github</a></p>
       </section>
@@ -352,7 +360,7 @@ Apply changes?
             <tr><th scope="row"><kbd>alt-q</kbd></th><td>detach</td></tr>
           </tbody>
         </table>
-        <p>the mouse works too: click a pane, a tab or an agent to select it, scroll with the wheel, drag to select and copy text, and drag borders and sidebar rows to resize and move things. right-click for actions.</p>
+        <p>the mouse works too, <a href="#mouse">a little further down</a>.</p>
       </section>
 
       <section class="crate-col" id="config" aria-labelledby="config-title">
@@ -378,6 +386,42 @@ Apply changes?
         </div>
         <p>copy only what you want to change. this example keeps failed commands open, makes the sidebar wider and adds a tmux-style prefix. <code>ship config check</code> lists any mistakes before you try it.</p>
         <p class="more"><a href="/docs/configuration/">custom keys, menus, sounds and scripts in the docs</a></p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/config.webm" poster="demo/config.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="ship's own config open in nvim inside a ship pane: sidebar_width changes from 23 to 34, and on save the sidebar beside it widens"></video></div>
+          <figcaption>the config open in a pane: change the sidebar's width, save, and the window follows. recorded in CI for each release.</figcaption>
+        </figure>
+      </section>
+    </div>
+
+    <div class="cargo cargo-more">
+      <section class="crate-col" id="agents" aria-labelledby="agents-title">
+        <h3 id="agents-title" class="pixel p22">agents</h3>
+        <p>claude code, codex, pi and crush report their own state, so they show up in the sidebar with no setup. a sound plays when one finishes or needs you, and <code>alt-a</code> takes you there.</p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/agents.webm" poster="demo/agents.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="while you are in the blog tab, a pi in the docs tab writes a readme. the sidebar shows it working, then finished and unseen, and alt-a jumps to it"></video></div>
+          <figcaption>a pi finishes in another tab, and <code>alt-a</code> goes to it. real agents, recorded in CI like the one at the waterline.</figcaption>
+        </figure>
+        <p class="more"><a href="/docs/agents/">agents in the docs</a></p>
+      </section>
+
+      <section class="crate-col" id="mouse" aria-labelledby="mouse-title">
+        <h3 id="mouse-title" class="pixel p22">mouse</h3>
+        <p>click a pane, a tab or an agent to select it, scroll with the wheel and drag to copy text. drag borders to resize, drag sidebar rows to move tabs, and right-click for actions.</p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/mouse.webm" poster="demo/mouse.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="the pointer drags the border between two panes to resize them, drags a tab to a new place in the sidebar and right-clicks a pane for its menu"></video></div>
+          <figcaption>a border dragged, a tab moved and a right-click menu. recorded in CI for each release.</figcaption>
+        </figure>
+        <p class="more"><a href="/docs/scrolling-copying-and-the-mouse/">scrolling, copying and the mouse</a></p>
+      </section>
+
+      <section class="crate-col" id="saved-tabs" aria-labelledby="saved-tabs-title">
+        <h3 id="saved-tabs-title" class="pixel p22">saved tabs</h3>
+        <p>stop the server or restart the machine, and your tabs, splits, stacks and directories come back with fresh shells. the layout comes back, not the programs that were running.</p>
+        <figure class="recording">
+          <div class="screen mount"><video src="demo/saved-tabs.webm" poster="demo/saved-tabs.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="ship server stop ends the server and everything in it, then running ship starts a new one and the same tabs and splits come back with fresh shells"></video></div>
+          <figcaption><code>ship server stop</code>, then <code>ship</code>: the same tabs, fresh shells. recorded in CI for each release.</figcaption>
+        </figure>
+        <p class="more"><a href="/docs/saved-tabs/">saved tabs in the docs</a></p>
       </section>
     </div>
   </div>
@@ -395,9 +439,10 @@ Apply changes?
       <h2 id="seabed-title" class="pixel p66"><span class="place">seabed</span> run a tight ship</h2>
       <div class="install-final">
         <div class="term cmd">
-          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship &amp;&amp; cargo install --path crates/ship">copy</button>
-<pre><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
-<span class="t-prompt">$ </span>cd ship &amp;&amp; cargo install --path crates/ship</pre>
+          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
+<pre tabindex="0" role="region" aria-label="install commands, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
+<span class="t-prompt">$ </span>cd ship
+<span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
         </div>
         <p>start with one shell, add a split, and see how it fits the way you work. builds from source with rust and zig 0.17.</p>
         <div class="links"><a href="/docs/#first-run">try your first session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
@@ -415,6 +460,7 @@ Apply changes?
   </div>
   <div class="sand tile" style="--tw:32;--th:14" aria-hidden="true"></div>
   <footer class="foot">
+    <p class="log"><span class="pixel">captain's log</span> ship started out more than five times slower than herdr on a keystroke. <a href="/blog/optimal-ish/">optimal-ish</a> is the couple of weeks after that, in the order they happened, with the benchmark if you want to run it yourself.</p>
     <img class="px mark" src="marks/app-large.svg" width="72" height="72" alt="">
     <p>ship is licensed under the <a href="https://github.com/shipmux/ship/blob/main/LICENSE">gnu general public license v3.0 or later</a>. it is a work in progress.</p>
     <nav aria-label="footer"><!-- footer links --><a href="#sky">back to the sky</a></nav>

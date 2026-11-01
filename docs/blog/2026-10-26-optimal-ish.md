@@ -162,7 +162,7 @@ I had my agent write a benchmark that runs Ship, Herdr and Zellij side by side i
 
 Once it was measuring the right thing, the first numbers came back, medians of three runs.
 
-|               | Ship    | Herdr   | Zellij   |
+| measure       | Ship    | Herdr   | Zellij   |
 | ------------- | ------- | ------- | -------- |
 | log flood     | 72 ms   | 109 ms  | 265 ms   |
 | agent CPU     | 2.2%    | 2.3%    | 3.1%     |
@@ -334,7 +334,7 @@ Typing in a pane right next to a flood was more than three times faster than typ
 
 My agent's guess was that a quiet machine lets its cores go to sleep, and waking a sleepy core costs time on every hop. To check, we ran `yes > /dev/null` in the background to keep the cores busy without touching Ship.
 
-|       | quiet machine | with `yes` running |
+| mux   | quiet machine | with `yes` running |
 | ----- | ------------- | ------------------ |
 | Ship  | 1.80 ms       | 0.41 ms            |
 | Herdr | 0.67 ms       | 0.13 ms            |
@@ -482,7 +482,7 @@ I'd also been noticing Herdr stutter now and then in my own use, though I can't 
 
 I still wanted to know what Ship could get, so my agent built a version of the window that only redraws what changed. On its own it was about 30 times faster at drawing a keystroke, 325 µs down to 10, and a randomized checker ran it against the normal renderer for 2 million frames without a mismatch. Plugged into Ship, it looked like this.
 
-|                           | normal  | only what changed |
+| measure                   | normal  | only what changed |
 | ------------------------- | ------- | ----------------- |
 | window draw per keystroke | 334 µs  | 83 µs             |
 | window CPU with an agent  |         | 51% less          |

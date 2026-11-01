@@ -227,6 +227,7 @@ main {
 @media (max-width: 600px) {
   .note .note-body {
     order: -1;
+    justify-self: stretch; /* the note starts its items for the crewmate; the text must still fit the column, so its code scrolls inside */
   }
 }
 

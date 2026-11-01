@@ -247,6 +247,34 @@
     document.querySelectorAll(".act").forEach((el) => watch.observe(el));
   }
 
+  // a build with no take of a recording (CI records them for releases) says so on the bezel, with a crewmate
+  // standing by, rather than showing an empty screen
+  const noTake = (v) => {
+    const screen = v.closest(".screen");
+    if (!screen || screen.classList.contains("no-take")) return;
+    // a figure that keeps a hand-drawn sketch shows that instead, with the sketch's own caption
+    const fig = screen.closest("figure");
+    const sketch = fig?.querySelector(".sketch");
+    if (sketch) {
+      sketch.hidden = false;
+      screen.remove();
+      const cap = fig.querySelector("figcaption[data-sketch]");
+      if (cap) cap.textContent = cap.dataset.sketch;
+      return;
+    }
+    screen.classList.add("no-take");
+    const card = document.createElement("div");
+    card.className = "no-take-card";
+    card.innerHTML = `<img class="px" src="art/crew-deckhand-neutral.svg" alt=""><p>no recording on this build yet. the next release records one.</p>`;
+    screen.replaceChildren(card);
+    // the hero's "watch a real session" would lead to this card, so it goes too
+    if (screen.closest("#waterline")) document.querySelector(".hero a.watch")?.remove();
+  };
+  document.querySelectorAll(".recording video").forEach((v) => {
+    if (v.error || v.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) noTake(v);
+    else v.addEventListener("error", () => noTake(v));
+  });
+
   // the recording loops on its own while it's on screen; with reduced motion, or without this script, it
   // waits on its poster with controls
   if (!reduce && "IntersectionObserver" in window) {
@@ -275,6 +303,8 @@
       track.setAttribute("role", "slider");
       track.setAttribute("aria-label", "position in the recording");
       track.setAttribute("aria-valuemin", "0");
+      track.setAttribute("aria-valuemax", "0");
+      track.setAttribute("aria-valuenow", "0"); // until the metadata arrives, or if it never does
       track.append(fill);
       const bar = Object.assign(document.createElement("div"), { className: "reel" });
       bar.append(btn, track);

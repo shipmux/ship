@@ -153,6 +153,15 @@ const put = (path, text) => {
   writeFileSync(path, text.replaceAll(PLACEHOLDER_SITE, SITE));
 };
 const yaml = (s) => JSON.stringify(s); // JSON strings are valid YAML scalars
+// a page's description for search results and link previews: its first paragraph as plain text, cut at a word
+// near 160 characters, so the sources need no frontmatter
+const summary = (tree) => {
+  const para = tree.children.find((n) => n.type === "paragraph");
+  if (!para) return "";
+  const text = toString(para).replace(/\s+/g, " ").trim();
+  if (text.length <= 160) return text;
+  return text.slice(0, text.lastIndexOf(" ", 157)).replace(/[,;:.]$/, "") + "...";
+};
 
 const header = `> These are the Ship docs (${ref}) as markdown. The index of every page is at ${SITE}${llmsPath}\n\n`;
 for (const [p, page] of pages) {
@@ -173,7 +182,9 @@ for (const [p, page] of pages) {
   const endAt = html.indexOf("\n", start.offset);
   const body = html.slice(endAt === -1 ? html.length : endAt + 1).replace(/^\n+/, "");
   const id = (prefix + "/" + page.slug).replace(/^\//, "").replace(/\/$/, "");
-  put(join(content, p), `---\ntitle: ${yaml(page.title)}\nslug: ${yaml(id)}\n---\n\n${body}`);
+  const description = summary(page.tree);
+  const desc = description ? `description: ${yaml(description)}\n` : "";
+  put(join(content, p), `---\ntitle: ${yaml(page.title)}\n${desc}slug: ${yaml(id)}\n---\n\n${body}`);
 }
 
 // llms.txt: a small index of links, nothing else
