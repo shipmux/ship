@@ -29,11 +29,11 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 3. Client loop and sidebar
 
-- [ ] 3.1 Return `Option<Item>` from `Keys::handle` and `Local::read`, replace `Clicked` with `Routed` and `SidebarEdit`, and add `Scene::on_screen` and `Scene::relative`.
-- [ ] 3.2 Add `ui/nav.rs` with `View`, move the navigation functions into it with `Step` over `CycleDirection` and `Hop::Collapse` and `Hop::Expand`, and give `act`'s Collapse and Expand arms one shared `Local::hop`.
-- [ ] 3.3 Add `ui/connection.rs`, move attach, reconnect, cut and the area PUT into it, and add `Local::apply`, `Local::reconcile` and `tolerant`.
-- [ ] 3.4 Draw the tab tree from Ship's own rows in `ui/sidebar/tabs.rs`, split `Tabs::fold` into `collapse` and `expand`, and remove `tui-tree-widget`.
-- [ ] 3.5 Verify slice 3's checks: the gesture list, the delayed-link ordering, the navigation list, reconnect and area PUTs, and the tab tree side by side.
+- [x] 3.1 Return `Option<Item>` from `Keys::handle` and `Local::read`, replace `Clicked` with `Routed` and `SidebarEdit`, and add `Scene::on_screen` and `Scene::relative`.
+- [x] 3.2 Add `ui/nav.rs` with `View`, move the navigation functions into it with `Step` over `CycleDirection` and `Hop::Collapse` and `Hop::Expand`, and give `act`'s Collapse and Expand arms one shared `Local::hop`.
+- [x] 3.3 Add `ui/connection.rs`, move attach, reconnect, cut and the area PUT into it, and add `Local::apply`, `Local::reconcile` and `tolerant`.
+- [x] 3.4 Draw the tab tree from Ship's own rows in `ui/sidebar/tabs.rs`, split `Tabs::fold` into `collapse` and `expand`, and remove `tui-tree-widget`.
+- [x] 3.5 Verify slice 3's checks: the gesture list, the delayed-link ordering, the navigation list, reconnect and area PUTs, and the tab tree side by side.
 
 ## 4. Client API
 
