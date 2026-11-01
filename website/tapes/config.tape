@@ -17,7 +17,7 @@ Type `cd "$DEMO_PROJECT" && PS1="\W $ " && set +m && source "$DEMO_WORLD" && cle
 # A short config of the viewer's own, rather than the tapes' recording settings: the window reads it at
 # start and again on every save.
 Type `printf '# ~/.config/ship/config.toml\n\n[client]\nsidebar_width = 23\n' >"$SHIP_CONFIG"` Enter
-Type `T=$(ship tab create --name config "$SHIP_TAB" | jq -r .id); P=$(ship pane create --tab "$T" -- nvim "$SHIP_CONFIG" | jq -r .id)` Enter
+Type `T=$(ship tab create --name config "$SHIP_TAB" | jq -r .id); P=$(ship pane create --tab "$T" -- nvim -c "set laststatus=0 noruler" "$SHIP_CONFIG" | jq -r .id)` Enter
 Type `(until A=$(ship view list | jq -r 'keys[0] // empty') && [ -n "$A" ]; do sleep 0.1; done; ship view select --attachment "$A" "$P") >/dev/null 2>&1 &` Enter
 Type "clear && ship" Enter
 Wait+Screen@20s /sidebar_width/

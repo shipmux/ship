@@ -15,8 +15,9 @@ Source ship16.tape
 Hide
 Type `cd "$DEMO_PROJECT" && PS1="\W $ " && set +m && source "$DEMO_WORLD" && clear` Enter
 Type `T=$(ship tab create --name tides "$SHIP_TAB" | jq -r .id); P=$(ship pane create --tab "$T" | jq -r .id)` Enter
-# Points every window that attaches at the new pane, now and after the reattach.
-Type `(while :; do for A in $(ship view list | jq -r 'keys[]'); do ship view select --attachment "$A" "$P"; done; sleep 0.2; done) >/dev/null 2>&1 & SEL=$!` Enter
+# Points each window that attaches, now and after the reattach, at the new pane, once: a window that
+# already shows something is left alone, so alt-e's editor keeps the focus.
+Type `(while :; do for A in $(ship view list | jq -r 'keys[]'); do [ "$(ship view selected --attachment "$A")" = null ] && ship view select --attachment "$A" "$P"; done; sleep 0.2; done) >/dev/null 2>&1 & SEL=$!` Enter
 Type "clear && ship" Enter
 Wait+Screen@20s /tides/
 Sleep 1s

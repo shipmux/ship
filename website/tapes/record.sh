@@ -72,7 +72,7 @@ case ${2:-} in
     PROXY_DIR=$(cd "$3" && pwd)
     ;;
 esac
-name=$(basename "$tape" .tape)
+name=$(basename "$tape"); name=${name%.tape}; name=${name%.mjs}
 
 for tool in vhs ttyd ffmpeg jq python3 lsof; do
   command -v "$tool" >/dev/null || die "$tool is not on PATH"
@@ -197,7 +197,12 @@ chmod +x "$ROOT/bin/ttyd"
 export DEMO_PROJECT=$ROOT/harbor DEMO_WORLD=$ROOT/world.env
 export PATH=$ROOT/agents:$PATH
 cd "$TAPES"
-PATH=$ROOT/bin:$PATH vhs -q -o "$out/$name.webm" "$tape"
+if [[ $tape == *.mjs ]]; then
+  # a scripted take VHS can't make (mouse.mjs drives the same terminal with a mouse)
+  node "$TAPES/$tape" "$out/$name.webm"
+else
+  PATH=$ROOT/bin:$PATH vhs -q -o "$out/$name.webm" "$tape"
+fi
 
 ffmpeg -loglevel error -y -ss "${POSTER_AT:-9}" -i "$out/$name.webm" -frames:v 1 "$out/$name.png"
 # GitHub won't play a hotlinked webm in the README. Half size at 10 fps keeps

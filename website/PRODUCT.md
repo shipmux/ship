@@ -80,14 +80,14 @@ All three must read at 16px and in one colour.
 
 **The ship as a place.** The site is themed as the ship and its surroundings. The landing page is one tall cross-section through the ship, read top to bottom with native scrolling, so going down the page is going down the ship. This layout is fixed; directions compete on everything else.
 
-| Section | Place               | Content                                                     |
-| ------- | ------------------- | ----------------------------------------------------------- |
-| top     | sky and crow's nest | the hero; the lookout watching the five agent states        |
-|         | deck                | what works today, the crew at work                          |
-|         | waterline           | the ocean of slop, just below the ship                      |
-|         | below deck          | how it works: the server, panes, CLI, agents driving agents |
-|         | the hold            | install, keys, config, with links into the docs             |
-| bottom  | seabed              | "run a tight ship" and the install command                  |
+| Section | Place               | Content                                                                       |
+| ------- | ------------------- | ----------------------------------------------------------------------------- |
+| top     | sky and crow's nest | the hero; the lookout watching the five agent states                          |
+|         | deck                | what works today, the crew at work                                            |
+|         | waterline           | the ocean of slop, just below the ship                                        |
+|         | below deck          | how it works: the server, panes, CLI, agents driving agents                   |
+|         | the hold            | install, keys, config, agents, mouse and saved tabs, with links into the docs |
+| bottom  | seabed              | "run a tight ship" and the install command                                    |
 
 Each section is static content with its own anchor (for example `#install`). Liveliness comes from small ambient touches, such as the waterline moving or a crewmate glancing up as its section comes into view, never from scroll-driven sequences.
 
@@ -100,7 +100,7 @@ Every place keeps a plain label next to its nautical one, so someone looking for
 - `assets/ship.svg`: the current logo, a tall sailing ship crewed by three little terminal crewmates. Treat it as the existing identity to evolve, not discard without reason.
 - `README.md` and `docs/site/`: real copy, keys, config and CLI examples.
 - The GitHub repo description already reads "staying afloat in an ocean of slop".
-- There are no screenshots, testimonials, user counts or press. Don't fabricate any. The one recording is the waterline section's VHS take of a real session with real agents (`website/tapes/`), re-recorded in CI for each release and never committed; its caption says so.
+- There are no screenshots, testimonials, user counts or press. Don't fabricate any. The recordings are real takes made in CI for each release and never committed (`website/tapes/`): the waterline, handoff and agents takes run real agents, and the panes, keys, config, mouse and saved tabs takes run shells and an editor only. Each caption says it is a recording, and a build without a take shows a card saying so, or the hand-drawn sketch it replaced.
 
 ## Product Principles
 

@@ -58,9 +58,10 @@ jobs:
       - run: pnpm build
         working-directory: website
 
-  # Records the demo videos (website/tapes) with real Claude Code and pi on OpenRouter's free models. Only
-  # releases and manual runs record. Takes vary from run to run, and a take that fails falls back to the copy
-  # already on the site (see the build job).
+  # Records the demo videos (website/tapes): the agent ones with real Claude Code and pi on OpenRouter's free
+  # models, the shell ones (--shell) with no agents, so they come out the same every time. Only releases and
+  # manual runs record. Takes vary from run to run, and a take that fails falls back to the copy already on
+  # the site (see the build job).
   demo:
     name: Record the demo videos
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
@@ -91,8 +92,10 @@ jobs:
           package-manager-cache: false
       # claude and pi at the versions website/tapes/package-lock.json pins; a new agent version can change
       # what a take looks like
+      # and Playwright, whose Chromium drives mouse.mjs (VHS has no mouse)
       - run: |
           npm ci
+          npx playwright install --with-deps chromium
           echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
         working-directory: website/tapes
       - name: Record waterline
@@ -105,6 +108,19 @@ jobs:
         run: OUT="$RUNNER_TEMP/demo" website/tapes/record.sh relay.tape --openrouter
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      - name: Record agents
+        continue-on-error: true
+        run: OUT="$RUNNER_TEMP/demo" website/tapes/record.sh agents.tape --openrouter
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      - name: Record the shell tapes
+        continue-on-error: true
+        run: |
+          status=0
+          for tape in panes.tape keys.tape config.tape saved-tabs.tape mouse.mjs; do
+            OUT="$RUNNER_TEMP/demo" POSTER_AT=4 website/tapes/record.sh "$tape" --shell || status=1
+          done
+          exit $status
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: demo
@@ -151,7 +167,9 @@ jobs:
         working-directory: website
         run: |
           mkdir -p dist/demo
-          for f in waterline.webm waterline.png waterline.gif relay.webm relay.png; do
+          for f in waterline.webm waterline.png waterline.gif relay.webm relay.png \
+            agents.webm agents.png panes.webm panes.png keys.webm keys.png config.webm config.png \
+            saved-tabs.webm saved-tabs.png mouse.webm mouse.png; do
             if [ -f "$RUNNER_TEMP/demo/$f" ]; then
               cp "$RUNNER_TEMP/demo/$f" dist/demo/
             elif ! curl -fsSLo "dist/demo/$f" "$SHIP_SITE_URL/demo/$f"; then

@@ -14,6 +14,9 @@ Source ship16.tape
 
 Hide
 Type `cd "$DEMO_PROJECT" && PS1="\W $ " && set +m && source "$DEMO_WORLD" && clear` Enter
+# The server that `ship` starts again inherits this shell's environment, so it gets the shell world's home
+# (setup.sh), and its panes keep the short prompt.
+Type `export HOME="$ROOT/home"` Enter
 Type `(until A=$(ship view list | jq -r 'keys[0] // empty') && [ -n "$A" ]; do sleep 0.1; done; ship view select --attachment "$A" "$API_PANE") >/dev/null 2>&1 &` Enter
 Type "clear && ship" Enter
 Wait+Screen@20s /api/
@@ -28,7 +31,7 @@ Type "ship server stop" Enter
 Sleep 1.5s
 Type "ship" Enter
 Sleep 2s
-# the window opens on the first tab, ship, which only holds others: tabs mode steps down to api
+# the window opens on the first tab, ship; tabs mode steps down to api and its split
 Alt+t
 Sleep 400ms
 Type "j"

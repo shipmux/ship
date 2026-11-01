@@ -104,7 +104,7 @@ ship server status >/dev/null || die "the server didn't start; see $ROOT/server.
 # A shell world for the tapes with no agents in them: the same tabs, with shells and an editor where the
 # agents would be, so every take comes out the same.
 #
-#   ▾ ship
+#   ▾ ship       shell
 #     ▾ api      shell | shell
 #         tests  shell
 #       docs     editor (tide.py)
@@ -116,6 +116,7 @@ if ${SHELL_WORLD:-false}; then
   command -v nvim >/dev/null && editor=(nvim)
   h=$ROOT/harbor
   ship_tab=$(tab --name ship)
+  pane --tab "$ship_tab" --cwd "$h" >/dev/null
   api=$(tab --name api "$ship_tab")
   tests=$(tab --name tests "$api")
   docs=$(tab --name docs "$ship_tab")
@@ -186,4 +187,6 @@ API_TAB=$api
 DOCS_TAB=$docs
 INFRA_TAB=$infra
 BLOG_TAB=$blog
+DOCS_PANE=$docs_pane
+BLOG_PANE=$post
 EOF
