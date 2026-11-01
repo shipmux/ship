@@ -25,7 +25,8 @@ h2 .place {
   white-space: nowrap;
 }
 h2,
-h3 {
+h3,
+h4 {
   text-wrap: balance;
 }
 .intro {
@@ -405,8 +406,82 @@ section[id] {
   list-style: none;
   margin: 0;
   padding: 0;
-  --dash: linear-gradient(to right, color-mix(in srgb, var(--ink) 38%, transparent) 4px, transparent 4px) 0 0 / 8px 2px
-    repeat-x;
+  --rule: color-mix(in srgb, var(--ink) 38%, transparent);
+  --dash: linear-gradient(to right, var(--rule) 4px, transparent 4px) 0 0 / 8px 2px repeat-x;
+}
+/* the ten rows come in three groups, each headed by a crewmate standing on the group's first rule (solid, so it is the
+   ground), then the plain label. A row is the same ledger row as before, so the climbing navigator and the selected
+   row work as they did */
+.works-groups {
+  display: grid;
+  gap: 40px;
+}
+.wg-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: calc(-3 * var(--px)); /* the frame has three empty rows under the feet */
+}
+.wg-head h3 {
+  margin: 0 0 10px;
+  color: var(--sea);
+}
+.wg-crew {
+  position: relative;
+  flex: none;
+  display: block;
+  line-height: 0;
+  margin-left: calc(-9 * var(--px)); /* the crewmate's left arm lines up with the rows' bullets */
+}
+.wgroup .works li:first-child {
+  --dash: linear-gradient(var(--rule) 0 0) 0 0 / 100% 2px no-repeat;
+}
+/* a crewmate that does one thing when you press it, and is otherwise still: frame 0 of its sheet is the resting pose, and
+   the press plays the sheet once (site.js, crew.js, adds .react to the host). At night the outline is bright blue, as the diver's */
+.act1 {
+  display: block;
+  flex: none;
+  width: calc(var(--w) * var(--px));
+  height: calc(var(--h) * var(--px));
+  background: no-repeat 0 0 / calc(var(--w) * var(--n) * var(--px)) calc(var(--h) * var(--px));
+  image-rendering: pixelated;
+}
+.react > .act1 {
+  animation: act calc(var(--n) * var(--bdt)) steps(var(--n)) 1;
+}
+.react > .eyes {
+  opacity: 0 !important;
+  animation: none;
+}
+.b-captain {
+  --w: 36;
+  --h: 28;
+  --n: 10;
+  --bdt: 0.1s;
+  background-image: url("../art/beat-captain.svg");
+}
+.b-lookout {
+  --w: 36;
+  --h: 28;
+  --n: 12;
+  --bdt: 0.085s;
+  background-image: url("../art/beat-lookout.svg");
+}
+.b-deckhand {
+  --w: 36;
+  --h: 28;
+  --n: 10;
+  --bdt: 0.1s;
+  background-image: url("../art/beat-deckhand.svg");
+}
+[data-mode="dark"] .b-captain {
+  background-image: url("../art/beat-captain-night.svg");
+}
+[data-mode="dark"] .b-lookout {
+  background-image: url("../art/beat-lookout-night.svg");
+}
+[data-mode="dark"] .b-deckhand {
+  background-image: url("../art/beat-deckhand-night.svg");
 }
 .works::after {
   content: "";
@@ -416,21 +491,21 @@ section[id] {
 }
 .works li {
   display: grid;
-  grid-template-columns: 344px minmax(0, 1fr); /* wide enough for the longest title and its link marker on a line */
+  grid-template-columns: 344px minmax(0, 1fr); /* from 1280px the column is wide enough for the longest title, its bullet and its marker on one line (below, the long ones wrap) */
   gap: 0 40px;
   align-items: baseline;
   margin: 0;
   padding: 18px 0 16px;
   background: var(--dash);
 }
-.works h3 {
+.works h4 {
   margin: 0;
   color: var(--ink);
   display: flex;
   gap: 12px;
   align-items: baseline;
 }
-.works h3::before {
+.works h4::before {
   content: "";
   flex: none;
   width: 12px;
@@ -442,6 +517,11 @@ section[id] {
   margin: 0;
   max-width: 62ch;
   font-size: var(--t-base);
+}
+@media (min-width: 1280px) {
+  .works li {
+    grid-template-columns: 440px minmax(0, 1fr);
+  }
 }
 .notyet {
   margin-top: 24px;
@@ -1727,17 +1807,17 @@ html .term.mount {
 /* ---- deck ledger: the titles are links into the docs, a row you point at or Tab to turns into the selected row
    (ship's own cyan, ink text), and the navigator rides the ratlines up to it. site.js adds .sel to the row and
    sets --dy and --n on the climber. To drop all of it, remove this block and ledgerClimb() in site.js. */
-.works h3 a {
+.works h4 a {
   color: inherit;
   text-decoration: none;
 }
-.works h3 a::after {
+.works h4 a::after {
   content: "›";
   margin-left: 0.4em;
   color: var(--chev, var(--sea));
 }
 @media (hover: hover) {
-  .works h3 a:hover {
+  .works h4 a:hover {
     text-decoration: underline;
     text-decoration-thickness: 2px;
   }
@@ -1749,13 +1829,13 @@ html .term.mount {
     calc(3.5 * var(--px)) 0 0 var(--c6);
   color: var(--ink);
 }
-.works li.sel h3,
-.works li.sel h3 a::after,
+.works li.sel h4,
+.works li.sel h4 a::after,
 .works li.sel p,
 .works li.sel code {
   color: var(--ink);
 } /* every word in the row, in both modes: night colours the page's text cream, which the cyan band cannot take */
-.works li.sel h3::before {
+.works li.sel h4::before {
   background: var(--ink);
 }
 /* the global focus ring is cyan at night and would vanish on the cyan band: ring the whole row in ink instead */
@@ -1765,7 +1845,7 @@ html .term.mount {
     calc(-3.5 * var(--px)) 0 0 var(--c6),
     calc(3.5 * var(--px)) 0 0 var(--c6);
 }
-.works h3 a:focus-visible {
+.works h4 a:focus-visible {
   outline: 0;
   text-decoration: underline;
   text-decoration-thickness: 2px;
@@ -1953,6 +2033,10 @@ html .term.mount {
   }
   .hero-text > p:not(.lede) {
     font-size: var(--t-base);
+  }
+  .wg-head h3 {
+    font-size: 22px;
+    line-height: 33px;
   }
   .sky {
     padding-top: 76px;

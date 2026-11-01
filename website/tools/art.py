@@ -7,6 +7,9 @@ don't edit the SVG.
 face-look.svg: nine faces of a neutral crewmate on a 3 by 3 sheet, for the eyes that follow the pointer.
 Column 0 looks left, 1 straight on, 2 right; row 0 looks up, 1 level, 2 down. The middle cell is the
 plain neutral face, so a sheet can always rest on it.
+
+beats.py: the crew's one-shot reactions (a press plays a sheet once) and the props that play over the deck crew.
+rooms.py: the five rooms below deck and in the hold, each a sheet with one beat.
 """
 import os
 import sys
@@ -41,8 +44,13 @@ def look():
 def build(out=OUT):
     with open(os.path.join(out, "face-look.svg"), "w") as f:
         f.write(look().svg(decorative=True))
+    written = ["face-look.svg"]
+    sys.path.insert(0, HERE)
+    import beats  # noqa: E402
+    written += beats.build(out)
+    return written
 
 
 if __name__ == "__main__":
-    build()
-    print("face-look.svg")
+    for name in build():
+        print(name)

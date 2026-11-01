@@ -75,18 +75,42 @@
   <div class="deck-in">
     <h2 id="deck-title" class="pixel p33"><span class="place">deck</span> what works today</h2>
     <p class="intro">keep a project together while several things are happening at once. these all work today, with successful use on linux and macos. windows is best effort.</p>
-    <ul class="works">
-      <li><h3 class="pixel p22"><a href="/docs/windows-and-the-server/">leave and come back</a></h3><p>close the window or press <code>alt-q</code>, and your programs keep running on the background server. run <code>ship</code> again to carry on.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/saved-tabs/">get your layout back</a></h3><p>after a server restart or reboot, your tabs, splits, stacks and directories return with fresh shells. the layout comes back, not the old running programs.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/agents/">know who needs you</a></h3><p>see who's working, waiting for an answer or finished unseen. a sound lets you know when something needs attention, and <code>alt-a</code> takes you there.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/tabs/">a tab for the whole project</a></h3><p>keep the api, docs and review under one project tab. fold the parts you aren't looking at, and move or rename tabs with the keyboard or mouse.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/panes/">split panes and stacks</a></h3><p>split when you want things side by side, or press <code>alt-s</code> for a shell on top without making your panes smaller. the pane behind it keeps running.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/windows-and-the-server/">several windows, same work</a></h3><p>open ship from more than one terminal. each window chooses what to look at, while the tabs, panes and running programs are shared.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/panes/#edit-scrollback">search in your own editor</a></h3><p>press <code>alt-e</code> to open scrollback in your editor and search with familiar keys. or drag to copy straight from a pane.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/scripting/">a cli for scripts and agents</a></h3><p>open panes, send text or keys and read output with <code>ship</code> commands. use explicit pane ids so changing your selection doesn't redirect a script.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/scripting/handing-work-to-another-agent/">hand work to another agent</a></h3><p>an agent can open a second pane, give another agent a task, wait for its status report and read the reply. no sdk or plugin needed.</p></li>
-      <li><h3 class="pixel p22"><a href="/docs/configuration/">keep your habits</a></h3><p>change keys and menus, add a tmux-style prefix, or run your own scripts from a key. save the config and open windows pick up the changes.</p></li>
-    </ul>
+    <div class="works-groups">
+      <div class="wgroup" role="group" aria-labelledby="wg-running">
+        <div class="wg-head">
+          <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-captain"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-1s"></i></span>
+          <h3 id="wg-running" class="pixel p33">it keeps running</h3>
+        </div>
+        <ul class="works">
+          <li><h4 class="pixel p22"><a href="/docs/windows-and-the-server/">leave and come back</a></h4><p>close the window or press <code>alt-q</code>, and your programs keep running on the background server. run <code>ship</code> again to carry on.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/saved-tabs/">get your layout back</a></h4><p>after a server restart or reboot, your tabs, splits, stacks and directories return with fresh shells. the layout comes back, not the old running programs.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/windows-and-the-server/">several windows, same work</a></h4><p>open ship from more than one terminal. each window chooses what to look at, while the tabs, panes and running programs are shared.</p></li>
+        </ul>
+      </div>
+      <div class="wgroup" role="group" aria-labelledby="wg-loop">
+        <div class="wg-head">
+          <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-lookout"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-3s"></i></span>
+          <h3 id="wg-loop" class="pixel p33">it keeps you in the loop</h3>
+        </div>
+        <ul class="works">
+          <li><h4 class="pixel p22"><a href="/docs/agents/">know who needs you</a></h4><p>see who's working, waiting for an answer or finished unseen. a sound lets you know when something needs attention, and <code>alt-a</code> takes you there.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/tabs/">a tab for the whole project</a></h4><p>keep the api, docs and review under one project tab. fold the parts you aren't looking at, and move or rename tabs with the keyboard or mouse.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/panes/">split panes and stacks</a></h4><p>split when you want things side by side, or press <code>alt-s</code> for a shell on top without making your panes smaller. the pane behind it keeps running.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/panes/#edit-scrollback">search in your own editor</a></h4><p>press <code>alt-e</code> to open scrollback in your editor and search with familiar keys. or drag to copy straight from a pane.</p></li>
+        </ul>
+      </div>
+      <div class="wgroup" role="group" aria-labelledby="wg-script">
+        <div class="wg-head">
+          <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-deckhand"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-5s"></i></span>
+          <h3 id="wg-script" class="pixel p33">it's yours to script</h3>
+        </div>
+        <ul class="works">
+          <li><h4 class="pixel p22"><a href="/docs/scripting/">a cli for scripts and agents</a></h4><p>open panes, send text or keys and read output with <code>ship</code> commands. use explicit pane ids so changing your selection doesn't redirect a script.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/scripting/handing-work-to-another-agent/">hand work to another agent</a></h4><p>an agent can open a second pane, give another agent a task, wait for its status report and read the reply. no sdk or plugin needed.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/configuration/">keep your habits</a></h4><p>change keys and menus, add a tmux-style prefix, or run your own scripts from a key. save the config and open windows pick up the changes.</p></li>
+        </ul>
+      </div>
+    </div>
 
     <aside class="notyet" aria-labelledby="notyet-title">
       <h3 id="notyet-title" class="pixel p22">not built yet</h3>

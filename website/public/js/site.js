@@ -74,7 +74,7 @@
   // the deck ledger: the row you point at or Tab to is the selected one, and the navigator rides the
   // ratlines up to it one rung at a time, then back down to the foot of the mast
   const ledgerClimb = () => {
-    const works = document.querySelector(".works");
+    const works = document.querySelector(".works-groups");
     const climber = document.querySelector(".climber");
     if (!works || !climber) return;
     const rung = 8 * parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--px"));
