@@ -45,7 +45,7 @@
       <div class="mast" aria-hidden="true"></div>
       <div class="mast-foot" aria-hidden="true"></div>
       <div class="ratlines" aria-hidden="true"></div>
-      <div class="nest" aria-hidden="true">
+      <div class="nest" data-react aria-hidden="true">
         <img class="px art" style="--w:44;--h:48" src="art/crows-nest.svg" alt="">
         <span class="act a-spyglass"></span>
         <i class="eyes" style="--x:13;--y:20;animation-delay:-2s"></i>
@@ -132,23 +132,28 @@
         <li class="prop"><img class="px art" style="--w:12;--h:14" src="art/barrel.svg" alt=""><img class="px art" style="--w:14;--h:14" src="art/crate.svg" alt=""></li>
         <li class="member">
           <span class="act a-error" aria-hidden="true"></span>
+          <span class="act1 fx fx-lookout" aria-hidden="true"></span>
           <p class="plate"><span class="g s-error" aria-hidden="true">✖</span> error<span class="role">lookout</span></p>
         </li>
         <li class="member">
           <span class="act a-blocked" aria-hidden="true"></span>
+          <span class="act1 fx fx-navigator" aria-hidden="true"></span>
           <p class="plate"><span class="g s-blocked" aria-hidden="true">▲</span> blocked<span class="role">navigator</span></p>
         </li>
         <li class="member">
           <span class="act a-working" aria-hidden="true"></span>
+          <span class="act1 fx fx-deckhand" aria-hidden="true"></span>
           <p class="plate"><span class="g s-working" aria-hidden="true">●</span> working<span class="role">deckhand</span></p>
         </li>
         <li class="prop"><img class="px art" style="--w:10;--h:7" src="art/bucket.svg" alt=""><img class="px art" style="--w:16;--h:8" src="art/rope-coil.svg" alt=""></li>
         <li class="member">
           <span class="act a-unseen" aria-hidden="true"></span>
+          <span class="act1 fx fx-cook" aria-hidden="true"></span>
           <p class="plate"><span class="g s-unseen" aria-hidden="true">◆</span> unseen<span class="role">cook</span></p>
         </li>
         <li class="member">
           <span class="act a-idle" aria-hidden="true"></span>
+          <span class="act1 fx fx-captain" aria-hidden="true"></span>
           <p class="plate"><span class="g s-idle" aria-hidden="true">○</span> idle<span class="role">captain</span></p>
         </li>
       </ul>
@@ -207,10 +212,9 @@
     </div>
 
     <article class="floor">
-      <div class="room" aria-hidden="true">
-        <span class="act a-galley"></span>
-        <i class="eyes" style="--x:11;--y:36;animation-delay:-1s"></i>
-        <span class="steam art" style="--w:9;--h:14;left:calc(38*var(--px));top:calc(10*var(--px))"></span>
+      <div class="room" data-react data-play aria-hidden="true">
+        <span class="act1 r-galley"></span>
+        <i class="eyes" style="--x:13;--y:40;animation-delay:-1s"></i>
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">a server that stays up</h3>
@@ -240,9 +244,9 @@
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
 
     <article class="floor">
-      <div class="room" aria-hidden="true">
-        <span class="act a-chart"></span>
-        <i class="eyes" style="--x:13;--y:36;animation-delay:-4s"></i>
+      <div class="room" data-react data-play aria-hidden="true">
+        <span class="act1 r-chart"></span>
+        <i class="eyes" style="--x:13;--y:40;animation-delay:-4s"></i>
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">tabs and panes</h3>
@@ -278,9 +282,9 @@ Apply changes?
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
 
     <article class="floor">
-      <div class="room" aria-hidden="true">
-        <span class="act a-telegraph"></span>
-        <i class="eyes" style="--x:11;--y:36;animation-delay:-5s"></i>
+      <div class="room" data-react data-play aria-hidden="true">
+        <span class="act1 r-telegraph"></span>
+        <i class="eyes" style="--x:15;--y:40;animation-delay:-5s"></i>
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">use the terminal to drive it</h3>
@@ -305,9 +309,9 @@ Apply changes?
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
 
     <article class="floor">
-      <div class="room" aria-hidden="true">
-        <span class="act a-handoff"></span>
-        <i class="eyes" style="--x:11;--y:24;animation-delay:-3s"></i>
+      <div class="room" data-react data-play aria-hidden="true">
+        <span class="act1 r-handoff"></span>
+        <i class="eyes" style="--x:12;--y:40;animation-delay:-3s"></i>
       </div>
       <div class="floor-text">
         <h3 class="pixel p22">agents driving agents</h3>
@@ -331,9 +335,9 @@ Apply changes?
         <h2 id="hold-title" class="pixel p33"><span class="place">the hold</span> install, keys and config</h2>
         <p class="intro">build ship, open a shell and try a split. these are enough to get started, with the rest in the docs when you want it.</p>
       </div>
-      <div class="room hold-room" aria-hidden="true">
-        <span class="act a-hold"></span>
-        <i class="eyes" style="--x:11;--y:36;animation-delay:-6s"></i>
+      <div class="room hold-room" data-react data-play aria-hidden="true">
+        <span class="act1 r-hold"></span>
+        <i class="eyes" style="--x:12;--y:40;animation-delay:-6s"></i>
       </div>
     </div>
 
@@ -433,7 +437,7 @@ Apply changes?
       <img class="px art starfish" style="--w:11;--h:9" src="art/starfish.svg" alt="">
       <span class="crab art" style="--w:16;--h:9"></span>
       <span class="fish s4 art" style="--w:12;--h:6"></span><span class="fish s5 art" style="--w:12;--h:6"></span>
-      <div class="diver"><i class="hose"></i><span class="act a-diver"></span></div>
+      <div class="diver" data-react data-ms="1700"><i class="hose"></i><span class="act a-diver"></span><i class="pop" style="--x:21;--dx:2;--rise:24;--d:0s"></i><i class="pop" style="--x:23;--dx:-1;--rise:30;--d:.15s"></i><i class="pop" style="--x:20;--dx:3;--rise:36;--d:.3s"></i><i class="pop" style="--x:22;--dx:0;--rise:44;--d:.5s"></i></div>
       <img class="bubble px art b4" style="--w:3;--h:3" src="art/bubble.svg" alt=""><img class="bubble px art b5" style="--w:3;--h:3" src="art/bubble.svg" alt=""><img class="bubble px art b6" style="--w:3;--h:3" src="art/bubble.svg" alt="">
     </div>
   </div>

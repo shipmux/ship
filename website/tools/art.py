@@ -9,7 +9,8 @@ Column 0 looks left, 1 straight on, 2 right; row 0 looks up, 1 level, 2 down. Th
 plain neutral face, so a sheet can always rest on it.
 
 beats.py: the crew's one-shot reactions (a press plays a sheet once) and the props that play over the deck crew.
-rooms.py: the five rooms below deck and in the hold, each a sheet with one beat.
+crewrooms.py: the five rooms below deck and in the hold, each a sheet with one beat.
+fx.py: the props that play over the deck crew when you press them, and the hold's other one-shot extras.
 """
 import os
 import sys
@@ -47,7 +48,9 @@ def build(out=OUT):
     written = ["face-look.svg"]
     sys.path.insert(0, HERE)
     import beats  # noqa: E402
+    import crewrooms  # noqa: E402
     written += beats.build(out)
+    written += crewrooms.build(out)
     return written
 
 

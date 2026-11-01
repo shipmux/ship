@@ -483,6 +483,104 @@ section[id] {
 [data-mode="dark"] .b-deckhand {
   background-image: url("../art/beat-deckhand-night.svg");
 }
+/* the props over the deck crew (tools/beats.py): 44 by 40, with the crew's own 36 by 28 frame at (4, 8) so there is room above
+   the hat. Frame 0 is empty, so at rest nothing shows; a press plays the sheet once (crew.js adds .react) and lights the plate
+   as alt-a does. They are drawn beside and above the crewmate, never over its face, so the glyph, the colour and the word
+   keep saying the state. */
+.member > .fx {
+  position: absolute;
+  left: calc(-8 * var(--px));
+  top: calc(-8 * var(--px));
+  z-index: 1;
+  pointer-events: none;
+  --w: 44;
+  --h: 40;
+  --n: 10;
+  --bdt: 0.1s;
+}
+.fx-lookout {
+  background-image: url("../art/fx-lookout.svg");
+}
+.fx-navigator {
+  background-image: url("../art/fx-navigator.svg");
+}
+.fx-deckhand {
+  background-image: url("../art/fx-deckhand.svg");
+}
+.fx-cook {
+  background-image: url("../art/fx-cook.svg");
+}
+.fx-captain {
+  background-image: url("../art/fx-captain.svg");
+}
+[data-mode="dark"] .fx-lookout {
+  background-image: url("../art/fx-lookout-night.svg");
+}
+[data-mode="dark"] .fx-navigator {
+  background-image: url("../art/fx-navigator-night.svg");
+}
+[data-mode="dark"] .fx-deckhand {
+  background-image: url("../art/fx-deckhand-night.svg");
+}
+[data-mode="dark"] .fx-cook {
+  background-image: url("../art/fx-cook-night.svg");
+}
+[data-mode="dark"] .fx-captain {
+  background-image: url("../art/fx-captain-night.svg");
+}
+/* the nest lookout, pressed: one quick sweep of the glass, then back to its slow one */
+@keyframes act-once {
+  to {
+    background-position-x: calc(var(--w) * var(--n) * var(--px) * -1);
+  }
+}
+.nest.react > .a-spyglass {
+  animation: act-once calc(var(--n) * 0.07s) steps(var(--n)) 1;
+}
+/* the diver, pressed: a string of bubbles from the helmet (the sprite's own loop carries on) */
+.diver {
+  pointer-events: auto;
+}
+.diver > .pop {
+  position: absolute;
+  left: calc(var(--x) * var(--px));
+  top: calc(4 * var(--px));
+  width: calc(3 * var(--px));
+  height: calc(3 * var(--px));
+  background: url("../art/bubble.svg") 0 0 / 100% 100%;
+  image-rendering: pixelated;
+  opacity: 0;
+  pointer-events: none;
+}
+.diver.react > .pop {
+  animation: blow 1.4s steps(8) var(--d) 1 forwards;
+}
+@keyframes blow {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--dx) * var(--px)), calc(var(--rise) * var(--px) * -1));
+  }
+}
+/* what can be pressed says so with the pointer, and the deck crew take a small hop when you come near (a pixel, not a loop) */
+@media (prefers-reduced-motion: no-preference) {
+  [data-react],
+  .member {
+    cursor: pointer;
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .member:hover > .act,
+  .member:hover > .fx {
+    transform: translateY(calc(-1 * var(--px)));
+  }
+}
 .works::after {
   content: "";
   display: block;
@@ -935,45 +1033,41 @@ section[id] {
   width: max-content;
   line-height: 0;
 }
-/* each room is a sheet of stills with the crewmate at work in it: stirring, pointing, pulling a lever, handing a note, counting cargo */
-.a-galley {
-  --w: 68;
-  --h: 52;
-  --n: 4;
-  --dt: 0.55s;
-  --lag: -0.8s;
+/* each room is a sheet of one beat: the room at rest in frame 0, then anticipation, action and reaction, back to rest
+   (tools/crewrooms.py). It plays once when the room scrolls into view and again when you press it (crew.js adds .react) */
+.r-galley {
+  --w: 84;
+  --h: 56;
+  --n: 18;
+  --bdt: 0.1s;
   background-image: url("../art/room-galley.svg");
 }
-.a-chart {
-  --w: 68;
-  --h: 52;
-  --n: 8;
-  --dt: 0.75s;
-  --lag: -3.1s;
+.r-chart {
+  --w: 84;
+  --h: 56;
+  --n: 17;
+  --bdt: 0.11s;
   background-image: url("../art/room-chart.svg");
 }
-.a-telegraph {
-  --w: 56;
-  --h: 52;
+.r-telegraph {
+  --w: 84;
+  --h: 56;
   --n: 16;
-  --dt: 0.3s;
-  --lag: -1.9s;
+  --bdt: 0.1s;
   background-image: url("../art/room-telegraph.svg");
 }
-.a-handoff {
-  --w: 76;
-  --h: 40;
-  --n: 12;
-  --dt: 0.33s;
-  --lag: -2.4s;
+.r-handoff {
+  --w: 84;
+  --h: 56;
+  --n: 16;
+  --bdt: 0.11s;
   background-image: url("../art/room-handoff.svg");
 }
-.a-hold {
-  --w: 76;
-  --h: 52;
-  --n: 12;
-  --dt: 0.45s;
-  --lag: -4s;
+.r-hold {
+  --w: 84;
+  --h: 56;
+  --n: 20;
+  --bdt: 0.1s;
   background-image: url("../art/room-hold.svg");
 }
 .floor-text h3 {
@@ -998,23 +1092,6 @@ section[id] {
 }
 .floor-fig .cmd pre {
   font-size: var(--code-sm);
-}
-.steam {
-  position: absolute;
-  background: url("../art/steam.svg") 0 0 / calc(27 * var(--px)) calc(14 * var(--px));
-  image-rendering: pixelated;
-  animation: puff 2.4s steps(1) infinite;
-}
-@keyframes puff {
-  0% {
-    background-position: 0 0;
-  }
-  33% {
-    background-position: calc(-9 * var(--px)) 0;
-  }
-  66% {
-    background-position: calc(-18 * var(--px)) 0;
-  }
 }
 .beam {
   background-image: url("../art/beam.svg");
@@ -1407,7 +1484,7 @@ section[id] {
   .below,
   .hold {
     --edge: max(var(--gut), calc(50% - 664px));
-    --roomw: calc(76 * var(--px));
+    --roomw: calc(84 * var(--px));
   }
   .beam.last {
     position: relative;
@@ -1902,7 +1979,7 @@ html .term.mount {
 }
 @media (max-width: 1099px) {
   .floor {
-    grid-template-columns: calc(76 * var(--px)) minmax(0, 1fr);
+    grid-template-columns: calc(84 * var(--px)) minmax(0, 1fr);
   }
   .floor-fig,
   .floor .recording {
@@ -1919,6 +1996,11 @@ html .term.mount {
   .hold-head {
     grid-template-columns: 1fr;
   }
+}
+@media (max-width: 760px) {
+  .floor {
+    grid-template-columns: minmax(0, 1fr);
+  } /* the rooms are 84 art pixels wide: beside them the words would be under 300px */
 }
 @media (max-width: 1099px) {
   .crew > li.prop {

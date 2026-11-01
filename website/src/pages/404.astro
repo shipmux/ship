@@ -56,6 +56,10 @@ import { siteLinks } from "../site-links";
           <img class="px art f2" style="--w:18;--h:12" src={withBase("/art/float-sign.svg")} alt="" />
           <img class="px art f3" style="--w:16;--h:10" src={withBase("/art/buoy.svg")} alt="" />
           <img class="px art f4" style="--w:18;--h:4" src={withBase("/art/float-plank.svg")} alt="" />
+          <div class="lost-lookout">
+            <span class="act a-lost"></span>
+            <i class="eyes" style="--x:13;--y:14;animation-delay:-2s"></i>
+          </div>
         </div>
         <div class="deepwater" aria-hidden="true">
           <span class="fish s1 art" style="--w:12;--h:6"></span>
@@ -102,9 +106,13 @@ not_found</pre>
             <img class="px art starfish" style="--w:11;--h:9" src={withBase("/art/starfish.svg")} alt="" />
             <span class="crab art" style="--w:16;--h:9"></span>
             <span class="fish s4 art" style="--w:12;--h:6"></span>
-            <div class="diver">
+            <div class="diver" data-react data-ms="1700">
               <i class="hose"></i>
               <span class="act a-diver"></span>
+              <i class="pop" style="--x:21;--dx:2;--rise:24;--d:0s"></i>
+              <i class="pop" style="--x:23;--dx:-1;--rise:30;--d:.15s"></i>
+              <i class="pop" style="--x:20;--dx:3;--rise:36;--d:.3s"></i>
+              <i class="pop" style="--x:22;--dx:0;--rise:44;--d:.5s"></i>
             </div>
             <img class="bubble px art b4" style="--w:3;--h:3" src={withBase("/art/bubble.svg")} alt="" />
             <img class="bubble px art b5" style="--w:3;--h:3" src={withBase("/art/bubble.svg")} alt="" />
@@ -126,5 +134,6 @@ not_found</pre>
       </section>
     </main>
     <script is:inline src={withBase("/js/site.js")} defer></script>
+    <script is:inline src={withBase("/js/crew.js")} defer></script>
   </body>
 </html>
