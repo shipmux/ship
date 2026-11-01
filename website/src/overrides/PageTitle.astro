@@ -1,11 +1,16 @@
 ---
 // The h1 in the pixel face, and below 1200px the ansi folded contents: the version, the docs, on this page.
+// The blog's post list gets the places pattern instead of the plugin's title: "captain's log" in the nautical
+// colour beside the plain "blog", with the captain and his clipboard. starlight-blog hides this panel on that
+// page (which left it without an h1), so starlight-bridge.css shows it again.
 import VersionSelect from "../components/VersionSelect.astro";
 import NavList from "../components/NavList.astro";
 import { titleId } from "../title-id";
-import { isBlogPage } from "../blog";
+import { isBlogPage, isBlogIndex } from "../blog";
 const route = Astro.locals.starlightRoute;
-const { toc, entry } = route;
+const { entry } = route;
+const index = isBlogIndex(route.id);
+const toc = index ? undefined : route.toc; // one post, nothing to jump around in
 const id = titleId(route);
 ---
 
@@ -25,7 +30,16 @@ const id = titleId(route);
       </ul>
     )}
   </details>
-  <h1 id={id} class="pixel p44">
-    {entry.data.title}
-  </h1>
+  {index ? (
+    <div class="log-head">
+      <h1 id={id} class="pixel p44">
+        <span class="place">captain's log</span> blog
+      </h1>
+      <span class="act a-log" aria-hidden="true" />
+    </div>
+  ) : (
+    <h1 id={id} class="pixel p44">
+      {entry.data.title}
+    </h1>
+  )}
 </div>

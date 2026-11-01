@@ -18,7 +18,7 @@
 }
 .lost-sky .cloud.a {
   top: 30px;
-  left: 58%;
+  left: 22%; /* clear of the lookout on the buoy */
 }
 .lost-sky .cloud.c {
   top: 20px;
@@ -51,6 +51,29 @@
 .lost .links a {
   color: var(--c15);
 }
+/* the lookout on the buoy, glass to his eye, rising and falling with it (the nest's loop, the neutral crewmate). He is
+   as tall as the sky above the waves, so the sky is a little taller than the landing's below 900px */
+.lost-lookout {
+  position: absolute;
+  left: calc(68% - 10 * var(--px)); /* the buoy is 16 wide at 68%, his frame 36: centred on it */
+  top: calc(14px - 7 * var(--px) - 25 * var(--px)); /* his feet are on the buoy's top */
+  width: calc(36 * var(--px));
+  height: calc(28 * var(--px));
+  line-height: 0;
+  animation: bob 5s steps(2) infinite;
+  animation-delay: -3s;
+}
+.a-lost {
+  --w: 36;
+  --h: 28;
+  --n: 14;
+  --dt: 0.5s;
+  --lag: -2s;
+  background-image: url("../art/lost-lookout.svg");
+}
+[data-mode="dark"] .a-lost {
+  background-image: url("../art/lost-lookout-night.svg");
+}
 .lost-fig {
   margin: 0;
 }
@@ -68,11 +91,14 @@
 }
 @media (max-width: 899px) {
   .lost-sky {
-    height: 110px;
+    height: 128px;
   }
   .lost-sky .cloud.c,
   .lost-sky .g3 {
     display: none;
+  }
+  .lost-sky .cloud.a {
+    left: 4%;
   }
 }
 @media (max-width: 600px) {

@@ -560,18 +560,18 @@ Checking that meant following one keystroke all the way through, and Ship doesn'
 
 So my agent built a trace that watches from the outside. The program in the pane stamps each read and write, the window and the server mark the edges they own, and a script stitches all three into one timeline. That took its own detours. The idea of tagging each key with an ID died right away because all input goes over one long request, and the trace tool writes every process as process 1, so the files had to be renumbered before they'd line up. Ship stays a dumb pipe with timing only at the edges it owns, so the tracing added three lines to the code.
 
-| µs after keypress           |      |
-| --------------------------- | ---- |
-| window sends it             | 71   |
-| server writes it to the pty | 326  |
-| program reads it            | 404  |
-| program writes the echo     | 456  |
-| Ghostty has parsed it       | 499  |
-| screen published            | 552  |
-| window receives it          | 1141 |
-| window starts drawing       | 1152 |
-| window done drawing         | 1790 |
-| your terminal has it        | 1859 |
+| step                        | µs after keypress |
+| --------------------------- | ----------------- |
+| window sends it             | 71                |
+| server writes it to the pty | 326               |
+| program reads it            | 404               |
+| program writes the echo     | 456               |
+| Ghostty has parsed it       | 499               |
+| screen published            | 552               |
+| window receives it          | 1141              |
+| window starts drawing       | 1152              |
+| window done drawing         | 1790              |
+| your terminal has it        | 1859              |
 
 The work in there is small, about 5 µs to parse the echo, 4 to publish, 13 to encode, 20 to decode and 7 to apply. Most of the rest is time spent waiting for the next thread to get to it, including 369 µs between publishing and the stream to the window noticing.
 

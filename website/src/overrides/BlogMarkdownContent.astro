@@ -1,9 +1,10 @@
 ---
 // MarkdownContent when the build has posts (astro.config.mjs picks it): posts go through starlight-blog's
-// MarkdownContent for the date, tags and prev/next links, everything else through ours. The plugin's wraps
+// MarkdownContent for the date, tags and prev/next links, then our end block; everything else through ours. The plugin's wraps
 // Starlight's default, so markdown.css comes back on post pages. Its import needs the plugin registered,
 // which is why this is a separate override rather than a branch in MarkdownContent.astro.
 import BlogContent from "starlight-blog/components/MarkdownContent.astro";
+import BlogEnd from "../components/BlogEnd.astro";
 import Doc from "./MarkdownContent.astro";
 import { isBlogPost } from "../blog";
 ---
@@ -13,6 +14,7 @@ import { isBlogPost } from "../blog";
     <BlogContent>
       <slot />
     </BlogContent>
+    <BlogEnd />
   </div>
 ) : (
   <Doc>

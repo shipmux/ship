@@ -10,13 +10,16 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { satteri } from "@astrojs/markdown-satteri";
 import { alerts } from "./src/markdown/alerts.mjs";
+import { glyphs } from "./src/markdown/glyphs.mjs";
 import { rebaseLinks } from "./src/markdown/links.mjs";
+import { tables } from "./src/markdown/tables.mjs";
 import shipDocs from "./src/integrations/ship-docs.mjs";
 import toml from "./src/markdown/toml.mjs";
 import { siteEnv } from "./scripts/site-env.mjs";
 
 const { base, site } = siteEnv(); // SHIP_BASE and SHIP_SITE_URL, see scripts/site-env.mjs
-const ogAlt = "ship's pixel-art mast and crow's nest beside the words staying afloat in an ocean of slop";
+const ogAlt =
+  "the words staying afloat in an ocean of slop beside ship's pixel-art mast, its crow's nest and a hanging sign listing agents by state";
 const meta = JSON.parse(readFileSync(new URL("./.generated/site.json", import.meta.url), "utf8"));
 const ship16 = JSON.parse(readFileSync(new URL("./src/ship16.theme.json", import.meta.url), "utf8"));
 // scripts/prepare-blog.mjs writes posts only in the main build; the other builds leave /blog/ alone
@@ -51,7 +54,7 @@ export default defineConfig({
   vite: { plugins: [blogPreview] },
   markdown: {
     processor: satteri({
-      mdastPlugins: [alerts, rebaseLinks(base.replace(/\/$/, ""))],
+      mdastPlugins: [alerts, glyphs, tables, rebaseLinks(base.replace(/\/$/, ""))],
       features: { smartPunctuation: false },
     }),
   }, // the guide's straight quotes stay straight

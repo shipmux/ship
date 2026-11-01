@@ -47,7 +47,7 @@ const footerLinks = siteLinks()
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="ship's pixel-art mast and crow's nest beside the words staying afloat in an ocean of slop"
+      content="the words staying afloat in an ocean of slop beside ship's pixel-art mast, its crow's nest and a hanging sign listing agents by state"
     />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href={withBase("/marks/avatar.svg")} />
@@ -68,5 +68,6 @@ const footerLinks = siteLinks()
     </SiteHeader>
     <Fragment set:html={middle + footerLinks + end} />
     <script is:inline src={withBase("/js/site.js")} defer></script>
+    <script is:inline src={withBase("/js/crew.js")} defer></script>
   </body>
 </html>
