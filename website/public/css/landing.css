@@ -2012,7 +2012,7 @@ html .term.mount {
 }
 @media (max-width: 899px) {
   .hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr); /* not 1fr: the install block's unwrapped commands would hold the column open past the screen */
     gap: 0;
   }
   .hero-text {
