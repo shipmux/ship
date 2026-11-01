@@ -59,12 +59,12 @@ pub fn pane(tabs: &Tabs, id: IdOf<Pane>) -> Result<&Pane> {
     find(tabs, id).ok_or_else(|| not_found(NodeId::Pane(id)))
 }
 
-/// Every pane ID in the tree, in no particular order.
-pub fn pane_ids(tabs: &Tabs) -> impl Iterator<Item = IdOf<Pane>> + '_ {
-    fn walk(tabs: &Tabs) -> Box<dyn Iterator<Item = IdOf<Pane>> + '_> {
+/// Every pane in the tree, in no particular order.
+pub fn panes(tabs: &Tabs) -> impl Iterator<Item = &Pane> + '_ {
+    fn walk(tabs: &Tabs) -> Box<dyn Iterator<Item = &Pane> + '_> {
         Box::new(
             tabs.values()
-                .flat_map(|tab| tab.panes().map(|pane| pane.id).chain(walk(&tab.tabs))),
+                .flat_map(|tab| tab.panes().chain(walk(&tab.tabs))),
         )
     }
     walk(tabs)
@@ -72,15 +72,26 @@ pub fn pane_ids(tabs: &Tabs) -> impl Iterator<Item = IdOf<Pane>> + '_ {
 
 /// The tab that owns pane `id`.
 pub fn pane_owner(tabs: &Tabs, id: IdOf<Pane>) -> Result<IdOf<Tab>> {
-    fn find(tabs: &Tabs, id: IdOf<Pane>) -> Option<IdOf<Tab>> {
-        tabs.values().find_map(|tab| {
-            tab.pane(id)
-                .is_some()
-                .then_some(tab.id)
-                .or_else(|| find(&tab.tabs, id))
+    pane_tab(tabs, id).map(|tab| tab.id)
+}
+
+/// The tab holding pane `id`.
+pub fn pane_tab(tabs: &Tabs, id: IdOf<Pane>) -> Result<&Tab> {
+    fn find(tabs: &Tabs, id: IdOf<Pane>) -> Option<&Tab> {
+        tabs.values().find_map(|tab| match tab.pane(id) {
+            Some(_) => Some(tab.as_ref()),
+            None => find(&tab.tabs, id),
         })
     }
     find(tabs, id).ok_or_else(|| not_found(NodeId::Pane(id)))
+}
+
+/// The tab's parent, `None` at the top level or when absent.
+pub fn parent(tabs: &Tabs, id: IdOf<Tab>) -> Option<IdOf<Tab>> {
+    let mut path = Vec::new();
+    tab_path(tabs, id, &mut path)
+        .then(|| path.iter().rev().nth(1).copied())
+        .flatten()
 }
 
 /// The tab itself, or a pane's tab. `None` for a node not in the tree.

@@ -23,7 +23,7 @@ use ship_core::{
 };
 use tokio::{sync::watch, time::timeout};
 
-use crate::{AppState, state::ListViews};
+use crate::{AppState, state};
 
 /// How long a numbered request waits for a missing predecessor while
 /// nothing is running. Under the client's 2 s timeout, so the client sees
@@ -142,15 +142,14 @@ fn parse(headers: &HeaderMap) -> Result<Option<(IdOf<Attachment>, u64)>> {
     Ok(Some((attachment.parse()?, n.get())))
 }
 
-/// The attachment's lane, created once the state actor confirms it is
+/// The attachment's lane, created once the published replica shows it is
 /// active. `AttachmentGuard` removes it when the attachment ends.
 async fn lane(app: &AppState, attachment: IdOf<Attachment>) -> Result<Arc<Lane>> {
     if let Some(lane) = app.lanes.lock().expect("lanes lock").get(&attachment) {
         return Ok(Arc::clone(lane));
     }
-    let viewers = app.state.ask(ListViews).await?;
-    if !viewers.contains_key(&attachment) {
-        return Err(err!(NotFound, "attachment {} not found", attachment));
+    if !app.replicas.current().viewers.contains_key(&attachment) {
+        return Err(state::attachment_not_found(attachment));
     }
     let mut lanes = app.lanes.lock().expect("lanes lock");
     Ok(Arc::clone(lanes.entry(attachment).or_default()))

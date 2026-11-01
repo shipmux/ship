@@ -38,6 +38,8 @@ Write issues from `.github/ISSUE_TEMPLATE/issue.md` and pull requests from `.git
 
 Don't open a pull request for a small change, such as a renamed constant, a link fix or a few-line cleanup. Cyan finds a history full of tiny pull requests noisy. Fold the change into a pull request that is already open nearby, even if it's only loosely related, and list it under Details. If no pull request is open, hold small changes until there are enough for one tidy-up pull request. Make a change its own pull request only when it is large or risky enough to review or revert on its own.
 
+An openspec change usually ships as one pull request; its slices and task groups are build order, not review units. Plan that by default, and propose a split only when a part is risky enough to need reverting alone.
+
 ## Reference multiplexers
 
 Herdr, Zellij and tmux show what established multiplexers do and what users expect. Use them to ground behavior and to check whether an idea is settled practice. They are inspiration, not templates: Ship's structure and command surface are its own.

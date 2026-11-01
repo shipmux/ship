@@ -13,30 +13,31 @@ use ship_core::{
 
 use super::{
     Scene,
-    lane::{Edge, EdgeAt, TabMove},
+    lane::{Edge, EdgeAt, Item, MenuAt, TabMove},
     menu::{self, Target},
     panes,
     sidebar::{
         Gap, Hit, Scroll, movable,
-        tabs::{self, Row},
+        tabs::{self, Pointed},
     },
 };
 
-pub(super) enum Clicked {
-    Select(NodeId),
-    Fold(IdOf<Tab>),
-    Frame(InputFrame),
+/// Where a mouse event goes.
+pub(super) enum Routed {
+    Lane(Item),
+    /// Border drags: one `Item::Resize` per edge, merged by the lane.
     Resize(Vec<EdgeAt>),
-    Move(TabMove),
+    Sidebar(SidebarEdit),
+}
+
+/// A client-local change to the sidebar, applied at once.
+pub(super) enum SidebarEdit {
+    /// The right-hand border, dragged to a width.
     Width(u16),
     /// The divider row between the sidebar's sections, dragged to a row.
     Split(u16),
     /// A wheel step over the sidebar.
-    SidebarScroll {
-        at: Position,
-        scroll: Scroll,
-    },
-    Menu(Target, Position),
+    Scroll { at: Position, scroll: Scroll },
 }
 
 #[derive(Default)]
@@ -49,7 +50,7 @@ pub(super) struct Mouse {
 enum Gesture {
     Pressed {
         at: Position,
-        row: Row,
+        row: Pointed,
     },
     Row {
         tab: IdOf<Tab>,
@@ -101,18 +102,19 @@ impl Mouse {
         .map(|grab| grab.edge)
     }
 
-    pub fn route(&mut self, event: MouseEvent, scene: &Scene, busy: bool) -> Option<Clicked> {
+    pub fn route(&mut self, event: MouseEvent, scene: &Scene, busy: bool) -> Option<Routed> {
         let at = Position::new(event.column, event.row);
-        let relative = Position::new(
-            at.x.saturating_sub(scene.panes.x),
-            at.y.saturating_sub(scene.panes.y),
-        );
-        let offset = |rect: Rect| Rect {
-            x: scene.panes.x.saturating_add(rect.x),
-            y: scene.panes.y.saturating_add(rect.y),
-            ..rect
+        let relative = scene.relative(at);
+        let content = |id| Some(scene.on_screen(scene.geometry?.panes.get(&id)?.content));
+        let select = |node| Routed::Lane(Item::Select(node));
+        let frame = |pane, content| {
+            Routed::Lane(Item::Mouse(InputFrame::Mouse(input(event, pane, content))))
         };
-        let content = |id| Some(offset(scene.geometry?.panes.get(&id)?.content));
+        // A target's menu, when it has any items.
+        let menu_for = |target| {
+            (!menu::items(scene.menus, target).is_empty())
+                .then_some(Routed::Lane(Item::Menu(MenuAt { target, at })))
+        };
         let down = matches!(event.kind, MouseEventKind::Down(_));
         if down {
             self.held = None;
@@ -137,37 +139,31 @@ impl Mouse {
                     gap: None,
                 };
             }
-            let clicked = match &mut gesture {
-                Gesture::Pressed { row, .. } => release.then_some(if row.marker {
-                    Clicked::Fold(row.tab)
+            let routed = match &mut gesture {
+                Gesture::Pressed { row, .. } => release.then_some(Routed::Lane(if row.marker {
+                    Item::Fold(row.tab)
                 } else {
-                    Clicked::Select(NodeId::Tab(row.tab))
-                }),
+                    Item::Select(NodeId::Tab(row.tab))
+                })),
                 Gesture::Row { tab, gap } => {
                     *gap = scene
                         .tabs
                         .filter(|_| scene.sidebar.shown)
                         .and_then(|tabs| scene.sidebar.tabs.gap(tabs, *tab, at));
-                    if release {
-                        gap.map(|gap| {
-                            Clicked::Move(TabMove {
-                                tab: *tab,
-                                to: gap.to,
-                            })
-                        })
-                    } else {
-                        None
-                    }
+                    let tab = *tab;
+                    gap.filter(|_| release)
+                        .map(|gap| Routed::Lane(Item::Move(TabMove { tab, to: gap.to })))
                 }
                 Gesture::Divider { at: origin, moved } => {
                     *moved |= at != *origin;
                     (*moved && scene.sidebar.shown)
-                        .then_some(Clicked::Width(at.x.saturating_add(1)))
+                        .then_some(Routed::Sidebar(SidebarEdit::Width(at.x.saturating_add(1))))
                 }
-                Gesture::Split => scene.sidebar.shown.then_some(Clicked::Split(at.y)),
-                Gesture::Agent { pane, .. } => {
-                    release.then_some(Clicked::Select(NodeId::Pane(*pane)))
-                }
+                Gesture::Split => scene
+                    .sidebar
+                    .shown
+                    .then_some(Routed::Sidebar(SidebarEdit::Split(at.y))),
+                Gesture::Agent { pane, .. } => release.then(|| select(NodeId::Pane(*pane))),
                 Gesture::Border(grabs) => {
                     if grabs.iter().any(|grab| {
                         !scene
@@ -179,10 +175,7 @@ impl Mouse {
                     let positions: Vec<_> = grabs
                         .iter_mut()
                         .filter_map(|grab| {
-                            let to = match grab.edge.axis {
-                                Axis::Horizontal => relative.x,
-                                Axis::Vertical => relative.y,
-                            };
+                            let to = grab.edge.axis.along(relative);
                             if to == grab.last {
                                 return None;
                             }
@@ -193,30 +186,21 @@ impl Mouse {
                             })
                         })
                         .collect();
-                    (!positions.is_empty()).then_some(Clicked::Resize(positions))
+                    (!positions.is_empty()).then_some(Routed::Resize(positions))
                 }
             };
             if !release {
                 self.gesture = Some(gesture);
             }
-            return clicked;
+            return routed;
         }
         match event.kind {
-            MouseEventKind::Up(_) => {
-                let id = self.held.take()?;
-                Some(Clicked::Frame(InputFrame::Mouse(input(
-                    event,
-                    id,
-                    content(id)?,
-                ))))
-            }
-            MouseEventKind::Drag(_) => {
-                let id = self.held?;
-                Some(Clicked::Frame(InputFrame::Mouse(input(
-                    event,
-                    id,
-                    content(id)?,
-                ))))
+            MouseEventKind::Up(_) | MouseEventKind::Drag(_) => {
+                let id = match event.kind {
+                    MouseEventKind::Up(_) => self.held.take()?,
+                    _ => self.held?,
+                };
+                Some(frame(id, content(id)?))
             }
             MouseEventKind::Down(button) if !scene.panes.contains(at) => {
                 match (button, scene.sidebar.hit(at)?) {
@@ -224,12 +208,9 @@ impl Mouse {
                     | (
                         MouseButton::Right,
                         Hit::Heading | Hit::Button | Hit::Tabs(tabs::Hit::Below),
-                    ) => (!menu::items(scene.menus, Target::Global).is_empty())
-                        .then_some(Clicked::Menu(Target::Global, at)),
+                    ) => menu_for(Target::Global),
                     (MouseButton::Right, Hit::Tabs(tabs::Hit::Row(row))) => {
-                        let target = Target::Tab(row.tab);
-                        (!menu::items(scene.menus, target).is_empty())
-                            .then_some(Clicked::Menu(target, at))
+                        menu_for(Target::Tab(row.tab))
                     }
                     (MouseButton::Left, Hit::Tabs(tabs::Hit::Row(row))) => {
                         self.gesture = Some(Gesture::Pressed { at, row });
@@ -252,13 +233,13 @@ impl Mouse {
             }
             MouseEventKind::ScrollUp | MouseEventKind::ScrollDown if !scene.panes.contains(at) => {
                 scene.sidebar.hit(at)?;
-                Some(Clicked::SidebarScroll {
+                Some(Routed::Sidebar(SidebarEdit::Scroll {
                     at,
                     scroll: match event.kind {
                         MouseEventKind::ScrollUp => Scroll::Up,
                         _ => Scroll::Down,
                     },
-                })
+                }))
             }
             _ if !scene.panes.contains(at) => None,
             kind => {
@@ -271,17 +252,15 @@ impl Mouse {
                         && passes(scene, pane)
                     {
                         self.held = Some(pane);
-                        return Some(Clicked::Frame(InputFrame::Mouse(input(
-                            event, pane, content,
-                        ))));
+                        return Some(frame(pane, content));
                     }
-                    if !menu::items(scene.menus, Target::Pane(pane)).is_empty() {
-                        return Some(Clicked::Menu(Target::Pane(pane), at));
+                    if let Some(menu) = menu_for(Target::Pane(pane)) {
+                        return Some(menu);
                     }
                 }
                 if kind == MouseEventKind::Down(MouseButton::Left) {
                     if let Some(pane) = title_at(scene, at) {
-                        return Some(Clicked::Select(NodeId::Pane(pane)));
+                        return Some(select(NodeId::Pane(pane)));
                     }
                     let edges = edges_at(geometry, relative);
                     if !edges.is_empty() {
@@ -289,10 +268,7 @@ impl Mouse {
                             edges
                                 .into_iter()
                                 .map(|edge| Grab {
-                                    last: match edge.axis {
-                                        Axis::Horizontal => relative.x,
-                                        Axis::Vertical => relative.y,
-                                    },
+                                    last: edge.axis.along(relative),
                                     edge,
                                 })
                                 .collect(),
@@ -303,19 +279,19 @@ impl Mouse {
                 let (&id, pane) = geometry
                     .panes
                     .iter()
-                    .find(|(_, pane)| offset(pane.frame).contains(at))?;
+                    .find(|(_, pane)| scene.on_screen(pane.frame).contains(at))?;
                 if down && (busy || Some(id) != scene.selected) {
-                    return Some(Clicked::Select(NodeId::Pane(id)));
+                    return Some(select(NodeId::Pane(id)));
                 }
                 let wheel = matches!(kind, MouseEventKind::ScrollUp | MouseEventKind::ScrollDown);
-                let content = offset(pane.content);
+                let content = scene.on_screen(pane.content);
                 if !content.contains(at) || (!wheel && Some(id) != scene.selected) {
                     return None;
                 }
                 if down {
                     self.held = Some(id);
                 }
-                Some(Clicked::Frame(InputFrame::Mouse(input(event, id, content))))
+                Some(frame(id, content))
             }
         }
     }
@@ -323,11 +299,7 @@ impl Mouse {
 
 /// A pane behind the front whose visible title covers `at`.
 fn title_at(scene: &Scene, at: Position) -> Option<IdOf<Pane>> {
-    let relative = Position::new(
-        at.x.checked_sub(scene.panes.x)?,
-        at.y.checked_sub(scene.panes.y)?,
-    );
-    let front = owner(scene.geometry?, relative)?;
+    let front = owner(scene.geometry?, scene.relative(at))?;
     let slot = scene.tab?.slot(front)?;
     let row = panes::title_row(scene, front)?;
     panes::titles(slot, row)

@@ -1,3 +1,9 @@
+use std::fmt;
+
+use ratatui_core::{
+    layout::Rect,
+    style::{Color as TuiColor, Modifier},
+};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -30,6 +36,13 @@ pub(crate) fn is_false(value: &bool) -> bool {
 pub struct Scrolled {
     pub offset: u32,
     pub history: u32,
+}
+
+/// `[offset/history]`, the scroll badge.
+impl fmt::Display for Scrolled {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}/{}]", self.offset, self.history)
+    }
 }
 
 /// One row of cells as text plus style runs. Cells past `text` are blank,
@@ -99,6 +112,45 @@ impl Color {
     }
 }
 
+/// Named colors are palette entries 0 to 15.
+impl From<TuiColor> for Color {
+    fn from(color: TuiColor) -> Self {
+        use TuiColor::*;
+        let indexed = match color {
+            Reset => return Self::Default,
+            Rgb(r, g, b) => return Self::Rgb(r, g, b),
+            Indexed(index) => index,
+            Black => 0,
+            Red => 1,
+            Green => 2,
+            Yellow => 3,
+            Blue => 4,
+            Magenta => 5,
+            Cyan => 6,
+            Gray => 7,
+            DarkGray => 8,
+            LightRed => 9,
+            LightGreen => 10,
+            LightYellow => 11,
+            LightBlue => 12,
+            LightMagenta => 13,
+            LightCyan => 14,
+            White => 15,
+        };
+        Self::Indexed(indexed)
+    }
+}
+
+impl From<Color> for TuiColor {
+    fn from(color: Color) -> Self {
+        match color {
+            Color::Default => Self::Reset,
+            Color::Indexed(index) => Self::Indexed(index),
+            Color::Rgb(r, g, b) => Self::Rgb(r, g, b),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Attr {
@@ -111,6 +163,36 @@ pub enum Attr {
     Reversed,
     Hidden,
     CrossedOut,
+}
+
+impl Attr {
+    /// One table for both directions.
+    const MODIFIERS: [(Attr, Modifier); 9] = [
+        (Attr::Bold, Modifier::BOLD),
+        (Attr::Dim, Modifier::DIM),
+        (Attr::Italic, Modifier::ITALIC),
+        (Attr::Underlined, Modifier::UNDERLINED),
+        (Attr::SlowBlink, Modifier::SLOW_BLINK),
+        (Attr::RapidBlink, Modifier::RAPID_BLINK),
+        (Attr::Reversed, Modifier::REVERSED),
+        (Attr::Hidden, Modifier::HIDDEN),
+        (Attr::CrossedOut, Modifier::CROSSED_OUT),
+    ];
+
+    pub fn from_modifier(modifier: Modifier) -> Vec<Attr> {
+        Self::MODIFIERS
+            .iter()
+            .filter(|(_, flag)| modifier.contains(*flag))
+            .map(|(attr, _)| *attr)
+            .collect()
+    }
+
+    pub fn to_modifier(attrs: &[Attr]) -> Modifier {
+        Self::MODIFIERS
+            .iter()
+            .filter(|(attr, _)| attrs.contains(attr))
+            .fold(Modifier::empty(), |modifier, (_, flag)| modifier | *flag)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -141,4 +223,13 @@ pub struct Size {
 
 impl Size {
     pub const FALLBACK: Size = Size { cols: 80, rows: 24 };
+}
+
+impl From<Rect> for Size {
+    fn from(rect: Rect) -> Self {
+        Self {
+            cols: rect.width,
+            rows: rect.height,
+        }
+    }
 }

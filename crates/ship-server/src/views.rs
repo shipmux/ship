@@ -1,10 +1,6 @@
 //! Each attachment's view, readable and selectable by anyone holding its ID.
 
-use axum::{
-    Json,
-    extract::State,
-    response::{IntoResponse, Response},
-};
+use axum::{Json, extract::State};
 use ship_core::{
     AppError, Result,
     id::{Attachment, IdOf},
@@ -14,7 +10,7 @@ use ship_core::{
 use crate::{
     AppState,
     body::{Body, Path},
-    state::{GetView, ListViews, Select},
+    state::{Select, Viewers, attachment_not_found},
 };
 
 #[utoipa::path(
@@ -26,9 +22,8 @@ use crate::{
         (status = 503, body = AppError),
     ),
 )]
-pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Response> {
-    let value = app.state.ask(ListViews).await?;
-    Ok(Json(value).into_response())
+pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Json<Viewers>> {
+    Ok(Json(app.replicas.current().viewers.clone()))
 }
 
 #[utoipa::path(
@@ -46,9 +41,14 @@ pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Response> 
 pub(crate) async fn get_view(
     State(app): State<AppState>,
     Path(attachment): Path<IdOf<Attachment>>,
-) -> Result<Response> {
-    let value = app.state.ask(GetView(attachment)).await?;
-    Ok(Json(value).into_response())
+) -> Result<Json<ViewingRecord>> {
+    app.replicas
+        .current()
+        .viewers
+        .get(&attachment)
+        .cloned()
+        .map(Json)
+        .ok_or_else(|| attachment_not_found(attachment))
 }
 
 #[utoipa::path(
@@ -68,7 +68,7 @@ pub(crate) async fn select(
     State(app): State<AppState>,
     Path(attachment): Path<IdOf<Attachment>>,
     Body(body): Body<SelectView>,
-) -> Result<Response> {
+) -> Result<Json<ViewingRecord>> {
     let value = app
         .state
         .ask(Select {
@@ -76,5 +76,5 @@ pub(crate) async fn select(
             selection: body.selection,
         })
         .await?;
-    Ok(Json(value).into_response())
+    Ok(Json(value))
 }

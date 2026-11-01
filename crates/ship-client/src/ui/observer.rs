@@ -3,12 +3,14 @@ use std::{collections::HashMap, sync::Arc};
 use ship_core::{
     id::{Attachment, IdOf},
     model::{NodeId, Pane, Tab},
-    protocol::{AttachRequest, PaneScreen, Replica, SseEvent, ViewingRecord},
+    protocol::{AttachRequest, PaneScreen, Replica, SseEvent, ViewInput, ViewingRecord},
     screen::{Screen, Size},
-    tree,
+    tree::{self, Tabs},
 };
 
 use ship_macros::traced;
+
+use super::connection::Resize;
 
 /// The client's copy of server-owned state: the replica and the latest screen
 /// of each pane it has been sent.
@@ -81,6 +83,15 @@ impl Observer {
         self.replica.as_ref()?.viewers.get(&self.attachment?)
     }
 
+    /// This client's selection.
+    pub fn selection(&self) -> Option<NodeId> {
+        self.record()?.selection
+    }
+
+    pub fn tabs(&self) -> Option<&Tabs> {
+        self.replica.as_ref().map(|replica| &replica.tabs)
+    }
+
     /// What to send on reattach: the last record's selection at the
     /// terminal's current tab area. `None` before the first `Attached` event.
     pub fn remembered(&self, area: Size) -> Option<AttachRequest> {
@@ -89,6 +100,15 @@ impl Observer {
             selection: record.selection,
             area: Some(area),
             feed: Default::default(),
+        })
+    }
+
+    /// The area PUT when `area` differs from the record's. `None` before
+    /// the first `Attached` or when they match.
+    pub fn resized(&self, area: Size) -> Option<Resize> {
+        (self.record()?.area != Some(area)).then_some(Resize {
+            attachment: self.attachment?,
+            view: ViewInput { area },
         })
     }
 
@@ -102,13 +122,18 @@ impl Observer {
 
     /// `None` when nothing is selected or before the first `Attached`.
     pub fn selected(&self) -> Option<Selected<'_>> {
-        let selection = self.record()?.selection?;
-        let tabs = &self.replica.as_ref()?.tabs;
+        Selected::resolve(self.tabs()?, self.selection()?)
+    }
+}
+
+impl<'a> Selected<'a> {
+    /// `selection` in `tabs`; `None` when it's gone.
+    pub fn resolve(tabs: &'a Tabs, selection: NodeId) -> Option<Self> {
         let tab = tree::tab(tabs, tree::viewed_tab(tabs, selection)?).ok()?;
         let pane = match selection {
             NodeId::Pane(id) => tab.pane(id),
             NodeId::Tab(_) => None,
         };
-        Some(Selected { tab, pane })
+        Some(Self { tab, pane })
     }
 }

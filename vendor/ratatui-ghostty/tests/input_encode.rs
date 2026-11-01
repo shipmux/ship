@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used, reason = "a failed setup should fail the test")]
+
 use crossterm::event::{
     KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers, MouseButton, MouseEvent,
     MouseEventKind,

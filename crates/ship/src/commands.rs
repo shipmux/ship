@@ -70,7 +70,7 @@ pub async fn stop_server(client: &Client) -> Result<()> {
     let deadline = Instant::now() + STOP_WAIT;
     loop {
         match client.health().await {
-            Err(error) if *error.code() == ErrorCode::ConnectionRefused => return Ok(()),
+            Err(error) if error.code() == ErrorCode::ConnectionRefused => return Ok(()),
             _ if Instant::now() >= deadline => {
                 return Err(err!(Network, "server still running after ten seconds"));
             }

@@ -1,7 +1,4 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
-};
+use std::sync::Arc;
 
 use axum::{
     extract::{Request, State},
@@ -30,8 +27,6 @@ pub struct AppState {
     pub(crate) stop: CancellationToken,
     pub(crate) log: crate::ServerLog,
     pub(crate) socket: Arc<str>,
-    /// The state actor's revision, set by each commit before it replies.
-    pub(crate) revision: Arc<AtomicU64>,
     /// Numbered requests' lanes; only the ordering middleware reads them.
     pub(crate) lanes: Lanes,
 }
@@ -40,7 +35,7 @@ pub struct AppState {
 /// is at least the revision of any commit the request made.
 pub(crate) async fn stamp(State(app): State<AppState>, request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
-    let revision = app.revision.load(Ordering::Acquire);
+    let revision = app.replicas.current().revision;
     response
         .headers_mut()
         .insert(REVISION_HEADER, revision.into());

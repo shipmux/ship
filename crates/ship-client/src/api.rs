@@ -19,13 +19,12 @@ use ship_core::{
     prelude::*,
     protocol::{
         AttachRequest, CreatePane, CreateTab, CyclePane, InputBody, InputFrame, MovePane,
-        MoveTabBody, REVISION_HEADER, ReadPane, ResizePane, RunCommand, ScrollPane, SelectView,
-        SseEvent, SwapPane, ViewInput, ViewingRecord,
+        MoveTabBody, ReadPane, ResizePane, RunCommand, ScrollPane, SelectView, SseEvent, SwapPane,
+        ViewInput, ViewingRecord,
     },
     tree::Tabs,
 };
 use sse_stream::SseByteStream;
-use tokio::time::timeout;
 use url::Url;
 
 use crate::{NO_BODY, http_error};
@@ -117,7 +116,7 @@ impl Client {
     }
 
     pub async fn health(&self) -> Result<HealthResponse> {
-        self.request(Method::GET, HEALTH_PATH, NO_BODY, None, StatusCode::OK)
+        self.call(Method::GET, HEALTH_PATH, NO_BODY, StatusCode::OK)
             .await
     }
 
@@ -128,17 +127,16 @@ impl Client {
         } else {
             Method::GET
         };
-        self.request(method, "/api/v0/server/log", change, None, StatusCode::OK)
+        self.call(method, "/api/v0/server/log", change, StatusCode::OK)
             .await
     }
 
     /// Starts the server's shutdown; it exits once its panes are torn down.
     pub async fn stop_server(&self) -> Result<()> {
-        self.request(
+        self.call(
             Method::POST,
             "/api/v0/server/stop",
             NO_BODY,
-            None,
             StatusCode::ACCEPTED,
         )
         .await
@@ -147,27 +145,25 @@ impl Client {
     /// Top-level tabs with their descendants, in order. Each viewed tab
     /// carries server-computed geometry; unviewed tabs omit it.
     pub async fn tabs(&self) -> Result<Tabs> {
-        self.request(Method::GET, Tab::COLLECTION, NO_BODY, None, StatusCode::OK)
+        self.call(Method::GET, Tab::COLLECTION, NO_BODY, StatusCode::OK)
             .await
     }
 
     pub async fn create_tab(&self, body: &CreateTab) -> Result<Tab> {
-        self.request(
+        self.call(
             Method::POST,
             Tab::COLLECTION,
             Some(body),
-            None,
             StatusCode::CREATED,
         )
         .await
     }
 
     pub async fn create_pane(&self, body: &CreatePane) -> Result<Pane> {
-        self.request(
+        self.call(
             Method::POST,
             Pane::COLLECTION,
             Some(body),
-            None,
             StatusCode::CREATED,
         )
         .await
@@ -175,26 +171,25 @@ impl Client {
 
     pub async fn get<T: Resource>(&self, id: IdOf<T>) -> Result<T> {
         let path = format!("{}/{id}", T::COLLECTION);
-        self.request(Method::GET, &path, NO_BODY, None, StatusCode::OK)
-            .await
+        self.call(Method::GET, &path, NO_BODY, StatusCode::OK).await
     }
 
     /// Change the tab or pane's attributes and return it.
     pub async fn set<T: Resource>(&self, id: IdOf<T>, body: &impl serde::Serialize) -> Result<T> {
         let path = format!("{}/{id}", T::COLLECTION);
-        self.request(Method::PATCH, &path, Some(body), None, StatusCode::OK)
+        self.call(Method::PATCH, &path, Some(body), StatusCode::OK)
             .await
     }
 
     pub async fn remove<T: Resource>(&self, id: IdOf<T>) -> Result<()> {
         let path = format!("{}/{id}", T::COLLECTION);
-        self.request(Method::DELETE, &path, NO_BODY, None, StatusCode::NO_CONTENT)
+        self.call(Method::DELETE, &path, NO_BODY, StatusCode::NO_CONTENT)
             .await
     }
 
     pub async fn move_tab(&self, id: IdOf<Tab>, to: &MoveTabBody) -> Result<Tab> {
         let path = format!("{}/{id}/move", Tab::COLLECTION);
-        self.request(Method::POST, &path, Some(to), None, StatusCode::OK)
+        self.call(Method::POST, &path, Some(to), StatusCode::OK)
             .await
     }
 
@@ -220,11 +215,10 @@ impl Client {
 
     /// Start a command on the server; output and exit go to its log only.
     pub async fn run(&self, body: &RunCommand) -> Result<()> {
-        self.request(
+        self.call(
             Method::POST,
             "/api/v0/runs",
             Some(body),
-            None,
             StatusCode::ACCEPTED,
         )
         .await
@@ -233,35 +227,19 @@ impl Client {
     /// Scroll the shared viewport, including after program exit.
     pub async fn scroll(&self, pane: IdOf<Pane>, body: &ScrollPane) -> Result<()> {
         let path = format!("{}/{pane}/scroll", Pane::COLLECTION);
-        self.request(
-            Method::POST,
-            &path,
-            Some(body),
-            None,
-            StatusCode::NO_CONTENT,
-        )
-        .await
+        self.call(Method::POST, &path, Some(body), StatusCode::NO_CONTENT)
+            .await
     }
 
     /// Read terminal text without changing the shared viewport.
     pub async fn read(&self, pane: IdOf<Pane>, query: &ReadPane) -> Result<String> {
         let path = format!("{}/{pane}/text", Pane::COLLECTION);
-        let (request, safe) = self.build(Method::GET, &path, NO_BODY, None, self.next_order());
-        let exchange = async {
-            let response = crate::open(request.query(query), StatusCode::OK).await?;
-            if let Some(revision) = response
-                .headers()
-                .get(REVISION_HEADER)
-                .and_then(|value| value.to_str().ok()?.parse().ok())
-            {
-                self.wrote(revision);
-            }
+        let mut prepared = self.build(Method::GET, &path, None, self.next_order());
+        prepared.request = prepared.request.query(query);
+        self.exchange(prepared, StatusCode::OK, async |response| {
             response.text().await.map_err(http_error)
-        };
-        timeout(crate::TIMEOUT, exchange)
-            .await
-            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
-            .context(format!("request to {safe} failed"))
+        })
+        .await
     }
 
     async fn pane_edit(
@@ -271,7 +249,7 @@ impl Client {
         body: &impl serde::Serialize,
     ) -> Result<Tab> {
         let path = format!("{}/{pane}/{edit}", Pane::COLLECTION);
-        self.request(Method::POST, &path, Some(body), None, StatusCode::OK)
+        self.call(Method::POST, &path, Some(body), StatusCode::OK)
             .await
     }
 
@@ -285,8 +263,10 @@ impl Client {
         &self,
         request: &AttachRequest,
     ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
+        let mut prepared = self.build(Method::POST, "/api/v0/attach", None, self.next_order());
+        prepared.request = prepared.request.json(request);
         let response = self
-            .stream(Method::POST, "/api/v0/attach", Some(request))
+            .exchange(prepared, StatusCode::OK, async |response| Ok(response))
             .await?;
         let body = response
             .bytes_stream()
@@ -320,30 +300,28 @@ impl Client {
         order: Option<Order>,
         frames: &[InputFrame],
     ) -> Result<()> {
-        let order = order.or_else(|| self.next_order());
-        self.numbered(
+        let mut prepared = self.build(
             Method::POST,
             "/api/v0/attach/input",
-            Some(&InputBody {
-                frames: frames.to_vec(),
-            }),
             attachment,
-            order,
-            StatusCode::NO_CONTENT,
-        )
-        .await
+            order.or_else(|| self.next_order()),
+        );
+        prepared.request = prepared.request.json(&InputBody {
+            frames: frames.to_vec(),
+        });
+        self.exchange(prepared, StatusCode::NO_CONTENT, crate::json)
+            .await
     }
 
     /// Every attachment's view, in attach order.
     pub async fn views(&self) -> Result<IndexMap<IdOf<Attachment>, ViewingRecord>> {
-        self.request(Method::GET, "/api/v0/views", NO_BODY, None, StatusCode::OK)
+        self.call(Method::GET, "/api/v0/views", NO_BODY, StatusCode::OK)
             .await
     }
 
     pub async fn view(&self, attachment: IdOf<Attachment>) -> Result<ViewingRecord> {
         let path = format!("/api/v0/views/{attachment}");
-        self.request(Method::GET, &path, NO_BODY, None, StatusCode::OK)
-            .await
+        self.call(Method::GET, &path, NO_BODY, StatusCode::OK).await
     }
 
     pub async fn select(
@@ -352,7 +330,7 @@ impl Client {
         body: &SelectView,
     ) -> Result<ViewingRecord> {
         let path = format!("/api/v0/views/{attachment}/selection");
-        self.request(Method::PUT, &path, Some(body), None, StatusCode::OK)
+        self.call(Method::PUT, &path, Some(body), StatusCode::OK)
             .await
     }
 
@@ -362,13 +340,13 @@ impl Client {
         attachment: IdOf<Attachment>,
         view: &ViewInput,
     ) -> Result<ViewingRecord> {
-        self.request(
+        let mut prepared = self.build(
             Method::PUT,
             "/api/v0/attach/view",
-            Some(view),
             Some(attachment),
-            StatusCode::OK,
-        )
-        .await
+            self.next_order(),
+        );
+        prepared.request = prepared.request.json(view);
+        self.exchange(prepared, StatusCode::OK, crate::json).await
     }
 }

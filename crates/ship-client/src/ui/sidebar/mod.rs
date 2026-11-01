@@ -16,6 +16,7 @@ use ratatui::{
 use ship_core::{
     command::Direction,
     id::IdOf,
+    layout::Axis,
     model::{Pane, Tab},
 };
 
@@ -23,7 +24,7 @@ pub(super) use self::{
     agents::Agents,
     tabs::{Gap, Tabs, movable},
 };
-use super::{attention::Attention, observer::Observer};
+use super::{attention::Attention, mouse::SidebarEdit, observer::Observer};
 use crate::keymap::Token;
 
 const MIN_WIDTH: u16 = 10;
@@ -93,22 +94,34 @@ impl Sidebar {
         }
     }
 
-    pub fn set_width(&mut self, width: u16, cols: u16) {
+    /// A mouse edit, against a terminal `cols` wide.
+    pub fn edit(&mut self, edit: SidebarEdit, cols: u16) {
+        match edit {
+            SidebarEdit::Width(width) => self.set_width(width, cols),
+            SidebarEdit::Split(row) => self.set_split(row),
+            SidebarEdit::Scroll { at, scroll } => self.scroll(at, scroll),
+        }
+    }
+
+    fn set_width(&mut self, width: u16, cols: u16) {
         self.chosen = Some(Self::clamp(width, cols));
     }
 
-    /// Left and right only; `nudge_split` takes up and down.
+    /// Left and right move the width, up and down the divider row.
     pub fn nudge(&mut self, direction: Direction, amount: u16, cols: u16) {
-        if self.shown {
-            let width = Self::clamp(self.width(), cols);
-            self.set_width(
-                match direction {
-                    Direction::Left => width.saturating_sub(amount),
-                    Direction::Right => width.saturating_add(amount),
-                    Direction::Up | Direction::Down => return,
-                },
-                cols,
-            );
+        let step = |value: u16| {
+            if direction.forward() {
+                value.saturating_add(amount)
+            } else {
+                value.saturating_sub(amount)
+            }
+        };
+        match direction.axis() {
+            Axis::Horizontal if self.shown => {
+                self.set_width(step(Self::clamp(self.width(), cols)), cols);
+            }
+            Axis::Horizontal => {}
+            Axis::Vertical => self.set_split(step(self.split_row())),
         }
     }
 
@@ -128,7 +141,7 @@ impl Sidebar {
     }
 
     /// Move the divider row to `y`, within the split's limits.
-    pub fn set_split(&mut self, y: u16) {
+    fn set_split(&mut self, y: u16) {
         let height = self.area.height;
         if self.shown && height > 0 {
             let offset = split_clamp(y.saturating_sub(self.area.y), height);
@@ -136,18 +149,8 @@ impl Sidebar {
         }
     }
 
-    /// Up and down only; `nudge` takes left and right.
-    pub fn nudge_split(&mut self, direction: Direction, amount: u16) {
-        let row = self.split_row();
-        self.set_split(match direction {
-            Direction::Up => row.saturating_sub(amount),
-            Direction::Down => row.saturating_add(amount),
-            Direction::Left | Direction::Right => return,
-        });
-    }
-
     /// Sent to the section under `at`.
-    pub fn scroll(&mut self, at: Position, scroll: Scroll) {
+    fn scroll(&mut self, at: Position, scroll: Scroll) {
         if !self.shown || !self.area.contains(at) {
             return;
         }
@@ -234,7 +237,7 @@ impl Sidebar {
                 ..content
             },
             &replica.tabs,
-            observer.record().and_then(|record| record.selection),
+            observer.selection(),
             gap,
             attention,
             renaming,
@@ -263,7 +266,7 @@ impl Sidebar {
                 ..content
             },
             &replica.tabs,
-            observer.record().and_then(|record| record.selection),
+            observer.selection(),
             attention,
             rows,
         );

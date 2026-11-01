@@ -110,17 +110,16 @@ pub fn init(role: Role) -> Result<Diagnostics> {
     let startup = filter.to_string();
     let (filter, handle) = reload::Layer::new(filter);
     let log = log.map(Arc::new);
-    let file = log.clone().map(|log| {
+    let layer = || {
         fmt::layer()
             .with_timer(ChronoLocal::rfc_3339())
             .with_span_events(FmtSpan::NEW)
-            .with_ansi(false)
-            .with_writer(log)
-    });
+    };
+    let file = log
+        .clone()
+        .map(|log| layer().with_ansi(false).with_writer(log));
     let terminal = stderr.then(|| {
-        fmt::layer()
-            .with_timer(ChronoLocal::rfc_3339())
-            .with_span_events(FmtSpan::NEW)
+        layer()
             .with_ansi(io::stderr().is_terminal())
             .with_writer(io::stderr)
     });
@@ -172,21 +171,16 @@ fn startup_filter() -> Result<String> {
         Err(_) => return Err(err!(Configuration, "RUST_LOG must be valid Unicode")),
     }
     let level = match env::var("SHIP_LOG") {
-        Ok(value) => value.parse::<Level>().map_err(|_| {
-            err!(
-                Configuration,
-                "SHIP_LOG must be one of: error, warn, info, debug, trace"
-            )
-        })?,
-        Err(env::VarError::NotPresent) => Level::INFO,
-        Err(_) => {
-            return Err(err!(
-                Configuration,
-                "SHIP_LOG must be one of: error, warn, info, debug, trace"
-            ));
-        }
+        Ok(value) => value.parse::<Level>().ok(),
+        Err(env::VarError::NotPresent) => Some(Level::INFO),
+        Err(_) => None,
     };
-    Ok(level_filter(level))
+    level.map(level_filter).ok_or_else(|| {
+        err!(
+            Configuration,
+            "SHIP_LOG must be one of: error, warn, info, debug, trace"
+        )
+    })
 }
 
 pub fn level_filter(level: Level) -> String {
@@ -210,6 +204,20 @@ fn panic_hook() {
     }));
 }
 
+/// Whichever signal stream yields first; `None` means it closed.
+async fn first_signal(
+    a: impl Future<Output = Option<()>>,
+    b: impl Future<Output = Option<()>>,
+) -> Result<()> {
+    let received = tokio::select! {
+        value = a => value,
+        value = b => value,
+    };
+    received.ok_or_else(|| err!(Io, "shutdown signal stream closed"))?;
+    tracing::info!("shutdown requested");
+    Ok(())
+}
+
 /// Resolves on SIGINT or SIGTERM.
 #[cfg(unix)]
 pub fn shutdown() -> Result<impl Future<Output = Result<()>> + Send + 'static> {
@@ -220,15 +228,7 @@ pub fn shutdown() -> Result<impl Future<Output = Result<()>> + Send + 'static> {
         .map_err(|error| err!(Io, "cannot register SIGINT", @external: error))?;
     let mut terminate = signal(SignalKind::terminate())
         .map_err(|error| err!(Io, "cannot register SIGTERM", @external: error))?;
-    Ok(async move {
-        let received = tokio::select! {
-            value = interrupt.recv() => value,
-            value = terminate.recv() => value,
-        };
-        received.ok_or_else(|| err!(Io, "shutdown signal stream closed"))?;
-        tracing::info!("shutdown requested");
-        Ok(())
-    })
+    Ok(async move { first_signal(interrupt.recv(), terminate.recv()).await })
 }
 
 /// Resolves on Ctrl+C or the console closing.
@@ -240,13 +240,5 @@ pub fn shutdown() -> Result<impl Future<Output = Result<()>> + Send + 'static> {
         ctrl_c().map_err(|error| err!(Io, "cannot register Ctrl+C", @external: error))?;
     let mut close = ctrl_close()
         .map_err(|error| err!(Io, "cannot register console close", @external: error))?;
-    Ok(async move {
-        let received = tokio::select! {
-            value = interrupt.recv() => value,
-            value = close.recv() => value,
-        };
-        received.ok_or_else(|| err!(Io, "shutdown signal stream closed"))?;
-        tracing::info!("shutdown requested");
-        Ok(())
-    })
+    Ok(async move { first_signal(interrupt.recv(), close.recv()).await })
 }

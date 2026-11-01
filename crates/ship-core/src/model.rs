@@ -2,12 +2,11 @@ use std::{fmt, str::FromStr};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use utoipa::openapi::{Object, ObjectBuilder, Ref};
 
 use crate::{
     AppError, config, err,
     geometry::TabGeometry,
-    id::{Id, IdOf, Identified, Prefixed},
+    id::{Id, IdOf, Identified, Prefixed, id_map_schema},
     layout::{Layout, Slot},
     tree::Tabs,
 };
@@ -18,7 +17,7 @@ pub struct Tab {
     pub id: IdOf<Tab>,
     #[serde(default)]
     pub name: Option<String>,
-    #[schema(schema_with = tabs_schema)]
+    #[schema(schema_with = id_map_schema::<Tab, Tab>)]
     pub tabs: Tabs,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<Layout>,
@@ -170,18 +169,6 @@ pub struct ExitStatus {
     pub signal: Option<String>,
 }
 
-/// Ordered child tabs keyed by ID. Hand-written because the derive inlines
-/// `Tab`'s schema for the `IdOf<Tab>` key, recursing without end. Also used by
-/// `Replica::tabs`.
-pub(crate) fn tabs_schema() -> Object {
-    use utoipa::PartialSchema;
-
-    ObjectBuilder::new()
-        .property_names(Some(IdOf::<Tab>::schema()))
-        .additional_properties(Some(Ref::from_schema_name("Tab")))
-        .build()
-}
-
 impl Tab {
     pub fn panes(&self) -> impl Iterator<Item = &Pane> {
         self.layout.iter().flat_map(Layout::panes)
@@ -205,9 +192,7 @@ impl Tab {
 }
 
 impl Prefixed for Tab {
-    fn prefix() -> &'static str {
-        "tab"
-    }
+    const PREFIX: &'static str = "tab";
 }
 
 impl Identified for Tab {
@@ -215,9 +200,7 @@ impl Identified for Tab {
 }
 
 impl Prefixed for Pane {
-    fn prefix() -> &'static str {
-        "pane"
-    }
+    const PREFIX: &'static str = "pane";
 }
 
 impl Identified for Pane {

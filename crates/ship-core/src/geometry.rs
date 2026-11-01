@@ -3,27 +3,29 @@
 use indexmap::IndexMap;
 use ratatui_core::layout::Rect;
 use serde::{Deserialize, Serialize};
-use utoipa::{
-    PartialSchema, ToSchema,
-    openapi::{Object, ObjectBuilder, Ref, Type},
-};
+use utoipa::ToSchema;
 
-use crate::{command::Direction, id::IdOf, model::Pane, screen::Size};
+use crate::{
+    command::Direction,
+    id::{IdOf, id_map_schema},
+    model::Pane,
+    screen::Size,
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct TabGeometry {
     pub size: Size,
-    #[schema(schema_with = panes_schema)]
+    #[schema(schema_with = id_map_schema::<Pane, PaneGeometry>)]
     pub panes: IndexMap<IdOf<Pane>, PaneGeometry>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct PaneGeometry {
-    #[schema(schema_with = rect_schema)]
+    #[schema(inline, value_type = RectSchema)]
     pub frame: Rect,
-    #[schema(schema_with = rect_schema)]
+    #[schema(inline, value_type = RectSchema)]
     pub content: Rect,
 }
 
@@ -104,29 +106,15 @@ fn distance(a: Rect, b: Rect) -> u32 {
     dx * dx + dy * dy
 }
 
-fn rect_schema() -> Object {
-    let integer = || {
-        ObjectBuilder::new()
-            .schema_type(Type::Integer)
-            .minimum(Some(0.0))
-            .maximum(Some(f64::from(u16::MAX)))
-            .build()
-    };
-    ObjectBuilder::new()
-        .property("x", integer())
-        .required("x")
-        .property("y", integer())
-        .required("y")
-        .property("width", integer())
-        .required("width")
-        .property("height", integer())
-        .required("height")
-        .build()
-}
-
-fn panes_schema() -> Object {
-    ObjectBuilder::new()
-        .property_names(Some(IdOf::<Pane>::schema()))
-        .additional_properties(Some(Ref::from_schema_name("PaneGeometry")))
-        .build()
+// Mirror of ratatui's `Rect` for the schema only. Utoipa states `u16` as
+// int32 with minimum 0, without the old maximum.
+// Public so it needs no `dead_code` expectation; never built.
+#[doc(hidden)]
+#[derive(ToSchema)]
+#[schema(as = Rect)]
+pub struct RectSchema {
+    pub x: u16,
+    pub y: u16,
+    pub width: u16,
+    pub height: u16,
 }

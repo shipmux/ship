@@ -75,7 +75,7 @@ pub(crate) async fn attach(
     Body(request): Body<AttachRequest>,
 ) -> Result<Response> {
     let guard = AttachmentGuard {
-        attachment: Id::new(),
+        attachment: Id::random(),
         state: app.state.clone(),
         lanes: Arc::clone(&app.lanes),
     };
@@ -103,7 +103,7 @@ pub(crate) async fn attach(
         .await
         .map_err(|error| err!(Internal, "cannot subscribe to copies", @external: error))?;
     let mut progress = Progress {
-        attachment,
+        guard,
         clipboard,
         replicas,
         live: app.live.clone(),
@@ -124,7 +124,6 @@ pub(crate) async fn attach(
         .chain(updates)
         .fuse()
         .map(move |event| {
-            let _ = &guard;
             let _encode = tracing::debug_span!("encode").entered();
             serde_json::to_string(&event).map(|json| {
                 tracing::debug!(bytes = json.len(), "event encoded");
@@ -138,7 +137,8 @@ pub(crate) async fn attach(
 
 /// What one attach stream has sent, and the screens it watches.
 struct Progress {
-    attachment: IdOf<Attachment>,
+    /// Detaches when the stream, which owns the unfold state, drops.
+    guard: AttachmentGuard,
     /// Every pane's copies; this stream sends those addressed to it, and
     /// program writes in the panes it watches.
     clipboard: mpsc::UnboundedReceiver<Clipboard>,
@@ -194,7 +194,7 @@ impl Progress {
                     return Ok(SseEvent::Screen(PaneScreen { pane, screen }));
                 }
                 Some(Clipboard { pane, to, text }) = self.clipboard.recv() => {
-                    if to.map_or(self.watching.contains_key(&pane), |to| to == self.attachment) {
+                    if to.map_or(self.watching.contains_key(&pane), |to| to == self.guard.attachment) {
                         return Ok(SseEvent::Clipboard(ClipboardText { text }));
                     }
                 }
@@ -209,7 +209,7 @@ impl Progress {
         let panes: Vec<IdOf<Pane>> = self
             .replica
             .viewers
-            .get(&self.attachment)
+            .get(&self.guard.attachment)
             .and_then(|record| record.selection)
             .and_then(|selection| tree::viewed_tab(tabs, selection))
             .and_then(|id| tree::tab(tabs, id).ok())
@@ -289,7 +289,7 @@ pub(crate) async fn view(
     State(app): State<AppState>,
     AttachmentHeader(attachment): AttachmentHeader,
     Body(view): Body<ViewInput>,
-) -> Result<Response> {
+) -> Result<Json<ViewingRecord>> {
     let record = app.state.ask(SetView { attachment, view }).await?;
-    Ok(Json(record).into_response())
+    Ok(Json(record))
 }

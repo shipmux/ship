@@ -4,11 +4,11 @@
 use std::sync::Arc;
 
 pub(crate) use ship_core::tree::{
-    Tabs, not_found, pane, pane_ids, pane_owner, path, tab, viewed_tab,
+    Tabs, not_found, pane, pane_owner, pane_tab, panes, path, tab, viewed_tab,
 };
 use ship_core::{
     id::IdOf,
-    model::{NodeId, Tab},
+    model::{NodeId, Pane, Tab},
     prelude::*,
     protocol::MoveTab,
 };
@@ -32,6 +32,18 @@ pub(crate) fn tab_mut(tabs: &mut Tabs, id: IdOf<Tab>) -> Result<&mut Tab> {
         .and_then(|tabs| tabs.get_mut(&id))
         .map(Arc::make_mut)
         .ok_or_else(|| not_found(NodeId::Tab(id)))
+}
+
+/// `tab_mut` on the tab holding pane `id`.
+pub(crate) fn pane_tab_mut(tabs: &mut Tabs, id: IdOf<Pane>) -> Result<&mut Tab> {
+    tab_mut(tabs, pane_owner(tabs, id)?)
+}
+
+/// The pane itself, through `pane_tab_mut`; `not_found` if absent.
+pub(crate) fn pane_mut(tabs: &mut Tabs, id: IdOf<Pane>) -> Result<&mut Pane> {
+    pane_tab_mut(tabs, id)?
+        .pane_mut(id)
+        .ok_or_else(|| not_found(NodeId::Pane(id)))
 }
 
 /// `None` is the top level.

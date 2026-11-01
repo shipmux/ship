@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used, reason = "a failed setup should fail the test")]
+
 /// Regression test / bug reproducer for:
 ///   libghostty-vt: moving a Terminal after registering callbacks causes
 ///   a segfault when the callback is later invoked.

@@ -46,7 +46,9 @@ An entity's `get` output is its one shape. Every input that describes the entity
 
 Construct errors with `err!`. Wrap an existing `AppError` with `.context(...)`, which keeps its error code.
 
-Discard a result you don't need with `.ok()`, not `let _ =`.
+Discard a result you don't need with `.ok()`, not `let _ =`. Use `expect("why it holds")`, not `unwrap()`.
+
+The workspace lints check these: `let_underscore_untyped`, `unwrap_used`, `allow_attributes` and `allow_attributes_without_reason`. Suppress a lint with `#[expect(..., reason = "...")]`, never `#[allow]`, so a suppression that stops applying surfaces.
 
 ## Platform-specific code
 

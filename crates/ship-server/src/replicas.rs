@@ -1,39 +1,22 @@
 //! Published replicas: the latest state and a bounded every-revision feed.
 
-use std::{ops::ControlFlow, sync::Arc};
+use std::sync::Arc;
 
-use ship_core::{
-    protocol::Replica,
-    relay::{SendResult, Sink},
-};
+use ship_core::protocol::Replica;
 use tokio::sync::{broadcast, watch};
 
 /// Revisions an every-revision stream can fall behind before it is lost.
 pub(crate) const RING: usize = 256;
 
+/// Read handles on the published replicas.
 #[derive(Clone)]
 pub struct Replicas {
     latest: watch::Receiver<Arc<Replica>>,
-    // Only the bus sink keeps publication alive, so shutdown closes both feeds.
+    // Only the state actor's sink keeps publication alive, so shutdown closes both feeds.
     ring: broadcast::WeakSender<Arc<Replica>>,
 }
 
 impl Replicas {
-    pub(crate) fn new(first: Arc<Replica>) -> (Self, ReplicaSink) {
-        let (latest_tx, latest) = watch::channel(first);
-        let (ring, _) = broadcast::channel(RING);
-        (
-            Self {
-                latest,
-                ring: ring.downgrade(),
-            },
-            ReplicaSink {
-                latest: latest_tx,
-                ring,
-            },
-        )
-    }
-
     pub fn latest(&self) -> watch::Receiver<Arc<Replica>> {
         self.latest.clone()
     }
@@ -42,17 +25,42 @@ impl Replicas {
     pub(crate) fn every(&self) -> Option<broadcast::Receiver<Arc<Replica>>> {
         Some(self.ring.upgrade()?.subscribe())
     }
+
+    /// The replica published last.
+    pub(crate) fn current(&self) -> Arc<Replica> {
+        Arc::clone(&self.latest.borrow())
+    }
 }
 
+/// The publishing side, owned by the state actor. Dropping it ends both feeds.
 pub(crate) struct ReplicaSink {
     latest: watch::Sender<Arc<Replica>>,
     ring: broadcast::Sender<Arc<Replica>>,
 }
 
-impl Sink<Arc<Replica>> for ReplicaSink {
-    fn try_send(&mut self, value: Arc<Replica>) -> ControlFlow<SendResult, SendResult> {
-        // No ring readers is normal, not a closed replica sink.
-        self.ring.send(Arc::clone(&value)).ok();
-        self.latest.try_send(value)
+impl ReplicaSink {
+    pub(crate) fn new(first: Arc<Replica>) -> Self {
+        Self {
+            latest: watch::Sender::new(first),
+            ring: broadcast::Sender::new(RING),
+        }
+    }
+
+    /// Never fails: `send_replace`, and no ring readers is normal.
+    pub(crate) fn publish(&self, replica: Arc<Replica>) {
+        self.ring.send(Arc::clone(&replica)).ok();
+        self.latest.send_replace(replica);
+    }
+
+    pub(crate) fn latest(&self) -> Arc<Replica> {
+        Arc::clone(&self.latest.borrow())
+    }
+
+    /// A read handle for routes, streams and the saver.
+    pub(crate) fn subscribe(&self) -> Replicas {
+        Replicas {
+            latest: self.latest.subscribe(),
+            ring: self.ring.downgrade(),
+        }
     }
 }

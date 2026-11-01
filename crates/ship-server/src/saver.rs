@@ -2,7 +2,6 @@
 
 use std::{
     fs,
-    future::pending,
     io::{self, ErrorKind, Write},
     path::{Path, PathBuf},
     sync::{
@@ -149,32 +148,18 @@ impl Saver {
             }
             tokio::select! {
                 biased;
-                () = async {
-                    match deadline {
-                        Some(at) => sleep_until(at).await,
-                        None => pending().await,
-                    }
-                } => {
-                    // Take the latest projection, not the one from before the wait.
-                    let tabs = project(&replicas.borrow_and_update().tabs);
-                    if tabs != self.written {
-                        match self.save(tabs).await {
-                            Ok(()) => deadline = None,
-                            Err(error) => {
-                                tracing::error!(path = %self.path.display(), %error, "cannot save tabs");
-                                deadline = Some(Instant::now() + RETRY);
-                            }
+                () = sleep_until(deadline.unwrap_or_else(Instant::now)), if deadline.is_some() => {
+                    deadline = match self.flush(&mut replicas).await {
+                        Ok(()) => None,
+                        Err(error) => {
+                            tracing::error!(path = %self.path.display(), %error, "cannot save tabs");
+                            Some(Instant::now() + RETRY)
                         }
-                    } else {
-                        deadline = None;
-                    }
+                    };
                 }
                 changed = replicas.changed() => {
                     if changed.is_err() {
-                        let tabs = project(&replicas.borrow_and_update().tabs);
-                        if tabs != self.written
-                            && let Err(error) = self.save(tabs).await
-                        {
+                        if let Err(error) = self.flush(&mut replicas).await {
                             tracing::error!(path = %self.path.display(), %error, "cannot save tabs on stop");
                         }
                         return;
@@ -182,6 +167,16 @@ impl Saver {
                 }
             }
         }
+    }
+
+    /// Project the latest replica, not the one from before a wait, and save
+    /// it if it differs from what was written.
+    async fn flush(&mut self, replicas: &mut watch::Receiver<Arc<Replica>>) -> Result<()> {
+        let tabs = project(&replicas.borrow_and_update().tabs);
+        if tabs == self.written {
+            return Ok(());
+        }
+        self.save(tabs).await
     }
 
     #[traced(no_err)]

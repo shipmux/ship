@@ -72,7 +72,7 @@ mod query {
         buf.extend_from_slice(b"\x1b]10;?\x1b\\");
         buf.extend_from_slice(b"\x1b]11;?\x1b\\");
         for i in 0..palette_count {
-            write!(buf, "\x1b]4;{i};?\x1b\\").unwrap();
+            write!(buf, "\x1b]4;{i};?\x1b\\").expect("writing to a Vec cannot fail");
         }
         tty.write_all(&buf)?;
         tty.flush()

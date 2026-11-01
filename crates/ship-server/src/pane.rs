@@ -18,7 +18,6 @@ use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system}
 use ratatui::{
     buffer::{self, Buffer},
     layout::Rect,
-    style::{self as tui, Modifier},
 };
 use ratatui_ghostty::{
     session::{Pointer, Read, Scroll, SessionConfig, SessionEvent, SessionHandle, SessionIo},
@@ -28,11 +27,11 @@ use ship_core::{
     config::ServerSettings,
     endpoint::Endpoint,
     id::{Attachment, IdOf},
-    model::{ExitStatus, Pane, StatusRecord},
+    model::{ExitStatus, Pane, PaneStatus, StatusRecord},
     prelude::*,
     protocol::{MouseInput, ReadPane, RunCommand, ScrollDirection, ScrollPane},
     relay::{Publish, RelayBus},
-    screen::{Attr, Color, Cursor, CursorShape, Multi, Row, Run, Screen, Scrolled, Size},
+    screen::{Attr, Cursor, CursorShape, Multi, Row, Run, Screen, Scrolled, Size},
 };
 use ship_macros::traced;
 use tokio::{
@@ -235,20 +234,19 @@ pub(crate) enum PaneCommand {
 /// Every running pane, published by the state actor.
 pub(crate) type LivePanes = HashMap<IdOf<Pane>, PaneHandle>;
 
-/// Bus publication for the state actor.
-#[derive(Clone)]
+/// The pane's reported state as it stands, sent after a publish in which
+/// any of it changed, and once more when the program exits. The fields are
+/// `Pane`'s own names and types.
+#[derive(Clone, PartialEq)]
 pub(crate) struct PaneEvent {
     pub pane: IdOf<Pane>,
-    pub change: PaneChange,
-}
-
-#[derive(Clone)]
-pub(crate) enum PaneChange {
-    Title(Option<String>),
-    /// From OSC 7, else the program's working directory.
-    Dir(String),
-    Exited(ExitStatus),
-    Program(IndexMap<String, StatusRecord>),
+    pub title: Option<String>,
+    /// From OSC 7, else the program's working directory; the last one known.
+    pub dir: Option<String>,
+    /// Empty once exited.
+    pub program: IndexMap<String, StatusRecord>,
+    /// `Pane::status`'s own type, not a second way to say "exited".
+    pub status: PaneStatus,
 }
 
 /// Text for clients' clipboards, on the bus apart from `PaneEvent`, since it
@@ -288,12 +286,7 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
     } = launch;
     let size = terminal_size(size);
     let pty = native_pty_system()
-        .openpty(PtySize {
-            rows: size.rows,
-            cols: size.cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
+        .openpty(pty_size(size))
         .map_err(|error| err!(Io, "cannot open a terminal", @external: error))?;
     let reader = pty
         .master
@@ -310,12 +303,7 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
             master
                 .lock()
                 .map_err(|_| "terminal lock poisoned")?
-                .resize(PtySize {
-                    rows,
-                    cols,
-                    pixel_width: 0,
-                    pixel_height: 0,
-                })
+                .resize(pty_size(Size { cols, rows }))
                 .map_err(Into::into)
         })
     };
@@ -411,8 +399,13 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
             reaped: false,
         },
         dirty,
-        title: None,
-        dir: None,
+        sent: PaneEvent {
+            pane,
+            title: None,
+            dir: None,
+            program: IndexMap::new(),
+            status: PaneStatus::Running,
+        },
         reported: false,
         pid,
         pointer: None,
@@ -455,10 +448,9 @@ struct PaneTask {
     /// The wrapper's wake callback calls `notify_one` when the terminal
     /// changed; it renders only when `publish` asks, once per frame.
     dirty: Arc<Notify>,
-    /// Latest title seen this frame; the tree keeps the lasting copy.
-    title: Option<String>,
-    /// Last directory published, so a repeated report sends nothing.
-    dir: Option<String>,
+    /// The state last sent, which a new pane's tree entry starts equal to.
+    /// A publish that leaves it unchanged sends nothing.
+    sent: PaneEvent,
     /// Whether the shell reported a directory through OSC 7, which then ends
     /// the lookups of `pid`'s working directory.
     reported: bool,
@@ -521,7 +513,7 @@ impl PaneTask {
         loop {
             if pending && Instant::now() >= next {
                 pending = false;
-                self.publish().await;
+                self.publish(None).await;
                 next = Instant::now() + FRAME;
                 continue;
             }
@@ -535,10 +527,7 @@ impl PaneTask {
                 () = sleep_until(next), if pending => {}
                 status = &mut self.exit.status, if !self.exit.reaped => {
                     self.exit.reaped = true;
-                    self.publish().await;
-                    if let Ok(status) = status {
-                        self.event(PaneChange::Exited(status)).await;
-                    }
+                    self.publish(status.ok()).await;
                 }
             }
         }
@@ -625,18 +614,19 @@ impl PaneTask {
         }
     }
 
-    /// Drain the wrapper's events, publish the screen, then the title and
-    /// directory if they changed. A shell that hasn't reported OSC 7, such as
-    /// zsh under oh-my-zsh with SSH variables set, has its working directory
-    /// read instead; its prompt after a `cd` is output, so it lands here.
+    /// Drain the wrapper's events, publish the screen, then the pane's state
+    /// if it changed, with `exited` once the program has. A shell that hasn't
+    /// reported OSC 7, such as zsh under oh-my-zsh with SSH variables set, has
+    /// its working directory read instead; its prompt after a `cd` is output,
+    /// so it lands here.
     #[traced(fields(screen = false))]
-    async fn publish(&mut self) {
+    async fn publish(&mut self, exited: Option<ExitStatus>) {
         let (rendered, render) = oneshot::channel();
         self.session.render(Box::new(move || {
             rendered.send(()).ok();
         }));
         render.await.ok();
-        let mut changed = false;
+        let mut state = self.sent.clone();
         let mut program_changed = false;
         let mut dir = None;
         let mut copies = Vec::new();
@@ -649,8 +639,7 @@ impl PaneTask {
                 SessionEvent::Copied(text) => copies.push((self.pointer, text)),
                 SessionEvent::ClipboardWrite(text) => copies.push((None, text)),
                 SessionEvent::TitleChanged(title) => {
-                    self.title = Some(title).filter(|title| !title.is_empty());
-                    changed = true;
+                    state.title = Some(title).filter(|title| !title.is_empty());
                 }
                 SessionEvent::CwdChanged(uri) => {
                     dir = local_path(&uri).or(dir);
@@ -674,31 +663,20 @@ impl PaneTask {
                 .await
                 .ok();
         }
-        if changed {
-            self.event(PaneChange::Title(self.title.clone())).await;
+        if dir.is_some() {
+            state.dir = dir;
         }
         if program_changed && !self.exit.reaped {
-            self.event(PaneChange::Program(self.records.snapshot()))
-                .await;
+            state.program = self.records.snapshot();
         }
-        self.set_dir(dir).await;
-    }
-
-    async fn set_dir(&mut self, dir: Option<String>) {
-        if let Some(dir) = dir.filter(|dir| self.dir.as_ref() != Some(dir)) {
-            self.dir = Some(dir.clone());
-            self.event(PaneChange::Dir(dir)).await;
+        if let Some(status) = exited {
+            state.status = PaneStatus::Exited(status);
+            state.program.clear();
         }
-    }
-
-    /// `&mut`, because `SessionHandle` isn't `Sync` and a shared borrow held
-    /// across the await would make the task `!Send`.
-    async fn event(&mut self, change: PaneChange) {
-        let event = PaneEvent {
-            pane: self.pane,
-            change,
-        };
-        self.bus.tell(Publish(event)).await.ok();
+        if state != self.sent {
+            self.sent = state.clone();
+            self.bus.tell(Publish(state)).await.ok();
+        }
     }
 
     #[traced]
@@ -801,18 +779,6 @@ fn capture(session: &SessionHandle, buffer: &mut Buffer) -> Option<Screen> {
     })
 }
 
-const ATTRS: [(Modifier, Attr); 9] = [
-    (Modifier::BOLD, Attr::Bold),
-    (Modifier::DIM, Attr::Dim),
-    (Modifier::ITALIC, Attr::Italic),
-    (Modifier::UNDERLINED, Attr::Underlined),
-    (Modifier::SLOW_BLINK, Attr::SlowBlink),
-    (Modifier::RAPID_BLINK, Attr::RapidBlink),
-    (Modifier::REVERSED, Attr::Reversed),
-    (Modifier::HIDDEN, Attr::Hidden),
-    (Modifier::CROSSED_OUT, Attr::CrossedOut),
-];
-
 /// One buffer row: text through its last non-blank cell, adjacent cells with
 /// equal styles merged into one run, and no trailing default-style run.
 #[traced(level = "trace")]
@@ -852,42 +818,11 @@ fn row(cells: &[buffer::Cell]) -> Row {
 fn run_of(cell: &buffer::Cell) -> Run {
     Run {
         cells: 1,
-        fg: color(cell.fg),
-        bg: color(cell.bg),
-        underline_color: color(cell.underline_color),
-        attrs: ATTRS
-            .iter()
-            .filter(|(modifier, _)| cell.modifier.contains(*modifier))
-            .map(|(_, attr)| *attr)
-            .collect(),
+        fg: cell.fg.into(),
+        bg: cell.bg.into(),
+        underline_color: cell.underline_color.into(),
+        attrs: Attr::from_modifier(cell.modifier),
     }
-}
-
-/// Named colors are the first sixteen palette entries.
-fn color(color: tui::Color) -> Color {
-    use tui::Color::*;
-    let indexed = match color {
-        Reset => return Color::Default,
-        Rgb(r, g, b) => return Color::Rgb(r, g, b),
-        Indexed(index) => index,
-        Black => 0,
-        Red => 1,
-        Green => 2,
-        Yellow => 3,
-        Blue => 4,
-        Magenta => 5,
-        Cyan => 6,
-        Gray => 7,
-        DarkGray => 8,
-        LightRed => 9,
-        LightGreen => 10,
-        LightYellow => 11,
-        LightBlue => 12,
-        LightMagenta => 13,
-        LightCyan => 14,
-        White => 15,
-    };
-    Color::Indexed(indexed)
 }
 
 /// The child's exit status, fed by a std thread blocked in `program::wait`.
@@ -1047,6 +982,15 @@ mod program {
 }
 
 /// Both PTY and emulator need a positive grid; published content stays actual.
+fn pty_size(size: Size) -> PtySize {
+    PtySize {
+        rows: size.rows,
+        cols: size.cols,
+        pixel_width: 0,
+        pixel_height: 0,
+    }
+}
+
 fn terminal_size(size: Size) -> Size {
     Size {
         cols: size.cols.max(1),

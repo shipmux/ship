@@ -7,15 +7,15 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::rust::double_option;
 use utoipa::{
     PartialSchema, ToSchema,
-    openapi::{Object, ObjectBuilder, Ref, RefOr, schema::Schema},
+    openapi::{RefOr, schema::Schema},
 };
 use uuid::Uuid;
 
 use crate::{
     command::Direction,
-    id::{Attachment, IdOf},
+    id::{Attachment, IdOf, id_map_schema},
     layout::CycleDirection,
-    model::{ExitBehavior, NodeId, Pane, Switch, Tab, tabs_schema},
+    model::{ExitBehavior, NodeId, Pane, Switch, Tab},
     screen::{Screen, Size},
     tree::Tabs,
 };
@@ -410,22 +410,15 @@ pub struct Replica {
     #[schema(value_type = String, format = "uuid")]
     pub incarnation: Uuid,
     pub revision: u64,
-    #[schema(schema_with = tabs_schema)]
+    #[schema(schema_with = id_map_schema::<Tab, Tab>)]
     pub tabs: Tabs,
-    #[schema(schema_with = viewers_schema)]
+    #[schema(schema_with = id_map_schema::<Attachment, ViewingRecord>)]
     pub viewers: IndexMap<IdOf<Attachment>, ViewingRecord>,
 }
 
 /// `Attachment` is a marker with no schema of its own for the derive to pass.
 fn attachment_schema() -> RefOr<Schema> {
     IdOf::<Attachment>::schema()
-}
-
-fn viewers_schema() -> Object {
-    ObjectBuilder::new()
-        .property_names(Some(IdOf::<Attachment>::schema()))
-        .additional_properties(Some(Ref::from_schema_name("ViewingRecord")))
-        .build()
 }
 
 /// One event of the attach stream, sent as one SSE `data:` line, e.g.

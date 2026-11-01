@@ -1,3 +1,5 @@
+#![expect(clippy::unwrap_used, reason = "a demo, not library code")]
+
 mod app;
 mod keybinds;
 mod layout;
@@ -48,15 +50,16 @@ fn main() -> anyhow::Result<()> {
     redirect_stderr();
     let default_hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
-        let _ = terminal::disable_raw_mode();
-        let _ = execute!(
+        terminal::disable_raw_mode().ok();
+        execute!(
             io::stdout(),
             DisableMouseCapture,
             DisableBracketedPaste,
             LeaveAlternateScreen,
             cursor::Show,
             SetCursorStyle::DefaultUserShape
-        );
+        )
+        .ok();
         default_hook(info);
     }));
 
@@ -99,7 +102,7 @@ fn main() -> anyhow::Result<()> {
 
     let pane_wake_tx = wake_tx;
     let wake: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
-        let _ = pane_wake_tx.send(AppEvent::PaneUpdate);
+        pane_wake_tx.send(AppEvent::PaneUpdate).ok();
     });
 
     let pa = pane_area(term.size()?.into());

@@ -1,6 +1,7 @@
 //! One path from a command to the API, for the CLI and for keys.
 
 use std::{
+    borrow::Cow,
     env, fs,
     path::{self, PathBuf},
 };
@@ -66,19 +67,15 @@ impl Client {
     pub async fn execute(&self, command: Command, scope: &Scope) -> Result<Outcome> {
         Ok(match command {
             Command::Run(Run { command }) => {
-                let Scope::Keys(keys) = scope else {
+                let Some(keys) = scope.keys() else {
                     return Err(err!(
                         Validation,
                         "run is only available from keys and menus"
                     ));
                 };
-                let pane = match keys.selection {
-                    Some(NodeId::Pane(pane)) => Some(pane),
-                    _ => None,
-                };
                 self.run(&RunCommand {
                     command,
-                    pane,
+                    pane: scope.selected_pane(),
                     attachment: keys.attachment,
                 })
                 .await?;
@@ -323,51 +320,38 @@ impl Client {
         })
     }
 
-    /// `--tab`, else the tab holding `--pane` (looked up in the keys' tabs,
-    /// or in `GET /tabs` on the CLI), else the scope's.
+    /// `--tab`, else the tab holding `--pane`, else the scope's.
     async fn tab_target(&self, target: TabTarget, scope: &Scope) -> Result<IdOf<Tab>> {
-        match (target, scope) {
-            (TabTarget { id: Some(id), .. }, _) => Ok(id),
-            (
-                TabTarget {
-                    pane: Some(pane), ..
-                },
-                Scope::Keys(KeyScope { tabs, .. }),
-            ) => tree::pane_owner(tabs, pane),
-            (
-                TabTarget {
-                    pane: Some(pane), ..
-                },
-                Scope::Cli,
-            ) => tree::pane_owner(&self.tabs().await?, pane),
-            (
-                _,
-                Scope::Keys(KeyScope {
-                    selection, tabs, ..
-                }),
-            ) => selection
-                .and_then(|selection| tree::viewed_tab(tabs, selection))
+        if let Some(id) = target.id {
+            return Ok(id);
+        }
+        if let Some(pane) = target.pane {
+            return tree::pane_owner(&*self.scope_tabs(scope).await?, pane);
+        }
+        match scope {
+            Scope::Keys(_) => scope
+                .selected_tab()
                 .ok_or_else(|| err!(Validation, "no tab selected")),
-            (_, Scope::Cli) => Err(err!(
+            Scope::Cli => Err(err!(
                 Validation,
                 "pass --tab or --pane, or run inside a pane"
             )),
         }
     }
 
-    /// The tab holding `pane`, else the selected tab or the selected pane's
-    /// tab on keys, else none.
+    /// The tab holding `pane`, else the scope's selected tab, else none.
     async fn current_tab(&self, pane: PaneTarget, scope: &Scope) -> Result<Option<IdOf<Tab>>> {
-        Ok(match (pane.id, scope) {
-            (Some(pane), Scope::Keys(KeyScope { tabs, .. })) => Some(tree::pane_owner(tabs, pane)?),
-            (Some(pane), Scope::Cli) => Some(tree::pane_owner(&self.tabs().await?, pane)?),
-            (
-                None,
-                Scope::Keys(KeyScope {
-                    selection, tabs, ..
-                }),
-            ) => selection.and_then(|selection| tree::viewed_tab(tabs, selection)),
-            (None, Scope::Cli) => None,
+        match pane.id {
+            Some(pane) => tree::pane_owner(&*self.scope_tabs(scope).await?, pane).map(Some),
+            None => Ok(scope.selected_tab()),
+        }
+    }
+
+    /// The keys' tabs, or `GET /tabs` on the CLI.
+    async fn scope_tabs<'s>(&self, scope: &'s Scope) -> Result<Cow<'s, Tabs>> {
+        Ok(match scope.keys() {
+            Some(keys) => Cow::Borrowed(&keys.tabs),
+            None => Cow::Owned(self.tabs().await?),
         })
     }
 
@@ -379,17 +363,11 @@ impl Client {
         if let Some(pane) = target.pane {
             return Ok(PaneAt::Pane(pane));
         }
-        match scope {
-            Scope::Keys(KeyScope {
-                selection: Some(NodeId::Pane(pane)),
-                ..
-            }) => Ok(PaneAt::Pane(*pane)),
-            Scope::Keys(KeyScope {
-                selection: Some(NodeId::Tab(tab)),
-                ..
-            }) => Ok(PaneAt::Tab(*tab)),
-            Scope::Keys(_) => Err(err!(Validation, "no tab selected")),
-            Scope::Cli => Err(err!(
+        match scope.keys().map(|keys| keys.selection) {
+            Some(Some(NodeId::Pane(pane))) => Ok(PaneAt::Pane(pane)),
+            Some(Some(NodeId::Tab(tab))) => Ok(PaneAt::Tab(tab)),
+            Some(None) => Err(err!(Validation, "no tab selected")),
+            None => Err(err!(
                 Validation,
                 "pass --tab or --pane, or run inside a pane"
             )),
@@ -405,26 +383,41 @@ impl Client {
             return Ok(None);
         }
         attachment
-            .or(match scope {
-                Scope::Keys(keys) => keys.attachment,
-                Scope::Cli => None,
-            })
+            .or(scope.keys().and_then(|keys| keys.attachment))
             .map(Some)
             .ok_or_else(|| err!(Validation, "pass --attachment or set SHIP_ATTACHMENT_ID"))
     }
 
     fn pane_target(target: PaneTarget, scope: &Scope) -> Result<IdOf<Pane>> {
-        if let Some(id) = target.id {
-            return Ok(id);
+        target
+            .id
+            .or_else(|| scope.selected_pane())
+            .ok_or_else(|| match scope {
+                Scope::Cli => err!(Validation, "pass --pane or run inside a pane"),
+                Scope::Keys(_) => err!(Validation, "no pane selected"),
+            })
+    }
+}
+
+impl Scope {
+    fn keys(&self) -> Option<&KeyScope> {
+        match self {
+            Self::Keys(keys) => Some(keys),
+            Self::Cli => None,
         }
-        match scope {
-            Scope::Cli => Err(err!(Validation, "pass --pane or run inside a pane")),
-            Scope::Keys(KeyScope {
-                selection: Some(NodeId::Pane(pane)),
-                ..
-            }) => Ok(*pane),
-            Scope::Keys(_) => Err(err!(Validation, "no pane selected")),
+    }
+
+    fn selected_pane(&self) -> Option<IdOf<Pane>> {
+        match self.keys()?.selection? {
+            NodeId::Pane(pane) => Some(pane),
+            NodeId::Tab(_) => None,
         }
+    }
+
+    /// The selected tab, or the selected pane's tab.
+    fn selected_tab(&self) -> Option<IdOf<Tab>> {
+        let keys = self.keys()?;
+        tree::viewed_tab(&keys.tabs, keys.selection?)
     }
 }
 

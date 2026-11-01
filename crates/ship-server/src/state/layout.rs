@@ -1,26 +1,18 @@
 //! Tree rewrites, stack edits and close selection repair. Zoom follows its slot.
 
-use ratatui::layout::Rect;
 use ship_core::{
     command::Direction,
     id::IdOf,
     layout::{Axis, CycleDirection, Layout, Ratio, Slot, Split, Taken},
     model::{Pane, Tab},
     prelude::*,
-    protocol::SplitDirection,
+    protocol::{Place, SplitDirection},
     screen::Size,
 };
 
 use super::geometry;
 
-pub(crate) fn axis(direction: SplitDirection) -> Axis {
-    match direction {
-        SplitDirection::Right => Axis::Horizontal,
-        SplitDirection::Down => Axis::Vertical,
-    }
-}
-
-pub(crate) fn split(
+fn split(
     tab: &mut Tab,
     anchor: Option<IdOf<Pane>>,
     direction: SplitDirection,
@@ -47,7 +39,7 @@ pub(crate) fn split(
     match (&mut tab.layout, anchor) {
         (None, None) => tab.layout = Some(Layout::Slot(Slot::new(pane))),
         (Some(layout), Some(anchor)) => {
-            if !insert(layout, anchor, axis(direction), &pane) {
+            if !insert(layout, anchor, direction.into(), &pane) {
                 return Err(err!(InvalidStructure, "split anchor is not in the tab"));
             }
         }
@@ -58,7 +50,7 @@ pub(crate) fn split(
 }
 
 /// Stack in front of the anchor's slot, or start an empty tab.
-pub(crate) fn stack(tab: &mut Tab, anchor: Option<IdOf<Pane>>, pane: Pane) -> Result<()> {
+fn stack(tab: &mut Tab, anchor: Option<IdOf<Pane>>, pane: Pane) -> Result<()> {
     let zoomed = tab.zoomed;
     match (&mut tab.layout, anchor) {
         (None, None) => tab.layout = Some(Layout::Slot(Slot::new(pane))),
@@ -74,27 +66,46 @@ pub(crate) fn stack(tab: &mut Tab, anchor: Option<IdOf<Pane>>, pane: Pane) -> Re
     Ok(())
 }
 
+/// Split or stack by `place`.
+pub(crate) fn place(
+    tab: &mut Tab,
+    anchor: Option<IdOf<Pane>>,
+    place: Place,
+    pane: Pane,
+) -> Result<()> {
+    match place {
+        Place::Split(direction) => split(tab, anchor, direction, pane),
+        Place::Stack => stack(tab, anchor, pane),
+    }
+}
+
+/// Clear the tab's zoom unless it's on `pane`.
+pub(crate) fn unzoom_unless(tab: &mut Tab, pane: IdOf<Pane>) {
+    if tab.zoomed.is_some_and(|zoomed| zoomed != pane) {
+        tab.zoomed = None;
+    }
+}
+
 /// Rotate a slot; zoom follows its front.
 pub(crate) fn cycle(tab: &mut Tab, pane: IdOf<Pane>, direction: CycleDirection) -> Result<()> {
-    let zoomed = tab.zoomed;
-    tab.layout
-        .as_mut()
-        .and_then(|layout| layout.slot_mut(pane))
-        .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?
-        .cycle(direction);
-    if let Some(was) = zoomed {
-        refocus_zoom(tab, was);
-    }
-    Ok(())
+    edit_slot(tab, pane, |slot| slot.cycle(direction))
 }
 
 pub(crate) fn bring_to_front(tab: &mut Tab, pane: IdOf<Pane>) -> Result<()> {
+    edit_slot(tab, pane, |slot| {
+        slot.bring_to_front(pane);
+    })
+}
+
+/// Find the pane's slot, edit it, then let zoom follow the slot's front.
+fn edit_slot(tab: &mut Tab, pane: IdOf<Pane>, edit: impl FnOnce(&mut Slot)) -> Result<()> {
     let zoomed = tab.zoomed;
-    tab.layout
-        .as_mut()
-        .and_then(|layout| layout.slot_mut(pane))
-        .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?
-        .bring_to_front(pane);
+    edit(
+        tab.layout
+            .as_mut()
+            .and_then(|layout| layout.slot_mut(pane))
+            .ok_or_else(|| err!(NotFound, "pane {} not found", pane))?,
+    );
     if let Some(was) = zoomed {
         refocus_zoom(tab, was);
     }
@@ -198,12 +209,7 @@ pub(crate) fn resize(
     direction: Direction,
     change: Change,
 ) -> Result<bool> {
-    let (axis, forward) = match direction {
-        Direction::Left => (Axis::Horizontal, false),
-        Direction::Right => (Axis::Horizontal, true),
-        Direction::Up => (Axis::Vertical, false),
-        Direction::Down => (Axis::Vertical, true),
-    };
+    let (axis, forward) = (direction.axis(), direction.forward());
     let layout = tab
         .layout
         .as_ref()
@@ -227,19 +233,12 @@ pub(crate) fn resize(
             .unwrap_or_default()
     };
     let area = frame(&split.first).union(frame(&split.second));
-    let length = |rect: Rect| match axis {
-        Axis::Horizontal => rect.width,
-        Axis::Vertical => rect.height,
-    };
-    let first = length(frame(&split.first));
-    let total = length(area);
+    let first = axis.length(frame(&split.first));
+    let total = axis.length(area);
     let (forward, cells) = match change {
         Change::By(cells) => (forward, cells),
         Change::To(to) => {
-            let origin = match axis {
-                Axis::Horizontal => area.x,
-                Axis::Vertical => area.y,
-            };
+            let origin = axis.start(area);
             // Include the shared border cell in the first side's length.
             let target = (u32::from(to) + 1).saturating_sub(u32::from(origin));
             let current = u32::from(first);

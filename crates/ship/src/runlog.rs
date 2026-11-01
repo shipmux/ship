@@ -109,12 +109,21 @@ impl RunLog {
     }
 
     pub fn path(&self) -> PathBuf {
-        self.part_path(self.part.lock().unwrap().number)
+        self.part_path(
+            self.part
+                .lock()
+                .expect("no writer panics holding the part")
+                .number,
+        )
     }
 
     /// Run output bypasses rotation accounting and keeps this part open.
     pub fn output(&self) -> io::Result<File> {
-        self.part.lock().unwrap().file.try_clone()
+        self.part
+            .lock()
+            .expect("no writer panics holding the part")
+            .file
+            .try_clone()
     }
 
     fn part_path(&self, number: u32) -> PathBuf {
@@ -135,7 +144,7 @@ impl RunLog {
 
 impl Write for &RunLog {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        let mut part = self.part.lock().unwrap();
+        let mut part = self.part.lock().expect("no writer panics holding the part");
         if part.written > 0 && part.written.saturating_add(bytes.len() as u64) > PART_BYTES {
             let path = self.part_path(part.number + 1);
             // A failed rollover must not discard the event.
@@ -154,7 +163,11 @@ impl Write for &RunLog {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.part.lock().unwrap().file.flush()
+        self.part
+            .lock()
+            .expect("no writer panics holding the part")
+            .file
+            .flush()
     }
 }
 
@@ -210,7 +223,10 @@ mod platform {
     pub fn link_current(dir: &Path, target: &Path) -> io::Result<()> {
         let temporary = dir.join(format!(".current-{}", process::id()));
         fs::remove_file(&temporary).ok();
-        symlink(target.file_name().unwrap(), &temporary)?;
+        symlink(
+            target.file_name().expect("a log part has a file name"),
+            &temporary,
+        )?;
         fs::rename(temporary, dir.join(CURRENT))
     }
 }

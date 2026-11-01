@@ -94,7 +94,7 @@ impl Client {
                     )
                 })?;
                 let tabs = self.tabs().await?;
-                let tab = tree::tab(&tabs, tree::pane_owner(&tabs, from)?)?;
+                let tab = tree::pane_tab(&tabs, from)?;
                 tab.slot(from)
                     .and_then(|slot| slot.behind(from))
                     .map(|pane| pane.id)

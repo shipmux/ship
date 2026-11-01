@@ -1,5 +1,5 @@
 //! The sidebar's tabs section: client-local folds and the visible tab rows,
-//! rendered by tui-tree-widget.
+//! drawn from one walk of the tree.
 
 use std::collections::HashSet;
 
@@ -15,7 +15,6 @@ use ship_core::{
     protocol::MoveTab,
     tree::{self, Tabs as TabTree},
 };
-use tui_tree_widget::{Tree, TreeItem, TreeState};
 
 use super::{Scroll, agents::icon};
 use crate::ui::{agents, attention::Attention, draw::tab_label};
@@ -25,25 +24,49 @@ use crate::ui::{agents, attention::Attention, draw::tab_label};
 const GUTTER: u16 = 3;
 const OPEN: &str = "▾ ";
 const CLOSED: &str = "▸ ";
-/// tui-tree-widget's fixed indent per level.
+/// The marker column a row without children leaves blank.
+const LEAF: &str = "  ";
+/// Columns per level.
 const INDENT: u16 = 2;
 
 #[derive(Default)]
 pub(in crate::ui) struct Tabs {
     collapsed: HashSet<IdOf<Tab>>,
-    /// Kept across frames so the offset survives and wheel scrolling works.
-    state: TreeState<IdOf<Tab>>,
-    /// Where the tree was last drawn.
+    /// First drawn row. Never leaves blank rows below the last one, and
+    /// moves to keep the selected row in view when that row changes.
+    offset: usize,
+    /// Where the rows were last drawn, gutter included.
     area: Rect,
-    /// Rows in the tree as last drawn, scrolled out of view or not.
-    rows: usize,
-    drawn: Vec<Drawn>,
+    /// Every visible row as last drawn, scrolled out of view or not, for
+    /// clicks, drop gaps and wheel scrolling.
+    rows: Vec<Row>,
+    /// The selected row as last drawn. A wheel scroll holds until the
+    /// selection or its row moves.
+    selected: Option<Placed>,
 }
 
-struct Drawn {
+/// A tab and its index among the visible rows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Placed {
+    tab: IdOf<Tab>,
+    index: usize,
+}
+
+/// One visible row, from one walk of the tree under unfolded ancestors.
+struct Row {
     tab: IdOf<Tab>,
     depth: u16,
-    y: u16,
+    fold: Fold,
+    label: Line<'static>,
+}
+
+/// A row's fold marker. Was two flags, one meaningless without the other.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Fold {
+    /// No children, no marker.
+    Leaf,
+    Open,
+    Folded,
 }
 
 /// A valid destination and the start of its underlined row.
@@ -54,13 +77,13 @@ pub(in crate::ui) struct Gap {
 }
 
 pub(in crate::ui) enum Hit {
-    Row(Row),
+    Row(Pointed),
     /// Below the last row.
     Below,
 }
 
 /// A tab row under the pointer.
-pub(in crate::ui) struct Row {
+pub(in crate::ui) struct Pointed {
     pub tab: IdOf<Tab>,
     /// On the fold marker, which only rows with children have.
     pub marker: bool,
@@ -78,13 +101,11 @@ impl Tabs {
 
     pub fn scroll(&mut self, scroll: Scroll) {
         match scroll {
-            Scroll::Up => {
-                self.state.scroll_up(1);
-            }
+            Scroll::Up => self.offset = self.offset.saturating_sub(1),
             // Stop once the last row reaches the bottom.
             Scroll::Down => {
-                if self.state.get_offset() + usize::from(self.area.height) < self.rows {
-                    self.state.scroll_down(1);
+                if self.offset + usize::from(self.area.height) < self.rows.len() {
+                    self.offset += 1;
                 }
             }
         }
@@ -113,16 +134,37 @@ impl Tabs {
 
     /// Tree order under unfolded ancestors, even while the sidebar is hidden.
     pub fn visible(&self, tabs: &TabTree) -> Vec<IdOf<Tab>> {
-        fn walk(section: &Tabs, tabs: &TabTree, rows: &mut Vec<IdOf<Tab>>) {
-            for tab in tabs.values() {
-                rows.push(tab.id);
-                if !section.collapsed.contains(&tab.id) {
-                    walk(section, &tab.tabs, rows);
+        self.walk(tabs).into_iter().map(|row| row.tab).collect()
+    }
+
+    fn walk(&self, tabs: &TabTree) -> Vec<Row> {
+        fn walk(section: &Tabs, tabs: &TabTree, depth: u16, rows: &mut Vec<Row>) {
+            for (position, tab) in tabs.values().enumerate() {
+                let fold = if tab.tabs.is_empty() {
+                    Fold::Leaf
+                } else if section.collapsed.contains(&tab.id) {
+                    Fold::Folded
+                } else {
+                    Fold::Open
+                };
+                // tmux's zoom flag, since a zoomed pane has no border to carry one.
+                let mut label = Line::from(tab_label(tab, position));
+                if tab.zoomed.is_some() {
+                    label.push_span(Span::from(" Z").cyan().bold());
+                }
+                rows.push(Row {
+                    tab: tab.id,
+                    depth,
+                    fold,
+                    label,
+                });
+                if fold == Fold::Open {
+                    walk(section, &tab.tabs, depth + 1, rows);
                 }
             }
         }
         let mut rows = Vec::new();
-        walk(self, tabs, &mut rows);
+        walk(self, tabs, 0, &mut rows);
         rows
     }
 
@@ -131,38 +173,38 @@ impl Tabs {
         self.collapsed.contains(&tab)
     }
 
-    pub fn fold(&mut self, tab: IdOf<Tab>, collapsed: bool) {
-        if collapsed {
+    pub fn collapse(&mut self, tab: IdOf<Tab>) {
+        self.collapsed.insert(tab);
+    }
+
+    pub fn expand(&mut self, tab: IdOf<Tab>) {
+        self.collapsed.remove(&tab);
+    }
+
+    pub fn toggle(&mut self, tab: IdOf<Tab>) {
+        if !self.collapsed.remove(&tab) {
             self.collapsed.insert(tab);
-        } else {
-            self.collapsed.remove(&tab);
         }
     }
 
-    /// The row drawn at `position`, gutter included, if any. The marker's
-    /// column repeats the tree widget's layout: the gutter, then the indent.
-    fn row_at(&self, position: Position) -> Option<Row> {
-        if !self.drawn.iter().any(|row| row.y == position.y) {
-            return None;
-        }
-        let path = self.state.rendered_at(Position {
-            x: position.x.max(self.indent()),
-            ..position
-        })?;
-        let tab = *path.last()?;
-        let depth = path.len().saturating_sub(1) as u16;
-        let start = self.indent().saturating_add(INDENT.saturating_mul(depth));
-        let symbol = if self.state.opened().contains(path) {
-            Some(OPEN)
-        } else {
-            self.collapsed.contains(&tab).then_some(CLOSED)
-        };
-        Some(Row {
-            tab,
-            marker: symbol.is_some_and(|symbol| {
-                (start..start.saturating_add(Span::raw(symbol).width() as u16))
-                    .contains(&position.x)
-            }),
+    /// The rows on screen, top first, one per line from `area.y`.
+    fn shown(&self) -> &[Row] {
+        let start = self.offset.min(self.rows.len());
+        let end = (self.offset + usize::from(self.area.height)).min(self.rows.len());
+        &self.rows[start..end]
+    }
+
+    /// The row drawn at `position`, gutter included, if any.
+    fn row_at(&self, position: Position) -> Option<Pointed> {
+        let index = position.y.checked_sub(self.area.y)?;
+        let row = self.shown().get(usize::from(index))?;
+        let start = self
+            .indent()
+            .saturating_add(INDENT.saturating_mul(row.depth));
+        Some(Pointed {
+            tab: row.tab,
+            marker: row.fold != Fold::Leaf
+                && (start..start.saturating_add(INDENT)).contains(&position.x),
         })
     }
 
@@ -176,9 +218,10 @@ impl Tabs {
         if !section.contains(at) {
             return None;
         }
-        let index = self.drawn.partition_point(|row| row.y < at.y);
-        let below = self.drawn.get(index);
-        let above = index.checked_sub(1).and_then(|index| self.drawn.get(index));
+        let shown = self.shown();
+        let index = usize::from(at.y - self.area.y).min(shown.len());
+        let below = shown.get(index);
+        let above = index.checked_sub(1).and_then(|index| shown.get(index));
         let indent = self.indent();
         let (to, depth, y) = match above {
             None => {
@@ -205,7 +248,7 @@ impl Tabs {
                     };
                     MoveTab::After(ancestor)
                 };
-                (to, depth, above.y)
+                (to, depth, self.area.y + (index - 1) as u16)
             }
         };
         movable(tabs, tab, to).then_some(Gap {
@@ -218,12 +261,9 @@ impl Tabs {
         self.area.x.saturating_add(GUTTER)
     }
 
-    pub fn toggle(&mut self, tab: IdOf<Tab>) {
-        self.fold(tab, !self.collapsed.contains(&tab));
-    }
-
-    /// The tree in `area`, and the drop line on its rows or the blank row
-    /// above them.
+    /// The rows in `area`, and the drop line on its rows or the blank row
+    /// above them. Keeps the first row in place unless blank rows would
+    /// show below the last, or the selected row is new or moved.
     #[expect(
         clippy::too_many_arguments,
         reason = "Keep the explicit drawing inputs prescribed by the locked UI design"
@@ -239,60 +279,66 @@ impl Tabs {
         renaming: Option<IdOf<Tab>>,
     ) {
         self.area = area;
-        self.state.close_all();
-        let items = self.items(tabs, &mut Vec::new());
-        let selected: Vec<_> = selection
-            .and_then(|node| tree::viewed_tab(tabs, node))
-            .and_then(|id| tree::path(tabs, NodeId::Tab(id)))
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|node| match node {
-                NodeId::Tab(id) => Some(id),
-                NodeId::Pane(_) => None,
-            })
-            .collect();
-        // Selecting asks the widget to bring the row into view, so only a new
-        // selection does, and a wheel scroll holds until then.
-        if self.state.selected() != selected.as_slice() {
-            self.state.select(selected);
-        }
-        self.rows = self.state.flatten(&items).len();
-        let band = Style::new().fg(Color::Reset).on_dark_gray().bold();
-        // The widget applies the selected band's style after the item's text.
-        let band = if renaming.is_some() && self.state.selected().last() == renaming.as_ref() {
-            band.cyan()
-        } else {
-            band
-        };
-        let rows = Rect {
+        self.rows = self.walk(tabs);
+        let text = Rect {
             x: self.indent(),
             width: area.width.saturating_sub(GUTTER),
             ..area
         };
-        // Tabs is an ID-keyed map, so sibling identifiers are unique.
-        let widget = Tree::new(&items)
-            .expect("unique tab IDs")
-            .node_open_symbol(OPEN)
-            .node_closed_symbol(CLOSED)
-            .style(Style::new().gray())
-            .highlight_style(band);
-        frame.render_stateful_widget(widget, rows, &mut self.state);
-        self.drawn = (area.y..area.bottom())
-            .filter_map(|y| {
-                let path = self.state.rendered_at(Position::new(rows.x, y))?;
-                Some(Drawn {
-                    tab: *path.last()?,
-                    depth: path.len().saturating_sub(1) as u16,
-                    y,
-                })
-            })
-            .collect();
-        // rendered_at returns the final identifier for blank rows below it.
-        self.drawn.dedup_by_key(|row| row.tab);
-        for row in &self.drawn {
-            let gutter = Rect::new(area.x, row.y, GUTTER, 1).intersection(area);
-            if self.state.selected().last() == Some(&row.tab) {
-                frame.buffer_mut().set_style(gutter, band);
+        let buffer = frame.buffer_mut();
+        buffer.set_style(text, Style::new().gray());
+        if text.is_empty() {
+            self.rows.clear();
+            return;
+        }
+        let selected = selection.and_then(|node| tree::viewed_tab(tabs, node));
+        let placed = selected.and_then(|tab| {
+            let index = self.rows.iter().position(|row| row.tab == tab)?;
+            Some(Placed { tab, index })
+        });
+        let height = usize::from(area.height);
+        self.offset = self.offset.min(self.rows.len().saturating_sub(height));
+        if let Some(Placed { index, .. }) = placed
+            && placed != self.selected
+        {
+            self.offset = self
+                .offset
+                .min(index)
+                .max((index + 1).saturating_sub(height));
+        }
+        self.selected = placed;
+        let band = Style::new().fg(Color::Reset).on_dark_gray().bold();
+        let band = if renaming.is_some() && renaming == selected {
+            band.cyan()
+        } else {
+            band
+        };
+        for (y, row) in (area.y..area.bottom()).zip(self.shown()) {
+            let marker = match row.fold {
+                Fold::Leaf => LEAF,
+                Fold::Open => OPEN,
+                Fold::Folded => CLOSED,
+            };
+            let indent = " ".repeat(usize::from(INDENT * row.depth));
+            let (x, _) = buffer.set_stringn(
+                text.x,
+                y,
+                format!("{indent}{marker}"),
+                usize::from(text.width),
+                Style::new(),
+            );
+            buffer.set_line(x, y, &row.label, text.right().saturating_sub(x));
+            let gutter = Rect::new(area.x, y, GUTTER, 1).intersection(area);
+            if Some(row.tab) == selected {
+                buffer.set_style(
+                    Rect {
+                        y,
+                        height: 1,
+                        ..text
+                    },
+                    band,
+                );
+                buffer.set_style(gutter, band);
             }
             let display = tree::tab(tabs, row.tab)
                 .ok()
@@ -301,7 +347,7 @@ impl Tabs {
                 && gutter.width > 1
             {
                 let icon = icon(display);
-                frame.buffer_mut()[(gutter.x + 1, row.y)]
+                buffer[(gutter.x + 1, y)]
                     .set_symbol(&icon.content)
                     .set_style(icon.style);
             }
@@ -320,42 +366,17 @@ impl Tabs {
             )
             .intersection(rows);
             for at in line.positions() {
-                frame.buffer_mut()[at].set_style(Style::new().underlined());
+                buffer[at].set_style(Style::new().underlined());
             }
         }
-    }
-
-    /// Opens unfolded rows in the tree state on the way.
-    fn items(
-        &mut self,
-        tabs: &TabTree,
-        path: &mut Vec<IdOf<Tab>>,
-    ) -> Vec<TreeItem<'static, IdOf<Tab>>> {
-        tabs.values()
-            .enumerate()
-            .map(|(position, tab)| {
-                path.push(tab.id);
-                if !tab.tabs.is_empty() && !self.collapsed.contains(&tab.id) {
-                    self.state.open(path.clone());
-                }
-                let children = self.items(&tab.tabs, path);
-                path.pop();
-                // tmux's zoom flag, since a zoomed pane has no border to carry one.
-                let mut row = Line::from(tab_label(tab, position));
-                if tab.zoomed.is_some() {
-                    row.push_span(Span::from(" Z").cyan().bold());
-                }
-                TreeItem::new(tab.id, row, children).expect("unique tab IDs")
-            })
-            .collect()
     }
 }
 
 /// Shared by drag-time feedback and the lane's turn-time re-check.
 pub(in crate::ui) fn movable(tabs: &TabTree, tab: IdOf<Tab>, to: MoveTab) -> bool {
-    let Some(path) = tree::path(tabs, NodeId::Tab(tab)) else {
+    if tree::tab(tabs, tab).is_err() {
         return false;
-    };
+    }
     let target = match to {
         MoveTab::Parent(None) => None,
         MoveTab::Parent(Some(id)) | MoveTab::Before(id) | MoveTab::After(id) => Some(id),
@@ -368,8 +389,7 @@ pub(in crate::ui) fn movable(tabs: &TabTree, tab: IdOf<Tab>, to: MoveTab) -> boo
     }
     match to {
         MoveTab::Parent(parent) => {
-            let current = path.iter().rev().nth(1).copied();
-            current != parent.map(NodeId::Tab)
+            tree::parent(tabs, tab) != parent
                 || tree::siblings(tabs, tab)
                     .and_then(|tabs| tabs.last())
                     .map(|(id, _)| *id)

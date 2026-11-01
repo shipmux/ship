@@ -36,7 +36,7 @@ pub(super) fn start(
     if let Some(attachment) = observer.attachment {
         child.env("SHIP_ATTACHMENT_ID", attachment.to_string());
     }
-    if let Some(NodeId::Pane(pane)) = observer.record().and_then(|record| record.selection) {
+    if let Some(NodeId::Pane(pane)) = observer.selection() {
         child.env("SHIP_PANE_ID", pane.to_string());
     }
     runner.spawn(label, child)

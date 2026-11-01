@@ -4,17 +4,21 @@ use std::{collections::HashMap, sync::Arc};
 
 use indexmap::IndexMap;
 use ratatui::{
-    layout::{Constraint, Direction, Layout as TuiLayout, Rect, Spacing},
+    layout::{Constraint, Layout as TuiLayout, Rect, Spacing},
     widgets::Block,
 };
 use ship_core::{
     geometry::{PaneGeometry, TabGeometry},
-    id::IdOf,
+    id::{Id, IdOf},
     layout::{Axis, Layout, Ratio, Slot},
-    model::{Pane, Tab},
+    model::{Pane, PaneStatus, Tab},
+    prelude::*,
+    protocol::Place,
     screen::Size,
     tree::Tabs,
 };
+
+use super::layout;
 
 pub(crate) const MIN_CONTENT: Size = Size { cols: 1, rows: 1 };
 
@@ -49,14 +53,11 @@ const TOTAL: u16 = 1 << 15;
 
 /// Fill weights cover the whole area with overlap; Ratio constraints leave
 /// a trailing cell unused. Quantize only for ratatui, never the stored share.
-pub(crate) fn halves(area: Rect, axis: Axis, ratio: Ratio) -> [Rect; 2] {
+fn halves(area: Rect, axis: Axis, ratio: Ratio) -> [Rect; 2] {
     let first = (f32::from(ratio) * f32::from(TOTAL)).round() as u16;
     let first = first.clamp(1, TOTAL - 1);
     TuiLayout::default()
-        .direction(match axis {
-            Axis::Horizontal => Direction::Horizontal,
-            Axis::Vertical => Direction::Vertical,
-        })
+        .direction(axis.into())
         .constraints([Constraint::Fill(first), Constraint::Fill(TOTAL - first)])
         .spacing(Spacing::Overlap(1))
         .areas(area)
@@ -70,10 +71,7 @@ pub(crate) fn ratio_for(area: Rect, axis: Axis, length: u16) -> Option<Ratio> {
     let first = |weight: u16| {
         let ratio = Ratio::try_from(f32::from(weight) / f32::from(TOTAL)).ok()?;
         let [first, _] = halves(area, axis, ratio);
-        Some(match axis {
-            Axis::Horizontal => first.width,
-            Axis::Vertical => first.height,
-        })
+        Some(axis.length(first))
     };
     // The least weight whose first half is at least `length`.
     let least = |length: u16| {
@@ -146,4 +144,58 @@ fn content(frame: Rect, bordered: bool, slot: &Slot) -> Rect {
         frame.width,
         frame.height - title,
     )
+}
+
+/// The content size a new pane would get: place a placeholder in a copy of
+/// `tab` at `anchor` by `place`, then read its rectangle from `tab()`. When
+/// another slot's zoom hides it, read the unzoomed copy instead.
+/// `InvalidStructure` when it or the split anchor's front would fall below
+/// `MIN_CONTENT`. An empty tab gets `size`.
+pub(crate) fn start_size(
+    tab: &Tab,
+    size: Size,
+    anchor: Option<IdOf<Pane>>,
+    place: Place,
+) -> Result<Size> {
+    let Some(anchor) = anchor else {
+        return Ok(size);
+    };
+    let new = Id::random();
+    let mut trial = tab.clone();
+    layout::place(&mut trial, Some(anchor), place, placeholder(new))?;
+    let mut geometry = self::tab(&trial, size);
+    if !geometry.panes.contains_key(&new) {
+        trial.zoomed = None;
+        geometry = self::tab(&trial, size);
+    }
+    // A stack's front is the placeholder itself.
+    let front = trial
+        .slot(anchor)
+        .expect("anchor stays in its tab")
+        .front()
+        .id;
+    if [new, front].iter().any(|pane| {
+        let content = geometry.panes[pane].content;
+        content.width < MIN_CONTENT.cols || content.height < MIN_CONTENT.rows
+    }) {
+        return Err(err!(InvalidStructure, "no space for new pane"));
+    }
+    Ok(Size::from(geometry.panes[&new].content))
+}
+
+/// A pane with only an ID, for trial placements.
+fn placeholder(id: IdOf<Pane>) -> Pane {
+    Pane {
+        id,
+        name: None,
+        command: Vec::new(),
+        cwd: String::new(),
+        dir: None,
+        title: None,
+        right_click_passthrough: false,
+        exit_behavior: Default::default(),
+        scrollback_bytes: 0,
+        status: PaneStatus::Running,
+        program: Default::default(),
+    }
 }
