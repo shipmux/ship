@@ -37,8 +37,8 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 4. Client API
 
-- [ ] 4.1 Replace `request`, `numbered` and `stream` with `call`, `build`, `Prepared` and `exchange`, and settle U-2.
-- [ ] 4.2 Add the `Scope` helpers and `scope_tabs`, and rewrite the target resolvers over them.
-- [ ] 4.3 Verify that every `ship tab` and `ship pane` subcommand prints the same output and errors as before.
+- [x] 4.1 Replace `request`, `numbered` and `stream` with `call`, `build`, `Prepared` and `exchange`, and settle U-2.
+- [x] 4.2 Add the `Scope` helpers and `scope_tabs`, and rewrite the target resolvers over them.
+- [x] 4.3 Verify that every `ship tab` and `ship pane` subcommand prints the same output and errors as before.
 
 ## Deviation log

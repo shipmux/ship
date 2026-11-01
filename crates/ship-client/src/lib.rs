@@ -24,91 +24,45 @@ use ship_core::{
 use tokio::time::timeout;
 use url::Url;
 
-/// `request` body argument for bodiless requests.
+/// `call` body argument for bodiless requests; a bare `None` can't name
+/// the body type.
 const NO_BODY: Option<&()> = None;
 
 const TIMEOUT: Duration = Duration::from_secs(2);
 
+/// A request ready to send.
+struct Prepared {
+    request: RequestBuilder,
+    /// The URL without credentials, for errors.
+    safe: Url,
+}
+
 impl Client {
-    /// Send one request and decode the expected success body. The two-second
-    /// timeout covers the whole exchange.
-    async fn request<B: Serialize + ?Sized, T: DeserializeOwned>(
+    /// JSON in, JSON out, numbered while attached. Most endpoints.
+    async fn call<T: DeserializeOwned>(
         &self,
         method: Method,
         path: &str,
-        body: Option<&B>,
-        attachment: Option<IdOf<Attachment>>,
-        expected_status: StatusCode,
+        body: Option<&(impl Serialize + ?Sized)>,
+        expect: StatusCode,
     ) -> Result<T> {
-        self.numbered(
-            method,
-            path,
-            body,
-            attachment,
-            self.next_order(),
-            expected_status,
-        )
-        .await
+        let mut prepared = self.build(method, path, None, self.next_order());
+        if let Some(body) = body {
+            prepared.request = prepared.request.json(body);
+        }
+        self.exchange(prepared, expect, json).await
     }
 
-    /// `request`, carrying `order` when there is one.
-    async fn numbered<B: Serialize + ?Sized, T: DeserializeOwned>(
+    /// The request with `x-ship-order` and, when given, the attachment
+    /// header. Callers take `order` when first polled, so numbers follow the
+    /// order requests start.
+    fn build(
         &self,
         method: Method,
         path: &str,
-        body: Option<&B>,
         attachment: Option<IdOf<Attachment>>,
         order: Option<Order>,
-        expected_status: StatusCode,
-    ) -> Result<T> {
-        let (request, safe) = self.build(method, path, body, attachment, order);
-        let exchange = async {
-            let response = open(request, expected_status).await?;
-            if let Some(revision) = response
-                .headers()
-                .get(REVISION_HEADER)
-                .and_then(|value| value.to_str().ok()?.parse().ok())
-            {
-                self.wrote(revision);
-            }
-            let bytes = response.bytes().await.map_err(http_error)?;
-            // A 204 has no body; decode it as JSON null so `()` succeeds.
-            let bytes: &[u8] = if bytes.is_empty() { b"null" } else { &bytes };
-            serde_json::from_slice(bytes)
-                .map_err(|error| err!(Serialization, "cannot decode response", @external: error))
-        };
-        timeout(TIMEOUT, exchange)
-            .await
-            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
-            .context(format!("request to {safe} failed"))
-    }
-
-    /// Start a streaming request. The two-second timeout covers only the
-    /// response head (and an error body); the returned body is unbounded.
-    async fn stream<B: Serialize + ?Sized>(
-        &self,
-        method: Method,
-        path: &str,
-        body: Option<&B>,
-    ) -> Result<Response> {
-        let (request, safe) = self.build(method, path, body, None, self.next_order());
-        timeout(TIMEOUT, open(request, StatusCode::OK))
-            .await
-            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
-            .context(format!("request to {safe} failed"))
-    }
-
-    /// The request, and its URL without credentials for error messages.
-    /// Callers take `order` when first polled, so numbers follow the order
-    /// requests start.
-    fn build<B: Serialize + ?Sized>(
-        &self,
-        method: Method,
-        path: &str,
-        body: Option<&B>,
-        attachment: Option<IdOf<Attachment>>,
-        order: Option<Order>,
-    ) -> (RequestBuilder, Url) {
+    ) -> Prepared {
         let mut url = self.url.clone();
         url.set_path(path);
         url.set_query(None);
@@ -118,43 +72,69 @@ impl Client {
         safe.set_password(None).ok();
 
         let mut request = self.http.request(method, url);
-        if let Some(body) = body {
-            request = request.json(body);
-        }
         if let Some(attachment) = attachment {
             request = request.header(ATTACHMENT_HEADER, attachment.to_string());
         }
         if let Some(order) = order {
             request = request.header(ORDER_HEADER, order.to_string());
         }
-        (request, safe)
+        Prepared { request, safe }
+    }
+
+    /// Send within `TIMEOUT`, check the status, record `x-ship-revision`,
+    /// then `read` the response. The one copy of the timeout and context.
+    ///
+    /// Any other status returns the server's `AppError` when the body is
+    /// one, so server messages reach the caller; otherwise the status and
+    /// body text.
+    async fn exchange<T>(
+        &self,
+        Prepared { request, safe }: Prepared,
+        expect: StatusCode,
+        read: impl AsyncFnOnce(Response) -> Result<T>,
+    ) -> Result<T> {
+        let exchange = async {
+            let response = request.send().await.map_err(http_error)?;
+            let status = response.status();
+            if status != expect {
+                let bytes = response.bytes().await.map_err(http_error)?;
+                return Err(
+                    serde_json::from_slice::<AppError>(&bytes).unwrap_or_else(|_| {
+                        let text = String::from_utf8_lossy(&bytes);
+                        let text = text.trim();
+                        err!(
+                            ErrorCode::UpstreamHttpStatus(status.as_u16()),
+                            "expected HTTP {}, received HTTP {}{}{}",
+                            expect.as_u16(),
+                            status.as_u16(),
+                            if text.is_empty() { "" } else { ": " },
+                            text
+                        )
+                    }),
+                );
+            }
+            if let Some(revision) = response
+                .headers()
+                .get(REVISION_HEADER)
+                .and_then(|value| value.to_str().ok()?.parse().ok())
+            {
+                self.wrote(revision);
+            }
+            read(response).await
+        };
+        timeout(TIMEOUT, exchange)
+            .await
+            .unwrap_or_else(|_| Err(err!(Timeout, "HTTP request timed out")))
+            .context(format!("request to {safe} failed"))
     }
 }
 
-/// Send and check the status. Any other status returns the server's
-/// `AppError` when the body is one, so server messages reach the caller;
-/// otherwise the status and body text.
-async fn open(request: RequestBuilder, expected_status: StatusCode) -> Result<Response> {
-    let response = request.send().await.map_err(http_error)?;
-    let status = response.status();
-    if status == expected_status {
-        return Ok(response);
-    }
+/// Decode a JSON body; a 204's empty body decodes as null, so `()` succeeds.
+async fn json<T: DeserializeOwned>(response: Response) -> Result<T> {
     let bytes = response.bytes().await.map_err(http_error)?;
-    Err(
-        serde_json::from_slice::<AppError>(&bytes).unwrap_or_else(|_| {
-            let text = String::from_utf8_lossy(&bytes);
-            let text = text.trim();
-            err!(
-                ErrorCode::UpstreamHttpStatus(status.as_u16()),
-                "expected HTTP {}, received HTTP {}{}{}",
-                expected_status.as_u16(),
-                status.as_u16(),
-                if text.is_empty() { "" } else { ": " },
-                text
-            )
-        }),
-    )
+    let bytes: &[u8] = if bytes.is_empty() { b"null" } else { &bytes };
+    serde_json::from_slice(bytes)
+        .map_err(|error| err!(Serialization, "cannot decode response", @external: error))
 }
 
 fn http_error(error: HttpError) -> AppError {
