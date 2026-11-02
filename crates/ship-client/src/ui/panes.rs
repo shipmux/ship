@@ -216,11 +216,16 @@ pub(super) fn titles(slot: &Slot, row: Rect) -> Vec<(IdOf<Pane>, Rect)> {
 
 /// The dim filler over `area` outside `shown`.
 fn fill(buf: &mut Buffer, area: Rect, shown: Rect) {
-    for position in area.positions() {
-        if !shown.contains(position) {
-            buf[position]
-                .set_symbol(FILLER)
-                .set_style(Style::new().dim());
+    let shown = area.intersection(shown);
+    for y in area.top()..area.bottom() {
+        // A row crossing `shown` keeps its middle; the rest is filler.
+        let (skip_from, skip_to) = if (shown.top()..shown.bottom()).contains(&y) {
+            (shown.left(), shown.right())
+        } else {
+            (area.right(), area.right())
+        };
+        for x in (area.left()..skip_from).chain(skip_to..area.right()) {
+            buf[(x, y)].set_symbol(FILLER).set_style(Style::new().dim());
         }
     }
 }
