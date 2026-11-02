@@ -181,6 +181,11 @@ impl Tabs {
         self.collapsed.remove(&tab);
     }
 
+    /// How many tabs are folded; each fold or unfold changes it.
+    pub fn fold_count(&self) -> usize {
+        self.collapsed.len()
+    }
+
     pub fn toggle(&mut self, tab: IdOf<Tab>) {
         if !self.collapsed.remove(&tab) {
             self.collapsed.insert(tab);
