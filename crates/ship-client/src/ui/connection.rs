@@ -4,6 +4,7 @@
 
 use std::{cell::RefCell, time::Duration};
 
+use futures_util::FutureExt;
 use ship_core::{
     id::{Attachment, IdOf},
     prelude::*,
@@ -111,6 +112,12 @@ impl<'a> Connection<'a> {
                 }
             }
         }
+    }
+
+    /// An event that has already arrived, without waiting for one.
+    pub fn ready(&mut self) -> Option<Link> {
+        let event = next(&mut self.events).now_or_never()?;
+        Some(self.read(event))
     }
 
     fn read(&mut self, event: Option<Result<SseEvent>>) -> Link {

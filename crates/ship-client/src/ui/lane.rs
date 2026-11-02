@@ -73,13 +73,11 @@ impl Item {
     }
 
     /// Changes what this client draws at its turn. Keys, pastes, mouse
-    /// frames and border drags change only server state, so they redraw on
-    /// its publication, not on each keystroke or drag step.
+    /// frames, border drags and selections change only server state, so
+    /// they redraw on its publication, not on each keystroke or drag step.
+    /// Actions redraw when their turn changes something local.
     pub fn redraws(&self) -> bool {
-        matches!(
-            self,
-            Self::Action(_) | Self::Select(_) | Self::Fold(_) | Self::Move(_) | Self::Menu(_)
-        )
+        matches!(self, Self::Fold(_) | Self::Move(_) | Self::Menu(_))
     }
 }
 

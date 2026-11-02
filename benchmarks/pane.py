@@ -107,10 +107,12 @@ def flood_loop(seconds):
     park()
 
 
-def agent(seconds, nonce, stamp_path):
+def agent(seconds, nonce, stamp_path, title=False):
     """A coding-agent-like screen: a static transcript, a 10 Hz spinner and
     token counter on the status line, and a new transcript line every 1.5 s
-    scrolled inside a region, the way an agent TUI appends output."""
+    scrolled inside a region, the way an agent TUI appends output. `title`
+    also sets the window title (OSC 2) to the spinner on every tick, as
+    Claude Code and Codex do."""
     cols, rows = size()
     rng = random.Random(5)
     words = "the build reads config parses tokens checks layout writes files runs tests and reports".split()
@@ -135,6 +137,8 @@ def agent(seconds, nonce, stamp_path):
             out(f"\x1b[{rows - 3};1H\n  {line}")
             next_line += 1.5
         out(f"\x1b[{rows};2H\x1b[36m{spinner[tick % 10]}\x1b[0m thinking {elapsed:5.1f}s · {tick * 37:6d} tokens  ")
+        if title:
+            out(f"\x1b]2;{spinner[tick % 10]} agent\x07")
         tick += 1
         time.sleep(max(0.0, start + tick * 0.1 - time.monotonic()))
     out(f"\x1b[r\x1b[{rows};2H{marker('agent', nonce)}\x1b[K")
@@ -177,6 +181,37 @@ def anim(seconds, fps, stamp_path, noise=False):
     park()
 
 
+def sized(name, cols, rows):
+    """`name` plus the size spelled in capitals, so the harness can tell a
+    repaint at the new size from one at the old size."""
+    digits = lambda n: "".join(ALPHA[10 + int(d)] for d in str(n))
+    return f"{name}X{digits(cols)}Y{digits(rows)}"
+
+
+def tag(name):
+    """A full, static screen of transcript text that names itself: `name`
+    at the top left, and `sized(name, cols, rows)` at the bottom right,
+    which only fits once the pane has its final size. Repaints on SIGWINCH
+    like a TUI does, so a resize's end to end latency is visible."""
+    import signal
+
+    words = "the build reads config parses tokens checks layout writes files runs tests and reports".split()
+
+    def paint(*_):
+        cols, rows = size()
+        rng = random.Random(name)
+        parts = ["\x1b[?25l\x1b[H\x1b[2J", f"\x1b[1;1H\x1b[1m{name}\x1b[0m"]
+        for r in range(2, rows):
+            parts.append(f"\x1b[{r};1H  " + " ".join(rng.choice(words) for _ in range(cols // 6))[: cols - 4])
+        label = sized(name, cols, rows)
+        parts.append(f"\x1b[{rows};{max(1, cols - len(label) + 1)}H{label}")
+        out("".join(parts))
+
+    signal.signal(signal.SIGWINCH, paint)
+    paint()
+    park()
+
+
 def probe(stamp_path):
     """Echo probe for latency: each received lowercase letter repaints one
     fixed spot with its token, so one keypress gives one recognisable echo."""
@@ -200,21 +235,25 @@ def probe(stamp_path):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("kind", choices=["logflood", "uniflood", "floodloop", "agent", "anim", "noise", "probe"])
+    p.add_argument("kind", choices=["logflood", "uniflood", "floodloop", "agent", "anim", "noise", "probe", "tag"])
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--mib", type=float, default=16)
     p.add_argument("--fps", type=float, default=60)
     p.add_argument("--nonce", type=int, default=0)
     p.add_argument("--stamp")
+    p.add_argument("--title", action="store_true", help="agent: set the window title on every tick")
+    p.add_argument("--name", default="TAG", help="tag: the capitals the screen names itself with")
     a = p.parse_args()
     if a.kind in ("logflood", "uniflood"):
         flood("log" if a.kind == "logflood" else "uni", a.mib, a.nonce, a.stamp)
     elif a.kind == "floodloop":
         flood_loop(a.seconds)
     elif a.kind == "agent":
-        agent(a.seconds, a.nonce, a.stamp)
+        agent(a.seconds, a.nonce, a.stamp, title=a.title)
     elif a.kind in ("anim", "noise"):
         anim(a.seconds, a.fps, a.stamp, noise=a.kind == "noise")
+    elif a.kind == "tag":
+        tag(a.name)
     else:
         probe(a.stamp)
 

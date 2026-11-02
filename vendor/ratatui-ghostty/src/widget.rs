@@ -37,6 +37,7 @@ pub struct TerminalWidget<'a, 'alloc, 'cb> {
     focused: bool,
     incremental: bool,
     cursor: CursorState,
+    rendered: Vec<u16>,
 }
 
 impl<'a, 'alloc, 'cb> TerminalWidget<'a, 'alloc, 'cb> {
@@ -50,6 +51,7 @@ impl<'a, 'alloc, 'cb> TerminalWidget<'a, 'alloc, 'cb> {
             focused: false,
             incremental: false,
             cursor: CursorState::default(),
+            rendered: Vec::new(),
         }
     }
 
@@ -69,6 +71,12 @@ impl<'a, 'alloc, 'cb> TerminalWidget<'a, 'alloc, 'cb> {
 
     pub fn cursor(&self) -> &CursorState {
         &self.cursor
+    }
+
+    /// The rows the last render wrote, so a copy of the buffer can take
+    /// just those.
+    pub fn rendered(&self) -> &[u16] {
+        &self.rendered
     }
 }
 
@@ -92,6 +100,7 @@ impl Widget for &mut TerminalWidget<'_, '_, '_> {
         let cursor_blinking = snapshot.cursor_blinking().unwrap_or(false);
 
         self.cursor = CursorState::default();
+        self.rendered.clear();
         if self.focused
             && cursor_visible
             && let Some(ref cursor) = cursor_viewport
@@ -143,6 +152,7 @@ impl Widget for &mut TerminalWidget<'_, '_, '_> {
                     continue;
                 }
             }
+            self.rendered.push(row_idx);
 
             // Selected cells swap foreground and background, as a reversed
             // cell would swap back.

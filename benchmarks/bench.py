@@ -43,6 +43,10 @@ PY = sys.executable
 COLS, ROWS = 200, 50
 # Ship is the build in this checkout; the others are whatever PATH finds.
 # <TOOL>_BENCH_BIN overrides any of them.
+# Seconds between peak-RSS samples. Each sample runs `ps` over every process
+# while the reader thread waits on the GIL, which shows up as a 10-20 ms stall
+# in the typing tail; 0 samples only before and after the window.
+RSS_SAMPLE_S = 1.0
 SHIP_BIN = os.environ.get("SHIP_BENCH_BIN", str(HERE.parent / "target/release/ship"))
 HERDR_BIN = os.environ.get("HERDR_BENCH_BIN") or shutil.which("herdr")
 ZELLIJ_BIN = os.environ.get("ZELLIJ_BENCH_BIN") or shutil.which("zellij")
@@ -173,11 +177,12 @@ class Session:
             os.execve(argv[0], argv, env.vars)
         self.pid, self.fd = pid, fd
         fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
-        self.sampler = threading.Thread(target=self._sample, daemon=True)
-        self.sampler.start()
+        if RSS_SAMPLE_S > 0:
+            self.sampler = threading.Thread(target=self._sample, daemon=True)
+            self.sampler.start()
 
     def _sample(self):
-        while not self.stop_sampling.wait(1.0):
+        while not self.stop_sampling.wait(RSS_SAMPLE_S):
             procs = mux_processes(self.env.home, self.mux.names)
             self.peak_rss = max(self.peak_rss, sum(p[1] for p in procs))
 
@@ -848,6 +853,7 @@ def interrupt(*_):
 
 
 def main():
+    global RSS_SAMPLE_S
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--mux", nargs="+", default=list(MUXES), choices=list(MUXES))
     p.add_argument("--workload", nargs="+", default=list(WORKLOADS), choices=list(WORKLOADS))
@@ -870,9 +876,13 @@ def main():
                    help="save every byte the client wrote as <scratch>/<run>/outer.bin")
     p.add_argument("--trace", action="store_true",
                    help="record Ship timelines to <scratch>/<run>/trace (slows Ship; profiling only)")
+    p.add_argument("--rss-sample-s", type=float, default=RSS_SAMPLE_S,
+                   help="seconds between peak-RSS samples; 0 samples only before and after the window. "
+                        "Each sample stalls the reader thread 10-20 ms, which inflates typing p99")
     p.add_argument("--out", default=str(HERE / "results"))
     p.add_argument("--summarize", metavar="JSONL", help="print the summary for a results file and exit")
     cfg = p.parse_args()
+    RSS_SAMPLE_S = cfg.rss_sample_s
     # SIGTERM unwinds like Ctrl-C, so the current run's teardown still runs.
     signal.signal(signal.SIGTERM, interrupt)
     if cfg.summarize:

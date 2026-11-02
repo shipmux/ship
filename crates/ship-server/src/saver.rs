@@ -137,15 +137,12 @@ struct Saver {
 }
 
 impl Saver {
+    /// Projects only at the deadline, in `flush`, not on every revision:
+    /// most revisions, such as title changes, project to what was written.
+    /// The first deadline is armed at start so a restart catches up.
     async fn run(mut self, mut replicas: watch::Receiver<Arc<Replica>>) {
-        let mut deadline = None;
+        let mut deadline = Some(Instant::now() + DEADLINE);
         loop {
-            let tabs = project(&replicas.borrow_and_update().tabs);
-            if tabs == self.written {
-                deadline = None;
-            } else {
-                deadline.get_or_insert_with(|| Instant::now() + DEADLINE);
-            }
             tokio::select! {
                 biased;
                 () = sleep_until(deadline.unwrap_or_else(Instant::now)), if deadline.is_some() => {
@@ -164,6 +161,7 @@ impl Saver {
                         }
                         return;
                     }
+                    deadline.get_or_insert_with(|| Instant::now() + DEADLINE);
                 }
             }
         }

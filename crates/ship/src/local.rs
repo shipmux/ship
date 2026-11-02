@@ -94,10 +94,9 @@ pub async fn ensure_running(client: &Client, name: &ServerName, config: &Path) -
                 }
                 Err(error) => return Err(error),
             }
-            sleep(
-                Duration::from_millis(100).min(deadline.saturating_duration_since(Instant::now())),
-            )
-            .await;
+            // The server binds within milliseconds; a refused probe costs microseconds.
+            sleep(Duration::from_millis(5).min(deadline.saturating_duration_since(Instant::now())))
+                .await;
         }
     }
     .await;

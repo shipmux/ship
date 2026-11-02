@@ -184,9 +184,10 @@ impl ServerState {
         self.retain_runtimes();
         self.revision += 1;
         tracing::debug!(revision = self.revision, "publishing replica");
+        let before = self.replicas.latest();
         let replica = self.replica();
         self.replicas.publish(Arc::clone(&replica));
-        self.apply_sizes(&replica.tabs);
+        self.apply_sizes(&replica.tabs, &before.tabs);
         Ok(result)
     }
 
@@ -238,16 +239,24 @@ impl ServerState {
     }
 
     /// Drop runtimes whose panes are gone and publish the rest's handles,
-    /// before `commit` publishes the replica.
+    /// before `commit` publishes the replica. Most commits, such as title
+    /// changes, keep the same panes and wake no one. A pane's handle never
+    /// changes, since every runtime starts with a new pane id.
     fn retain_runtimes(&mut self) {
         let panes: HashSet<_> = tree::panes(&self.tabs).map(|pane| pane.id).collect();
         self.runtimes.retain(|pane, _| panes.contains(pane));
-        self.live.send_replace(
-            self.runtimes
-                .iter()
-                .map(|(pane, runtime)| (*pane, runtime.handle.clone()))
-                .collect(),
-        );
+        let runtimes = &self.runtimes;
+        self.live.send_if_modified(|live| {
+            let same =
+                live.len() == runtimes.len() && runtimes.keys().all(|pane| live.contains_key(pane));
+            if !same {
+                *live = runtimes
+                    .iter()
+                    .map(|(pane, runtime)| (*pane, runtime.handle.clone()))
+                    .collect();
+            }
+            !same
+        });
     }
 
     /// The tab's viewed size, else the 80x24 fallback.
@@ -290,18 +299,18 @@ impl ServerState {
     }
 
     /// Use this commit's published content sizes, not another computation.
-    /// Unviewed and zoom-hidden panes keep their last terminal sizes.
-    fn apply_sizes(&self, tabs: &Tabs) {
-        for tab in tabs.values() {
-            if let Some(geometry) = &tab.geometry {
-                for (pane, geometry) in &geometry.panes {
-                    if let Some(runtime) = self.runtimes.get(pane) {
-                        let size = Size::from(geometry.content);
-                        runtime.handle.commands.send(PaneCommand::Resize(size)).ok();
-                    }
-                }
+    /// Unviewed and zoom-hidden panes keep their last terminal sizes. Only
+    /// sizes that differ from the `before` replica's are sent, so a commit
+    /// that moves nothing, such as a title change, wakes no pane. Every
+    /// runtime starts with a new pane id, so it is never in `before`.
+    fn apply_sizes(&self, tabs: &Tabs, before: &Tabs) {
+        let sent = content_sizes(before);
+        for (pane, size) in content_sizes(tabs) {
+            if sent.get(&pane) != Some(&size)
+                && let Some(runtime) = self.runtimes.get(&pane)
+            {
+                runtime.handle.commands.send(PaneCommand::Resize(size)).ok();
             }
-            self.apply_sizes(&tab.tabs);
         }
     }
 
@@ -424,6 +433,27 @@ pub struct Select {
 pub struct SetView {
     pub attachment: IdOf<Attachment>,
     pub view: ViewInput,
+}
+
+/// Every pane's content size in the tabs' published geometry, nested tabs
+/// included.
+fn content_sizes(tabs: &Tabs) -> HashMap<IdOf<Pane>, Size> {
+    let mut sizes = HashMap::new();
+    let mut pending: Vec<&Tabs> = vec![tabs];
+    while let Some(tabs) = pending.pop() {
+        for tab in tabs.values() {
+            if let Some(geometry) = &tab.geometry {
+                sizes.extend(
+                    geometry
+                        .panes
+                        .iter()
+                        .map(|(pane, geometry)| (*pane, Size::from(geometry.content))),
+                );
+            }
+            pending.push(&tab.tabs);
+        }
+    }
+    sizes
 }
 
 pub(crate) fn attachment_not_found(attachment: IdOf<Attachment>) -> AppError {

@@ -382,8 +382,8 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
         })?;
 
     // The blank grid, so a pane that never prints still has a screen.
-    let mut buffer = Buffer::default();
-    let first = capture(&session, &mut buffer).expect("a new session starts dirty");
+    let mut grid = Grid::default();
+    let first = capture(&session, &mut grid).expect("a new session starts dirty");
     let (screen, screen_rx) = watch::channel(Arc::new(first));
     let cancel = CancellationToken::new();
     let (done_tx, done) = oneshot::channel();
@@ -409,7 +409,7 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
         reported: false,
         pid,
         pointer: None,
-        buffer,
+        grid,
         screen,
         bus,
         pacing: Pacing::default(),
@@ -458,8 +458,7 @@ struct PaneTask {
     /// The attachment that last sent pointer input, which a mouse
     /// selection's copy goes to.
     pointer: Option<IdOf<Attachment>>,
-    /// Kept between captures so each one doesn't allocate a grid.
-    buffer: Buffer,
+    grid: Grid,
     screen: watch::Sender<Arc<Screen>>,
     bus: ActorRef<RelayBus>,
     pacing: Pacing,
@@ -651,7 +650,7 @@ impl PaneTask {
         if !self.reported && !self.exit.reaped {
             dir = self.pid.and_then(process_cwd);
         }
-        if let Some(screen) = capture(&self.session, &mut self.buffer) {
+        if let Some(screen) = capture(&self.session, &mut self.grid) {
             tracing::Span::current().record("screen", true);
             tracing::trace!(pane = %self.pane, "screen published");
             self.screen.send_replace(Arc::new(screen));
@@ -741,17 +740,31 @@ fn process_cwd(_pid: u32) -> Option<String> {
     None
 }
 
+/// The last capture, kept so the next one converts only the rows rendered
+/// since. Only [`capture`] writes it.
+#[derive(Default)]
+struct Grid {
+    /// The wrapper's rendered cells, which only `take_if_dirty` writes.
+    cells: Buffer,
+    rows: Vec<Row>,
+}
+
 /// The wrapper's rendered buffer and cursor as an owned `Screen`, or `None`
-/// when nothing was rendered since the last capture. `buffer` is replaced
-/// when the size changed, so no cell outlives a resize.
+/// when nothing was rendered since the last capture.
 #[traced(level = "trace")]
-fn capture(session: &SessionHandle, buffer: &mut Buffer) -> Option<Screen> {
-    let (cols, rows) = session.size();
-    let area = Rect::new(0, 0, cols, rows);
-    if buffer.area != area {
-        *buffer = Buffer::empty(area);
+fn capture(session: &SessionHandle, grid: &mut Grid) -> Option<Screen> {
+    let rendered = session.take_if_dirty(&mut grid.cells)?;
+    let Rect {
+        width: cols,
+        height: rows,
+        ..
+    } = grid.cells.area;
+    let width = usize::from(cols.max(1));
+    grid.rows.resize_with(usize::from(rows), Row::default);
+    for y in rendered.rows {
+        let y = usize::from(y);
+        grid.rows[y] = row(&grid.cells.content[y * width..(y + 1) * width]);
     }
-    let rendered = session.take_if_dirty(buffer, area)?;
     let cursor = rendered.cursor;
     Some(Screen {
         mouse: rendered.mouse,
@@ -760,11 +773,7 @@ fn capture(session: &SessionHandle, buffer: &mut Buffer) -> Option<Screen> {
             history: value.history,
         }),
         size: Size { cols, rows },
-        rows: buffer
-            .content
-            .chunks(usize::from(cols.max(1)))
-            .map(row)
-            .collect(),
+        rows: grid.rows.clone(),
         cursor: cursor.position.map(|position| Cursor {
             x: position.x,
             y: position.y,

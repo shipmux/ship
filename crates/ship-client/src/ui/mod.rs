@@ -81,7 +81,7 @@ use crate::{
     Client, KeyScope, Scope,
     keymap::{
         Action, AgentSettings, ClientAction, ClientAgents, ClientPane, ClientSettings, ClientTab,
-        ConfigAction, Menus, Sidebar as SidebarAction,
+        ConfigAction, Menus, ModeName, Sidebar as SidebarAction,
     },
     sound::Speaker,
     watch,
@@ -255,51 +255,34 @@ async fn drive(
             && local.observer.caught_up(client.written()))
         .then(|| local.observer.resized(area))
         .flatten();
-        // Set when this connection's work must be abandoned.
-        let mut cut = false;
-        let mut visible = tokio::select! {
-            link = connection.next(area) => match link {
-                Link::Shutdown => return Ok(Exit::ServerStopped),
-                Link::Event(SseEvent::Clipboard(ClipboardText { text })) => {
-                    guard.copy(&text)?;
-                    false
-                }
-                Link::Event(event) => local.apply(event),
-                Link::Lost => {
-                    cut = true;
-                    false
-                }
-                Link::PutFailed(error) => {
-                    local.message = Some(error.to_string());
-                    false
-                }
-            },
+        let effect = tokio::select! {
+            link = connection.next(area) => take(link, &mut local, guard)?,
             result = local.outbox.next() => match result {
                 Err(error) if refused(&error) => {
                     tracing::warn!(%error, "input refused; reattaching");
-                    cut = true;
-                    false
+                    Some(Effect::Cut)
                 }
                 Err(error) => {
                     local.message = Some(error.to_string());
-                    true
+                    Some(Effect::Redraw)
                 }
-                Ok(()) => false,
+                Ok(()) => None,
             },
-            result = lane.finished() => {
-                match result {
-                    Err(error) if refused(&error) => {
-                        tracing::warn!(%error, "request refused; reattaching");
-                        cut = true;
-                    }
-                    Err(error) => local.message = Some(error.to_string()),
-                    Ok(()) => {}
+            // A request's effect redraws when the server publishes it.
+            result = lane.finished() => match result {
+                Err(error) if refused(&error) => {
+                    tracing::warn!(%error, "request refused; reattaching");
+                    Some(Effect::Cut)
                 }
-                true
-            }
+                Err(error) => {
+                    local.message = Some(error.to_string());
+                    Some(Effect::Redraw)
+                }
+                Ok(()) => None,
+            },
             Some(ended) = local.ended.recv() => {
                 local.message = Some(run::describe(&ended));
-                true
+                Some(Effect::Redraw)
             }
             save = next(&mut saves) => {
                 match save {
@@ -311,7 +294,7 @@ async fn drive(
                     }
                     None => saves = None,
                 }
-                true
+                Some(Effect::Redraw)
             }
             () = until(local.attention.due()) => {
                 for fired in local.attention.fire(&local.observer, Instant::now()) {
@@ -322,12 +305,12 @@ async fn drive(
                         guard.notify(&fired.popup())?;
                     }
                 }
-                false
+                None
             }
             event = terminal_events.next() => match event {
                 Some(Ok(Event::FocusGained | Event::FocusLost)) => {
                     local.attention.set_focused(matches!(event, Some(Ok(Event::FocusGained))));
-                    true
+                    Some(Effect::Redraw)
                 }
                 Some(Ok(Event::Resize(cols, rows))) => {
                     terminal = (cols, rows);
@@ -335,14 +318,14 @@ async fn drive(
                     if matches!(local.overlay, Some(Overlay::Menu(_))) {
                         local.overlay = None;
                     }
-                    true
+                    Some(Effect::Redraw)
                 }
                 Some(Ok(Event::Mouse(event))) if local.overlay.is_none() && guard.mouse() && local.observer.connected => {
                     let mut mouse = mem::take(&mut local.mouse);
                     let was_dragging = mouse.dragging();
                     let routed = mouse.route(event, &local.scene(screen), lane.busy());
                     local.mouse = mouse;
-                    let mut visible = was_dragging || local.mouse.dragging();
+                    let mut redraw = was_dragging || local.mouse.dragging();
                     match routed {
                         Some(Routed::Lane(item)) => lane.push(item),
                         Some(Routed::Resize(edges)) => {
@@ -352,22 +335,22 @@ async fn drive(
                         }
                         Some(Routed::Sidebar(edit)) => {
                             local.sidebar.edit(edit, terminal.0);
-                            visible = true;
+                            redraw = true;
                         }
                         None => {}
                     }
-                    visible
+                    redraw.then_some(Effect::Redraw)
                 }
-                Some(Ok(Event::Mouse(_))) if local.overlay.is_none() => false,
+                Some(Ok(Event::Mouse(_))) if local.overlay.is_none() => None,
                 Some(Ok(event)) => {
                     if local.observer.connected {
                         lane.push(Item::Event(event));
-                        false
+                        None
                     } else {
                         if let Some(exit) = local.offline(event, guard, config, terminal.0) {
                             return Ok(exit);
                         }
-                        true
+                        Some(Effect::Redraw)
                     }
                 }
                 Some(Err(error)) => return Err(err!(Io, "cannot read the terminal", @external: error)),
@@ -377,28 +360,39 @@ async fn drive(
                 if let Some(resize) = resize {
                     connection.put(resize);
                 }
-                false
+                None
             }
             () = &mut signaled => return Ok(Exit::Signaled),
         };
+        let mut pass = Pass::default();
+        if let Some(exit) = pass.add(effect) {
+            return Ok(exit);
+        }
+        // Events that arrived while the last one was applied or drawn share
+        // this pass's redraw instead of each waiting for its own.
+        while !pass.cut
+            && let Some(link) = connection.ready()
+        {
+            if let Some(exit) = pass.add(take(link, &mut local, guard)?) {
+                return Ok(exit);
+            }
+        }
         // Keep the screens, but abandon all work from this connection.
-        if cut {
+        if pass.cut {
             lane.clear();
             let reattach = local
                 .cut(view_area(terminal, &local.sidebar))
                 .map_or(Reattach::Previous, Reattach::Remembered);
             connection.cut(reattach);
-            visible = true;
+            pass.redraw = true;
         }
         while let Some(item) = lane.next(&local.observer, client.written()) {
             if item.waits_for_input() && !local.outbox.is_empty() {
                 lane.first(vec![item]);
                 break;
             }
-            visible |= item.redraws();
-            let interpreting = matches!(item, Item::Event(_));
-            let overlay = local.overlay.is_some();
-            let mode = local.keys.shown_mode().cloned();
+            pass.redraw |= item.redraws();
+            let before = local.drawn();
             match local.turn(client, item, screen) {
                 Turn::Done => {}
                 Turn::Wait(request) => lane.wait(request),
@@ -408,7 +402,7 @@ async fn drive(
                         .now(action, guard, config, terminal.0)
                         .err()
                         .map(|error| error.to_string());
-                    visible = true;
+                    pass.redraw = true;
                 }
                 Turn::Detach => {
                     // Queued input must reach the server before the attachment
@@ -424,12 +418,42 @@ async fn drive(
                     return Ok(Exit::Detached);
                 }
             }
-            visible |= interpreting
-                && (overlay || local.overlay.is_some() || local.keys.shown_mode() != mode.as_ref());
+            // A turn that only reaches the server, like a tab switch, redraws
+            // on the publication; drawing now would delay the request. An
+            // open overlay takes the key itself: typing, moving the menu.
+            pass.redraw |= before.overlay.is_some() || local.drawn() != before;
         }
-        if visible {
+        if pass.redraw {
             redraw(guard, &mut local)?;
         }
+    }
+}
+
+/// What one event asks of the rest of its pass through the loop. `None`
+/// when nothing this client draws changed.
+enum Effect {
+    Redraw,
+    /// Abandon this connection's work and reattach.
+    Cut,
+    Exit(Exit),
+}
+
+/// What the events of one pass asked for, applied after they're all read.
+#[derive(Default)]
+struct Pass {
+    redraw: bool,
+    cut: bool,
+}
+
+impl Pass {
+    /// Record `effect`, handing back an exit for the loop to return.
+    fn add(&mut self, effect: Option<Effect>) -> Option<Exit> {
+        match effect? {
+            Effect::Redraw => self.redraw = true,
+            Effect::Cut => self.cut = true,
+            Effect::Exit(exit) => return Some(exit),
+        }
+        None
     }
 }
 
@@ -456,6 +480,15 @@ struct Local<'a> {
     /// Runs outlive this client, including its terminal.
     runner: Runner,
     ended: mpsc::UnboundedReceiver<RunEnded>,
+}
+
+/// What a turn can change on this client's screen without the server.
+#[derive(PartialEq)]
+struct Drawn {
+    overlay: Option<mem::Discriminant<Overlay>>,
+    mode: Option<ModeName>,
+    message: Option<String>,
+    folded: usize,
 }
 
 /// Published geometry shared by the router and pane painter.
@@ -490,6 +523,15 @@ impl Scene<'_> {
 }
 
 impl<'a> Local<'a> {
+    fn drawn(&self) -> Drawn {
+        Drawn {
+            overlay: self.overlay.as_ref().map(mem::discriminant),
+            mode: self.keys.shown_mode().cloned(),
+            message: self.message.clone(),
+            folded: self.sidebar.tabs.fold_count(),
+        }
+    }
+
     /// `None` before the first replica.
     fn view(&self) -> Option<View<'_>> {
         Some(View {
@@ -953,6 +995,23 @@ fn tolerant<'a, T>(
             result => result.map(|_| ()),
         }
     }))
+}
+
+/// Apply one message from the connection.
+fn take(link: Link, local: &mut Local, guard: &mut TerminalGuard) -> Result<Option<Effect>> {
+    Ok(match link {
+        Link::Shutdown => Some(Effect::Exit(Exit::ServerStopped)),
+        Link::Event(SseEvent::Clipboard(ClipboardText { text })) => {
+            guard.copy(&text)?;
+            None
+        }
+        Link::Event(event) => local.apply(event).then_some(Effect::Redraw),
+        Link::Lost => Some(Effect::Cut),
+        Link::PutFailed(error) => {
+            local.message = Some(error.to_string());
+            None
+        }
+    })
 }
 
 /// Clears unseen marks for what this frame shows before drawing it.
