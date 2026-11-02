@@ -15,6 +15,8 @@ uv run bench.py --summarize results/results-<stamp>.jsonl
 
 Quit your own Ship, Herdr and Zellij sessions before a run you mean to quote; they add background load.
 
+The harness samples peak RSS once a second (`--rss-sample-s`, 1 by default in `bench.py`, 0 in `extra.py`). Each sample runs `ps` over every process while the reader thread waits on the GIL, and that stalls the reader 10-20 ms once a second. A key typed during a stall reads as slow for every tool, so the typing p99 (about 1.5% of keys) is that stall, not the multiplexer: with `--rss-sample-s 0`, 5 reps of 300 keys gave a `type_flood` p99 of 0.6 ms for Ship, 1.2 for Herdr and 0.8 for tmux, against 8.3, 1.4 and 9.0 with the sampler on. Pass `--rss-sample-s 0` for any run whose tail you mean to read; `peak_rss_mb` then only sees the start and end of the window.
+
 ## Profiling Ship
 
 `--trace` sets `SHIP_TRACE` for Ship's server and client, so each run also records their timelines under `<scratch>/<run>/trace/`. Tracing slows Ship and the files are large (about 250 MB for a 10 s `type_flood`), so keep traced runs out of comparisons. For a typing run, `timeline.py` merges the client, server, harness and probe onto one clock:
@@ -23,6 +25,20 @@ Quit your own Ship, Herdr and Zellij sessions before a run you mean to quote; th
 uv run bench.py --mux ship --workload type_idle --reps 1 --keys 60 --trace
 python3 timeline.py /tmp/ship-bench-runs/ship-type_idle-0   # writes merged.json for https://ui.perfetto.dev
 ```
+
+Where the time goes inside Ship, beyond the trace: `profile.py` records on-CPU profiles of the server and client under a workload (`scale`, `flood` or `idle`) with [samply](https://github.com/mstange/samply), and `profsum.py` prints the top frames from the result without a browser. The binary needs symbols, and building it needs one more setting than you would guess:
+
+```sh
+LIBGHOSTTY_VT_SYS_OPTIMIZE=ReleaseFast CARGO_PROFILE_RELEASE_STRIP=false \
+  CARGO_PROFILE_RELEASE_DEBUG=line-tables-only CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO=packed \
+  cargo build --release --target-dir target-prof
+SHIP_BENCH_BIN=$PWD/target-prof/release/ship uv run profile.py scale --out /tmp/ship-prof/scale
+python3 profsum.py /tmp/ship-prof/scale/client.json.gz --top 25 --check
+```
+
+`DEBUG=true` makes `libghostty-vt-sys` build Ghostty in Zig `Debug` mode, which is several times slower; without `LIBGHOSTTY_VT_SYS_OPTIMIZE=ReleaseFast` a profile of the symbol build describes a different program. Compare numbers on the normal stripped build and use the symbol build only for profiles. samply cannot attach to system binaries, so only the Ship processes are profiled, and `--check` lists the Ghostty (Zig) frames it resolved. samply samples every thread, but a thread that burned CPU and then parked has that CPU charged to the park call, so `profsum.py` drops parked samples and counts the rest; `--cpu-weighted` shows the other view. Waiting time does not appear in an on-CPU profile; read the timeline for that.
+
+For a slow key, `keysplit.py` splits every key of a typing run at the probe (input leg, program, output leg) and lists the slow ones, and `keytrace.py` walks a `--trace` run key by key, with `--key N` to dump every client and server event in that key's window. `bench.py` and `extra.py` both write `clock.json` for a traced run, which is what lines the harness up with the traces.
 
 Runs on macOS and Linux. Needs [uv](https://docs.astral.sh/uv/), which reads the Python version and the one dependency (psutil) from the top of `bench.py`, and `herdr`, `zellij` and `tmux` on `PATH`. Set `SHIP_BENCH_BIN`, `HERDR_BENCH_BIN`, `ZELLIJ_BENCH_BIN` or `TMUX_BENCH_BIN` to measure a different binary, or leave a tool out with `--mux`. `uv run bench.py --help` lists the duration and key-count knobs.
 
@@ -33,6 +49,21 @@ taskset -c 0-3 uv run bench.py
 ```
 
 Results go to `results/results-<stamp>.jsonl`: a meta line, then one line per run with its metrics, an `ok` flag, the check that decided it, the load average before and after, and the end of the screen text. The meta line records the tool versions and the sha256 of each binary, the Ship commit and a hash of `git status`, the run-order seed, and the machine: Python version, platform, CPU model and count, memory, and whether it ran on battery. On macOS it adds `hw.model`, `sw_vers`, and the output of `pmset -g custom`, `pmset -g therm`, `pmset -g assertions`, `mdutil -s /` and `tmutil status`. On Linux it adds `/etc/os-release`, the CPUs the run was allowed, the frequency governor, turbo or boost state, and `systemd-detect-virt`. Each run's raw outer-terminal bytes are kept as `/tmp/ship-bench-runs/<tool>-<workload>-<rep>/outer.bin` (`--no-keep-raw` turns that off).
+
+## Other workloads (`extra.py`)
+
+`extra.py` has the workloads `bench.py` has no way to time, because they need to know when the outer terminal *shows* something rather than when some bytes went by. It stamps every chunk the client writes, replays the chunks through [pyte](https://github.com/selectel/pyte) and finds the first chunk after which the emulated screen satisfies a condition (a tab's name visible, a pane's size label at its new size). `--mux`, `--reps` and the isolation below work as in `bench.py`; the extra knobs are `--tabs` and `--panes` (20 and 3), `--keys`, `--idle-s`, `--cli-n`, `--resizes`, `--drag`, `--no-title` and `--trace`.
+
+| workload | what is timed | tools |
+|---|---|---|
+| `cold` | launching the client with no server running: first byte, first paint, prompt, and the echo after it. Herdr and Zellij show a first-run panel over the prompt; the prompt is timed under it | all |
+| `restore` | the same with 20 tabs saved on disk | Ship |
+| `attach` | a second client attaching to a server with the tabs running: first paint, and the next tab's screen | Ship, tmux |
+| `switch` | next-tab across 20 tabs of 3 `tag` panes (`pane.py tag`, a static screen that names itself and its size): when the first pane's name shows, and when every pane shows its settled size. The first lap visits tabs no client has viewed, the second revisits them | Ship, tmux |
+| `stack` | cycling a stack of 3 panes | Ship |
+| `scale` | 20 tabs of 3 `agent` panes with an OSC 2 title spinner (`--no-title` turns it off) none of which is on screen, plus typing in the starter tab: steady CPU split into server and client, memory, echo latency | Ship, tmux |
+| `cli` | round trips of the commands scripts call (version, list, read, send-input, create and close), median of `--cli-n` | Ship, tmux, Herdr |
+| `resize` | 12 window resizes, then a 60-step drag. The settle after a resize is the last chunk, because the screens are static, and the narrow size loses one pane's label in every tool, so its `ok` is false; treat the resize latency as a lower bound and use `--trace` to read the sequence | Ship, tmux |
 
 ## Isolation
 
