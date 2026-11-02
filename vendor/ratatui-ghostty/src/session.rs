@@ -282,6 +282,7 @@ impl SessionHandle {
         let shared = Arc::new(SharedBuffer {
             render: Mutex::new(RenderSnapshot {
                 buffer: Buffer::empty(Rect::new(0, 0, cols, rows)),
+                changed: vec![true; usize::from(rows)],
                 cursor: CursorState::default(),
                 scrolled: None,
                 mouse: false,
@@ -485,22 +486,42 @@ impl SessionHandle {
         snap.blit_to(dest, dest_area);
     }
 
-    /// Copies the rendered cells into `dest` like [`Self::blit_to`] and returns
-    /// the cursor, clearing the dirty flag, all under one lock. `None`, with
-    /// `dest` untouched, when nothing was rendered since the last clear.
+    /// Brings `dest`, a copy only this call writes, up to date with the
+    /// rendered cells and returns the cursor and the rows that changed,
+    /// clearing the dirty flag, all under one lock. `None`, with `dest`
+    /// untouched, when nothing was rendered since the last clear.
     ///
-    /// Renders set the flag under the same lock, so a render the copy missed
-    /// leaves it set, and a render it saw can't leave it set.
-    pub fn take_if_dirty(&self, dest: &mut Buffer, dest_area: Rect) -> Option<Rendered> {
-        let snap = self.shared.render.lock().unwrap_or_else(|e| e.into_inner());
+    /// A `dest` of the rendered size takes only the rows rendered since the
+    /// last take; any other `dest` becomes a whole copy, which also covers a
+    /// first take and a resize. Renders set the flag under the same lock, so
+    /// a render the copy missed leaves it set, and a render it saw can't
+    /// leave it set.
+    pub fn take_if_dirty(&self, dest: &mut Buffer) -> Option<Rendered> {
+        let mut snap = self.shared.render.lock().unwrap_or_else(|e| e.into_inner());
         if !self.shared.dirty.swap(false, Ordering::Relaxed) {
             return None;
         }
-        snap.blit_to(dest, dest_area);
+        let rows = if dest.area != snap.buffer.area {
+            *dest = snap.buffer.clone();
+            (0..snap.buffer.area.height).collect()
+        } else {
+            let width = usize::from(snap.buffer.area.width);
+            let rows: Vec<u16> = (0..snap.buffer.area.height)
+                .filter(|&y| snap.changed[usize::from(y)])
+                .collect();
+            for &y in &rows {
+                let line = usize::from(y) * width..(usize::from(y) + 1) * width;
+                dest.content[line.clone()].clone_from_slice(&snap.buffer.content[line]);
+            }
+            rows
+        };
+        debug_assert!(*dest == snap.buffer, "the copy missed a rendered row");
+        snap.changed.fill(false);
         Some(Rendered {
             cursor: snap.cursor.clone(),
             scrolled: snap.scrolled.clone(),
             mouse: snap.mouse,
+            rows,
         })
     }
 
@@ -569,6 +590,8 @@ pub struct Rendered {
     pub scrolled: Option<Scrolled>,
     /// Mouse tracking when these cells were rendered.
     pub mouse: bool,
+    /// The rows of the copy that changed, top to bottom.
+    pub rows: Vec<u16>,
 }
 
 /// Pane-relative coordinates, including positions outside a dragged pane.
@@ -597,6 +620,8 @@ enum SessionCommand {
 
 struct RenderSnapshot {
     buffer: Buffer,
+    /// Rows rendered since the last take, one per buffer row.
+    changed: Vec<bool>,
     cursor: CursorState,
     scrolled: Option<Scrolled>,
     mouse: bool,
@@ -1361,11 +1386,15 @@ fn render_to_shared(state: &mut SessionState<'_>, render_state: &mut RenderState
     let resized = snap.buffer.area() != &area;
     if resized {
         snap.buffer = Buffer::empty(area);
+        snap.changed = vec![true; usize::from(area.height)];
     }
     let mut widget = TerminalWidget::new(&mut state.terminal, render_state)
         .focused(state.focused)
         .incremental(!resized);
     (&mut widget).render(area, &mut snap.buffer);
+    for &y in widget.rendered() {
+        snap.changed[usize::from(y)] = true;
+    }
     snap.cursor = widget.cursor().clone();
     snap.mouse = state.terminal.is_mouse_tracking().unwrap_or(false);
     snap.scrolled = state.terminal.scrollbar().ok().and_then(|bar| {
