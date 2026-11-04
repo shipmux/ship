@@ -1,0 +1,77 @@
+name: Bench
+
+# A short Ship-only benchmark on pull requests that touch code, and on main so pull requests have something to
+# compare against. The results go up as an artifact, and bench-report.yml turns them into a pull request comment.
+# This job runs the pull request's code, so it gets no write access.
+on:
+  pull_request:
+    paths:
+      - crates/**
+      - vendor/**
+      - benchmarks/**
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .github/workflows/bench.yml
+  push:
+    branches: [main]
+    paths:
+      - crates/**
+      - vendor/**
+      - benchmarks/**
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .github/workflows/bench.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    name: Ship benchmark
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: rustup toolchain install
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.17.0
+      - run: sudo apt-get update && sudo apt-get install -y pkg-config libasound2-dev
+      # Not shared with ci.yml's cache: that one holds debug builds.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo build --release --locked
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      # About two and a half minutes: 3 reps of five workloads, with the idle and agent windows shortened. The
+      # byte counts the report compares are rates or per key, so the shorter windows don't change them.
+      # --max-load is off because a shared runner's load says nothing about this job.
+      - name: Run
+        working-directory: benchmarks
+        run: >-
+          uv run bench.py --mux ship --workload idle agent logflood anim type_idle --reps 3
+          --idle-s 5 --agent-s 8 --wire --rss-sample-s 0 --max-load 1000 --no-keep-raw
+          --out "$RUNNER_TEMP/bench"
+      - name: Summary
+        run: python3 benchmarks/compare.py "$RUNNER_TEMP"/bench/results-*.jsonl >> "$GITHUB_STEP_SUMMARY"
+      # bench-report.yml checks this number against the pull request's head commit before trusting it.
+      - if: github.event_name == 'pull_request'
+        run: echo "$PR_NUMBER" > "$RUNNER_TEMP/bench/pr-number"
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bench-results
+          path: ${{ runner.temp }}/bench
+          retention-days: 90

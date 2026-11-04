@@ -50,6 +50,14 @@ taskset -c 0-3 uv run bench.py
 
 Results go to `results/results-<stamp>.jsonl`: a meta line, then one line per run with its metrics, an `ok` flag, the check that decided it, the load average before and after, and the end of the screen text. The meta line records the tool versions and the sha256 of each binary, the Ship commit and a hash of `git status`, the run-order seed, and the machine: Python version, platform, CPU model and count, memory, and whether it ran on battery. On macOS it adds `hw.model`, `sw_vers`, and the output of `pmset -g custom`, `pmset -g therm`, `pmset -g assertions`, `mdutil -s /` and `tmutil status`. On Linux it adds `/etc/os-release`, the CPUs the run was allowed, the frequency governor, turbo or boost state, and `systemd-detect-virt`. Each run's raw outer-terminal bytes are kept as `/tmp/ship-bench-runs/<tool>-<workload>-<rep>/outer.bin` (`--no-keep-raw` turns that off).
 
+## In CI
+
+`.github/workflows/bench.yml` runs a short Ship-only `--wire` benchmark on every pull request that touches code, and on main. `bench-report.yml` then posts `compare.py`'s table on the pull request against the latest main run, as one comment it keeps updating. It compares only the byte counts that stayed within about 1% from run to run. Timings on a shared runner follow whatever else the machine is doing, and a flood's total bytes depend on how many screens went out while it ran, so those are shown but never flagged. To see the table for two local results files:
+
+```sh
+python3 compare.py results/results-<new>.jsonl --base results/results-<old>.jsonl
+```
+
 ## Other workloads (`extra.py`)
 
 `extra.py` has the workloads `bench.py` has no way to time, because they need to know when the outer terminal *shows* something rather than when some bytes went by. It stamps every chunk the client writes, replays the chunks through [pyte](https://github.com/selectel/pyte) and finds the first chunk after which the emulated screen satisfies a condition (a tab's name visible, a pane's size label at its new size). `--mux`, `--reps` and the isolation below work as in `bench.py`; the extra knobs are `--tabs` and `--panes` (20 and 3), `--keys`, `--idle-s`, `--cli-n`, `--resizes`, `--drag`, `--no-title` and `--trace`.
@@ -107,7 +115,7 @@ Pane programs live in `pane.py`. Each one is started by typing `exec python3 -I 
 - `cpu_pct`, `cpu_s`: user plus system CPU of every process named `ship`, `herdr`, `zellij` or `tmux` that carries the run's `HOME` (server and client), from `ps` before and after the window. Pane programs and shells are excluded. Floods report CPU seconds; steady workloads report percent of one core.
 - `peak_rss_mb`: highest sum of those processes' RSS, sampled once a second over the whole run.
 - `bytes`, `bytes_s`: bytes the client wrote to the outer terminal during the window, and per second.
-- `wire_bytes`, `wire_bytes_s`: bytes Ship's client received from its server during the window, compressed, from `nettop`. Only results from before Ship moved to a Unix socket have them: `nettop` counts TCP only, so new runs leave these empty for every tool, as Linux always did.
+- `wire_bytes`, `wire_bytes_s`: bytes Ship's client received from its server during the window, compressed. Only `--wire` runs have them, and only for Ship: the client then connects through `wiretap.py`, a relay that counts what the server sends back. The relay is its own process, but every byte takes one more hop, so keep `--wire` runs out of latency comparisons. Results from before Ship moved to a Unix socket have these from `nettop`, which counted TCP.
 - `bytes_per_key`, `wire_bytes_per_key`: the same, divided by the keys sent in a typing run.
 - `wall_ms`, `mb_s`: from the moment the flood program starts writing until the harness sees the end marker in the client's output, so it includes rendering. `mb_s` is input bytes over that time. `writer_ms` (raw file only) is how long the program's own write took.
 - `painted_fps`: frame labels the client actually painted, divided by the animation's length. Frames a tool coalesces don't count.

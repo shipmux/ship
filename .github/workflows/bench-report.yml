@@ -1,0 +1,72 @@
+name: Bench report
+
+# Posts bench.yml's results on the pull request, against the latest run on main, as one comment it keeps
+# updating. bench.yml can't comment itself: a pull request from a fork gets a read-only token. This workflow has
+# a write token, so it never runs the pull request's code. It checks out compare.py from main and reads the
+# artifacts only as data.
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] runs only main's compare.py; artifacts are read as data
+    workflows: [Bench]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  comment:
+    name: Comment on the pull request
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: benchmarks/compare.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Download results
+        run: |
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n bench-results -D "$RUNNER_TEMP/head"
+          base=$(gh run list -R "$GITHUB_REPOSITORY" -w bench.yml -b main -e push -s success -L 1 \
+            --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$base" ]; then
+            gh run download "$base" -R "$GITHUB_REPOSITORY" -n bench-results -D "$RUNNER_TEMP/base"
+          fi
+      - name: Find the pull request
+        id: pr
+        run: |
+          number=$(cat "$RUNNER_TEMP/head/pr-number")
+          case "$number" in '' | *[!0-9]*) echo "::error::bad pull request number"; exit 1 ;; esac
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$number" --jq .head.sha)
+          if [ "$sha" != "$HEAD_SHA" ]; then
+            echo "Pull request #$number has moved on from $HEAD_SHA; a newer run will comment."
+            exit 0
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+      - name: Comment
+        if: steps.pr.outputs.number
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          set -- "$RUNNER_TEMP"/head/results-*.jsonl
+          head=$1
+          base_args=()
+          for f in "$RUNNER_TEMP"/base/results-*.jsonl; do
+            [ -e "$f" ] && base_args=(--base "$f")
+          done
+          python3 -I benchmarks/compare.py "$head" "${base_args[@]}" > "$RUNNER_TEMP/comment.md"
+          existing=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- ship-bench -->"))) | .id' \
+            | head -n 1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" -F "body=@$RUNNER_TEMP/comment.md"
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F "body=@$RUNNER_TEMP/comment.md"
+          fi
