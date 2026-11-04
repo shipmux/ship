@@ -11,7 +11,7 @@ Every page of these docs has a plain markdown copy. [llms.txt](https://shipmux.d
 
 ## What Ship does not do yet
 
-Ship has no releases yet, so it builds from source. Before suggesting anything, read the README's [Not built yet](../../README.md#not-built-yet) list and keep those things out of your suggestions.
+Before suggesting anything, read the README's [Not built yet](../../README.md#not-built-yet) list and keep those things out of your suggestions.
 
 ## 1. Learn how the person works
 
@@ -19,7 +19,7 @@ Ask which terminal emulator and shell they use, which operating system, which co
 
 ## 2. Install
 
-[Building from source](building-from-source.md) lists the prerequisites and the build commands. Check each prerequisite with a command (`cargo --version`, `zig version` and so on) before installing anything, report what is missing, and run the build only with the person's go-ahead.
+On Linux (x86_64 or arm64) or macOS, the README's [install command](../../README.md#installation) installs the latest release to `~/.local/bin`; run it only with the person's go-ahead. Elsewhere, [Building from source](building-from-source.md) lists the prerequisites and the build commands. Check each prerequisite with a command (`cargo --version`, `zig version` and so on) before installing anything, report what is missing, and run the build only with the person's go-ahead.
 
 Done when `ship --version` prints a version.
 

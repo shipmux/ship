@@ -17,6 +17,7 @@ mod rename;
 mod run;
 mod sidebar;
 mod terminal;
+mod updates;
 
 use std::{
     cell::RefCell,
@@ -76,14 +77,16 @@ use self::{
     rename::Rename,
     sidebar::{Sidebar, movable},
     terminal::TerminalGuard,
+    updates::{Finished, Panel, Tracker},
 };
 use crate::{
     Client, KeyScope, Scope,
     keymap::{
         Action, AgentSettings, ClientAction, ClientAgents, ClientPane, ClientSettings, ClientTab,
-        ConfigAction, Menus, ModeName, Sidebar as SidebarAction,
+        ClientUpdates, ConfigAction, Menus, ModeName, Sidebar as SidebarAction,
     },
     sound::Speaker,
+    updates::{Freshness, UpdateContext},
     watch,
 };
 
@@ -132,6 +135,7 @@ pub async fn run(
     client: &Client,
     initial_selection: InitialSelection,
     config: &Path,
+    context: UpdateContext,
     run_output: impl Fn() -> Result<File> + Send + Sync + 'static,
 ) -> Result<()> {
     let signaled = signaled()?;
@@ -163,13 +167,16 @@ pub async fn run(
     // span, which every poll enters, as `.instrument` does with a fixed one.
     let span = RefCell::new(tracing::info_span!("client"));
     // Fail on an unreachable server before taking the terminal.
-    let connection = Connection::open(client, request, &span).await?;
+    let (connection, server) =
+        tokio::try_join!(Connection::open(client, request, &span), client.health())?;
+    let updates = Tracker::new(context, settings.updates.clone(), server)?;
     let exit = {
         let startup = Startup {
             client,
             config,
             settings,
             message,
+            updates,
         };
         let mut drive = pin!(drive(startup, connection, signaled, run_output));
         poll_fn(|cx| {
@@ -196,6 +203,7 @@ struct Startup<'a> {
     settings: ClientSettings,
     /// Why the file was unusable, for the status line.
     message: Option<String>,
+    updates: Tracker<'a>,
 }
 
 /// The loop: wait for whatever comes next, apply it, run the lane's
@@ -206,6 +214,7 @@ async fn drive(
         config,
         settings,
         message,
+        updates,
     }: Startup<'_>,
     mut connection: Connection<'_>,
     signaled: impl Future<Output = ()>,
@@ -224,6 +233,8 @@ async fn drive(
         overlay: None,
         outbox: Outbox::new(client),
         message,
+        note: None,
+        updates,
         attention: Attention::default(),
         speaker: Speaker::start(),
         agents: settings.agents,
@@ -306,6 +317,21 @@ async fn drive(
                     }
                 }
                 None
+            }
+            () = until(local.updates.due()) => {
+                local.updates.check(Freshness::Cached);
+                None
+            }
+            finished = local.updates.finished() => {
+                match finished {
+                    Finished::Check(result) => {
+                        local.note = local.updates.checked(result).or(local.note.take());
+                    }
+                    Finished::Run(result) => {
+                        local.message = local.updates.ran(result).or(local.message.take());
+                    }
+                }
+                Some(Effect::Redraw)
             }
             event = terminal_events.next() => match event {
                 Some(Ok(Event::FocusGained | Event::FocusLost)) => {
@@ -461,6 +487,7 @@ impl Pass {
 enum Overlay {
     Menu(Menu),
     Rename(Rename),
+    Updates(Panel),
 }
 
 /// Client-local state used to resolve each input at its turn.
@@ -473,6 +500,10 @@ struct Local<'a> {
     overlay: Option<Overlay>,
     outbox: Outbox<'a>,
     message: Option<String>,
+    /// An update's one-time note, shown beside `message` until the next
+    /// key action.
+    note: Option<String>,
+    updates: Tracker<'a>,
     attention: Attention,
     speaker: Speaker,
     /// Replaced whole on reload; readers take the piece they need.
@@ -488,6 +519,7 @@ struct Drawn {
     overlay: Option<mem::Discriminant<Overlay>>,
     mode: Option<ModeName>,
     message: Option<String>,
+    note: Option<String>,
     folded: usize,
 }
 
@@ -528,6 +560,7 @@ impl<'a> Local<'a> {
             overlay: self.overlay.as_ref().map(mem::discriminant),
             mode: self.keys.shown_mode().cloned(),
             message: self.message.clone(),
+            note: self.note.clone(),
             folded: self.sidebar.tabs.fold_count(),
         }
     }
@@ -591,12 +624,14 @@ impl<'a> Local<'a> {
                 let picked = match overlay {
                     Overlay::Menu(menu) => menu.handle(&event),
                     Overlay::Rename(rename) => rename.handle(&event),
+                    Overlay::Updates(panel) => panel.handle(&event),
                 };
                 match picked {
                     Picked::Run(action) => {
                         self.overlay = None;
                         Some(Item::Action(action))
                     }
+                    Picked::Stay(action) => Some(Item::Action(action)),
                     Picked::Close => {
                         self.overlay = None;
                         None
@@ -608,6 +643,7 @@ impl<'a> Local<'a> {
         };
         if matches!(item, Some(Item::Action(_))) {
             self.message = None;
+            self.note = None;
         }
         item
     }
@@ -622,6 +658,7 @@ impl<'a> Local<'a> {
         };
         self.sidebar.tabs.reconcile(&replica.tabs);
         self.mouse.reconcile(&replica.tabs);
+        self.updates.reconcile(&replica.tabs);
         let Some(Overlay::Rename(rename)) = &self.overlay else {
             return false;
         };
@@ -709,6 +746,7 @@ impl<'a> Local<'a> {
         self.sidebar.configure(settings.sidebar_width);
         self.keys.replace(settings.keymap);
         self.agents = settings.agents;
+        self.updates.configure(settings.updates);
         Ok(())
     }
 
@@ -962,6 +1000,22 @@ impl<'a> Local<'a> {
             ClientAction::Run(Run { command }) => {
                 run::start(&self.runner, client, &self.observer, command)
             }
+            ClientAction::Updates(ClientUpdates::Open {}) => {
+                self.overlay = Some(Overlay::Updates(Panel::default()));
+                Ok(())
+            }
+            ClientAction::Updates(ClientUpdates::Check {}) => {
+                self.updates.check(Freshness::Force);
+                Ok(())
+            }
+            ClientAction::Updates(ClientUpdates::Update {}) => {
+                if let (Some(attachment), Some(replica)) =
+                    (self.observer.attachment, &self.observer.replica)
+                {
+                    self.updates.update(client, attachment, &replica.tabs);
+                }
+                Ok(())
+            }
             ClientAction::Detach {} => return Turn::Detach,
             action @ (ClientAction::Mode(_)
             | ClientAction::Sidebar(_)
@@ -1026,10 +1080,11 @@ fn redraw(guard: &mut TerminalGuard, local: &mut Local) -> Result<()> {
     guard.set_cursor(cursor)
 }
 
-fn status<'a>(keys: &'a Keys, message: Option<&'a str>) -> Status<'a> {
+fn status<'a>(keys: &'a Keys, message: Option<&'a str>, note: Option<&'a str>) -> Status<'a> {
     Status {
         mode: keys.shown_mode(),
         message,
+        note,
         hints: keys
             .shown_mode()
             .and_then(|mode| keys.keymap.modes.get(mode))

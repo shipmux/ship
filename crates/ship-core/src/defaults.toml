@@ -17,6 +17,11 @@ exit_behavior = "close"              # "close" | "keep" | "keep_failed": when th
 mouse = true                         # bool; capture the mouse
 sidebar_width = 26                   # columns; at least 10, and the panes keep at least 20
 
+[client.updates]
+check = true                         # bool; check at startup and hourly
+# command = "brew upgrade ship"      # what ship update runs instead of the build's method
+# latest_command = "..."             # prints the latest version instead of asking GitHub
+
 [client.agents]
 rows = [["icon", "app", "state"], ["tab"]]  # lines of: icon app state tab pane title msg
 delay_ms = 1000                      # ms a new state must hold before it notifies
@@ -52,6 +57,7 @@ tab = [
 global = [
   { label = "new tab", action = { server.tab.create = { starter = "shell", select = true } } },
   { label = "hide sidebar", action = { client.sidebar.toggle = {} } },
+  { label = "updates", action = { client.updates.open = {} } },
   { label = "reload config", action = { client.config.reload = {} } },
   { label = "detach", action = { client.detach = {} } },
 ]

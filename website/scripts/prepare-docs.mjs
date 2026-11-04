@@ -29,7 +29,7 @@ const REPO_DOCS = "docs/site"; // where src sits in the repository, for links th
 const REPO = "https://github.com/shipmux/ship";
 // links to the repo README that the landing page covers go there instead of to GitHub, keyed by the README anchor.
 // Anything else in the README (the agent guide's "not built yet", which names the README as the source of truth) stays on GitHub.
-const LANDING = { "": "/", "what-works-today": "/#deck" };
+const LANDING = { "": "/", "what-works-today": "/#deck", installation: "/#install" };
 const prefix = (process.env.DOCS_PREFIX ?? "/docs").replace(/\/$/, "");
 const ref = process.env.DOCS_REF ?? "main";
 const channel = process.env.DOCS_CHANNEL ?? "main";

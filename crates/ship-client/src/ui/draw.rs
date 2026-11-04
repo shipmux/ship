@@ -27,6 +27,8 @@ pub(super) struct Status<'a> {
     pub mode: Option<&'a ModeName>,
     /// The last error, or "not available yet".
     pub message: Option<&'a str>,
+    /// An update's one-time note.
+    pub note: Option<&'a str>,
     /// The mode's `chord label` hints, in the file's order.
     pub hints: Vec<&'a str>,
 }
@@ -66,6 +68,7 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
             frame,
             sidebar_area,
             &local.observer,
+            local.updates.row(),
             &local.attention,
             &local.agents.rows,
             local.mouse.gap(),
@@ -80,7 +83,7 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
     }
     let scene = local.scene(frame.area());
     let observer = &local.observer;
-    let status = super::status(&local.keys, local.message.as_deref());
+    let status = super::status(&local.keys, local.message.as_deref(), local.note.as_deref());
     let selected = observer.selected();
     let mut cursor = None;
     match selected.as_ref().and_then(|selected| {
@@ -137,9 +140,18 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
         // A cursor under the overlay would sit on top of it.
         cursor = cursor.filter(|(at, _)| !overlay.contains(*at));
     }
-    if let Some(Overlay::Menu(menu)) = &mut local.overlay {
-        menu.draw(frame);
-        return None;
+    match &mut local.overlay {
+        Some(Overlay::Menu(menu)) => {
+            menu.draw(frame);
+            return None;
+        }
+        Some(Overlay::Updates(panel)) => {
+            if let Some(replica) = &local.observer.replica {
+                panel.draw(frame, frame.area(), &local.updates, &replica.tabs);
+            }
+            return None;
+        }
+        _ => {}
     }
     let (at, cursor) = cursor?;
     frame.set_cursor_position(at);
@@ -189,6 +201,9 @@ fn status_line<'a>(
     // A config error spans several lines; its first says where it is.
     if let Some(message) = status.message.and_then(|message| message.lines().next()) {
         spans.push(Span::from(format!(" {message}")).red());
+    }
+    if let Some(note) = status.note {
+        spans.push(Span::from(format!(" {note}")).cyan());
     }
     // Herdr's panel background, a step up from the terminal's.
     let mut bar = Line::from(spans).bg(Color::Black);

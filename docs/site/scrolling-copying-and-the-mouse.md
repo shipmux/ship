@@ -30,6 +30,7 @@ Programs that use the mouse themselves, like Neovim with `mouse=a`, get clicks a
 ## Clicking and dragging
 
 - Click a pane to select it, or a tab or agent in the sidebar to jump there.
+- Click the version at the bottom of the sidebar to see what's new and update. It turns `v0.1.0 → v0.2.0` when a release is out.
 - Drag the border between panes to resize them.
 - Drag the sidebar's right edge to make it wider or narrower. Drag the `agents` line to change how much room tabs and agents get.
 - Drag a tab in the sidebar to move it. Move left or right while dragging to choose how deeply it nests; an underline shows where it will land.
@@ -42,6 +43,6 @@ Right-click a pane, a tab or the empty sidebar space for a menu of actions, or c
 | --- | --- |
 | Pane | Split right, split down, stack, edit scrollback, zoom, right-click passthrough, rename, close |
 | Tab | New tab, new child tab, rename, close |
-| Global | New tab, hide sidebar, reload config, detach |
+| Global | New tab, hide sidebar, updates, reload config, detach |
 
 Some programs want right-clicks for themselves. Turn on **right-click passthrough** for that pane, from its menu or with `ship pane set --right-click-passthrough true`, and right-clicks inside go to the program whenever it's using the mouse. Its label and border still open Ship's menu. You can change what's in each menu in the [config](configuration.md#menus).

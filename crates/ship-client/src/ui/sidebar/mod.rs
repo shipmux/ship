@@ -24,7 +24,7 @@ pub(super) use self::{
     agents::Agents,
     tabs::{Gap, Tabs, movable},
 };
-use super::{attention::Attention, mouse::SidebarEdit, observer::Observer};
+use super::{attention::Attention, mouse::SidebarEdit, observer::Observer, updates::VersionRow};
 use crate::keymap::Token;
 
 const MIN_WIDTH: u16 = 10;
@@ -34,6 +34,8 @@ const BUTTON: &str = "≡";
 const HEADING: u16 = 2;
 /// The fewest rows either section keeps when the split moves.
 const MIN_ROWS: u16 = 3;
+/// The version row, below the agents.
+const FOOTER: u16 = 1;
 
 pub(super) struct Sidebar {
     pub shown: bool,
@@ -64,6 +66,8 @@ pub(super) enum Hit {
     Tabs(tabs::Hit),
     /// An agent's rows.
     Agent(IdOf<Pane>),
+    /// The version row at the bottom.
+    Version,
 }
 
 impl Sidebar {
@@ -175,6 +179,10 @@ impl Sidebar {
                 Hit::Heading
             });
         }
+        // Drawn last, so it wins where a short sidebar overlaps it.
+        if at.y == self.area.bottom().saturating_sub(FOOTER) {
+            return Some(Hit::Version);
+        }
         let split = self.split_row();
         match at.y.cmp(&split) {
             Ordering::Less => self.tabs.hit(at).map(Hit::Tabs),
@@ -183,8 +191,9 @@ impl Sidebar {
         }
     }
 
-    /// The heading, tabs on top with rollup icons, the divider row, and
-    /// agents below. The tabs and selection come from `observer`.
+    /// The heading, tabs on top with rollup icons, the divider row, agents
+    /// below and the version row at the bottom. The tabs and selection come
+    /// from `observer`.
     #[expect(
         clippy::too_many_arguments,
         reason = "Keep the explicit drawing inputs prescribed by the locked UI design"
@@ -194,6 +203,7 @@ impl Sidebar {
         frame: &mut Frame,
         area: Rect,
         observer: &Observer,
+        version: VersionRow,
         attention: &Attention,
         rows: &[Vec<Token>],
         gap: Option<&Gap>,
@@ -257,12 +267,13 @@ impl Sidebar {
             }
             .intersection(content),
         );
-        let below = split.saturating_add(1).min(content.bottom());
+        let footer = content.bottom().saturating_sub(FOOTER).max(content.y);
+        let below = split.saturating_add(1).min(footer);
         self.agents.draw(
             frame,
             Rect {
                 y: below,
-                height: content.bottom() - below,
+                height: footer - below,
                 ..content
             },
             &replica.tabs,
@@ -270,15 +281,30 @@ impl Sidebar {
             attention,
             rows,
         );
+        let version = match version {
+            VersionRow::Current(installed) => Line::from(format!(" v{installed}")).dark_gray(),
+            VersionRow::Available { installed, latest } => {
+                Line::from(format!(" v{installed} → v{latest}")).cyan()
+            }
+        };
+        frame.render_widget(
+            version,
+            Rect {
+                y: footer,
+                height: content.bottom() - footer,
+                ..content
+            },
+        );
     }
 }
 
 /// The divider row's offset in a sidebar `height` rows tall: 10–90% of it,
 /// leaving at least `MIN_ROWS` tab rows under the heading and agent rows
-/// under the divider. The agents' minimum wins when both cannot fit.
+/// between the divider and the version row. The agents' minimum wins when
+/// both cannot fit.
 fn split_clamp(offset: u16, height: u16) -> u16 {
     let min = height.div_ceil(10).max(HEADING + MIN_ROWS);
     let max = (u32::from(height) * 9 / 10) as u16;
-    let max = max.min(height.saturating_sub(MIN_ROWS + 1));
+    let max = max.min(height.saturating_sub(MIN_ROWS + 1 + FOOTER));
     offset.clamp(min.min(max), max)
 }

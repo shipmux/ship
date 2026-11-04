@@ -21,13 +21,17 @@ use ship_core::{
     prelude::*,
 };
 
-use crate::sound::{Clip, Cue};
+use crate::{
+    sound::{Clip, Cue},
+    updates::UpdateSettings,
+};
 
 pub struct ClientSettings {
     pub mouse: bool,
     pub keymap: Keymap,
     pub sidebar_width: u16,
     pub agents: AgentSettings,
+    pub updates: UpdateSettings,
 }
 
 /// `[client.agents]` with defaults applied.
@@ -265,6 +269,7 @@ impl Action {
             Self::Client(ClientAction::Sidebar(action)) => action.into(),
             Self::Client(ClientAction::Config(action)) => action.into(),
             Self::Client(ClientAction::Agents(action)) => action.into(),
+            Self::Client(ClientAction::Updates(action)) => action.into(),
             Self::Client(action) => action.into(),
         };
         Cow::Borrowed(name)
@@ -287,6 +292,7 @@ pub enum ClientAction {
     Detach {},
     Config(ConfigAction),
     Agents(ClientAgents),
+    Updates(ClientUpdates),
 }
 
 #[derive(Clone, Debug, Deserialize, strum::IntoStaticStr)]
@@ -377,6 +383,18 @@ pub enum ConfigAction {
     Reload {},
 }
 
+#[derive(Clone, Debug, Deserialize, strum::IntoStaticStr)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[strum(serialize_all = "snake_case")]
+pub enum ClientUpdates {
+    /// The updates panel.
+    Open {},
+    /// Ask for the latest release now, even with checks off.
+    Check {},
+    /// Run `ship update` in tab `update`; nothing without a method.
+    Update {},
+}
+
 /// The client's part of the config file, already over the defaults except
 /// for modes, which `over_defaults` merges by chord.
 #[derive(Deserialize)]
@@ -398,6 +416,15 @@ struct Client {
     #[serde(default)]
     modes: HashMap<ModeName, ModeFile>,
     agents: AgentsFile,
+    updates: UpdatesFile,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpdatesFile {
+    check: bool,
+    command: Option<String>,
+    latest_command: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -469,6 +496,7 @@ impl ClientSettings {
             menus,
             modes: file_modes,
             agents,
+            updates,
         } = file.client;
         let mut modes = config::defaults::<File>().client.modes;
         for (name, over) in file_modes {
@@ -496,6 +524,11 @@ impl ClientSettings {
                 delay: Duration::from_millis(agents.delay_ms),
                 popups: agents.popups,
                 sounds: agents.sounds.load(base),
+            },
+            updates: UpdateSettings {
+                check: updates.check,
+                command: updates.command,
+                latest_command: updates.latest_command,
             },
         }
     }

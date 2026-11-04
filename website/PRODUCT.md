@@ -36,7 +36,7 @@ Ship runs in a terminal on Linux and macOS (Windows best effort). Users install 
 
 ## Capabilities and Constraints
 
-Use `README.md` as the source of truth for what works today and what isn't built. Never claim a feature from "Not built yet" (releases, built-in history search, keyboard copy mode, resuming agents after restart, a combined multi-server view). Manual SSH access and Unix socket forwarding already work. Cyan has used Ship successfully on Linux; do not describe Linux as untested. Historical macOS-only benchmarks are not a statement about current platform support.
+Use `README.md` as the source of truth for what works today and what isn't built. Never claim a feature from "Not built yet" (packages, built-in history search, keyboard copy mode, resuming agents after restart, a combined multi-server view). Manual SSH access and Unix socket forwarding already work. Cyan has used Ship successfully on Linux; do not describe Linux as untested. Historical macOS-only benchmarks are not a statement about current platform support.
 
 Agent display states, from `openspec/specs/agent-attention/spec.md`. Any crewmate mood must sit next to its glyph and colour, never replace it:
 

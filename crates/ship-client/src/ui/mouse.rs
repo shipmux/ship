@@ -21,6 +21,7 @@ use super::{
         tabs::{self, Pointed},
     },
 };
+use crate::keymap::{Action, ClientAction, ClientUpdates};
 
 /// Where a mouse event goes.
 pub(super) enum Routed {
@@ -66,6 +67,10 @@ enum Gesture {
     Agent {
         at: Position,
         pane: IdOf<Pane>,
+    },
+    /// Opens the updates panel on release, unless the pointer moved.
+    Version {
+        at: Position,
     },
 }
 
@@ -126,7 +131,7 @@ impl Mouse {
         ) && let Some(mut gesture) = self.gesture.take()
         {
             let release = matches!(event.kind, MouseEventKind::Up(_));
-            if let Gesture::Agent { at: origin, .. } = &gesture
+            if let Gesture::Agent { at: origin, .. } | Gesture::Version { at: origin } = &gesture
                 && at != *origin
             {
                 return None;
@@ -164,6 +169,9 @@ impl Mouse {
                     .shown
                     .then_some(Routed::Sidebar(SidebarEdit::Split(at.y))),
                 Gesture::Agent { pane, .. } => release.then(|| select(NodeId::Pane(*pane))),
+                Gesture::Version { .. } => release.then_some(Routed::Lane(Item::Action(
+                    Action::Client(ClientAction::Updates(ClientUpdates::Open {})),
+                ))),
                 Gesture::Border(grabs) => {
                     if grabs.iter().any(|grab| {
                         !scene
@@ -226,6 +234,10 @@ impl Mouse {
                     }
                     (MouseButton::Left, Hit::Agent(pane)) => {
                         self.gesture = Some(Gesture::Agent { at, pane });
+                        None
+                    }
+                    (MouseButton::Left, Hit::Version) => {
+                        self.gesture = Some(Gesture::Version { at });
                         None
                     }
                     _ => None,

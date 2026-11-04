@@ -47,6 +47,27 @@ sidebar_width = 40   # default: 26 columns
 mouse = true         # false leaves the mouse to your terminal
 ```
 
+### Updates
+
+Check for a release without installing anything:
+
+```sh
+ship update --check
+```
+
+It prints `installed → latest`, `up to date` or `no releases yet`. It always asks for a fresh result, even with automatic checks off, and never starts a server.
+
+```toml
+[client.updates]
+check = true                         # default; false turns automatic checks off
+# command = "brew upgrade ship"      # override the build's update method
+# latest_command = "echo 9.9.9"       # override where the latest version comes from
+```
+
+Both commands are unset by default. `command` chooses what `ship update` runs, ahead of the build-time `SHIP_UPDATE_COMMAND`. `latest_command` prints a version instead of asking GitHub for it, ahead of the build-time `SHIP_LATEST_COMMAND`. Without either latest-version override, Ship uses the newest stable GitHub release. Release notes still come from GitHub when a command supplies the version.
+
+These are shell lines, not argument arrays: `sh -c` on Unix, `cmd /C` elsewhere. Ship accepts versions such as `0.2.0`, `v0.2.0` and `0.2.0-1`; a packager suffix is ignored when comparing versions.
+
 ## Agent settings
 
 ```toml

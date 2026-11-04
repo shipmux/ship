@@ -376,4 +376,21 @@
     });
   };
   reelControls();
+
+  // the download count: every release's archives, from installs and updates, once there are any
+  const downloads = document.querySelector("[data-downloads]");
+  if (downloads) {
+    fetch("https://api.github.com/repos/shipmux/ship/releases?per_page=100")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((releases) => {
+        const n = releases
+          .flatMap((r) => r.assets)
+          .filter((a) => a.name.endsWith(".tar.gz"))
+          .reduce((sum, a) => sum + a.download_count, 0);
+        if (n === 0) return;
+        downloads.textContent = `${n.toLocaleString("en")} downloads`;
+        downloads.hidden = false;
+      })
+      .catch(() => {});
+  }
 })();

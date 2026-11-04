@@ -5,7 +5,7 @@ Scope: Build prerequisites, installing Ship from a checkout, building without in
 Not here: first-session keys (README.md), server management (windows-and-the-server.md), packaging or cross-compilation.
 -->
 
-Ship has no releases yet, so installation is from source. On Linux or macOS, with the [prerequisites](#prerequisites) installed:
+Linux and macOS can install a prebuilt release with the [install command](../../README.md#installation) instead. To build from source on Linux or macOS, with the [prerequisites](#prerequisites) installed:
 
 ```sh
 git clone https://github.com/shipmux/ship.git
@@ -72,7 +72,9 @@ git pull --ff-only
 cargo install --path crates/ship
 ```
 
-Reinstalling doesn't replace a running server. When you're ready to end its programs, [stop the server](windows-and-the-server.md) and run `ship` again to use the new version.
+A build from source can't replace itself, so `ship update` just tells you to update it the way you installed it, which here means the two commands above. `ship update --check` still tells you whether there's a newer release. Reinstalling doesn't replace a running server. When you're ready to end its programs, [stop the server](windows-and-the-server.md) and run `ship` again to use the new version.
+
+If you're packaging Ship, set `SHIP_UPDATE_COMMAND` and `SHIP_LATEST_COMMAND` when you build it, and `ship update` runs your package manager's upgrade instead and asks it for the latest version. [Updates](configuration.md#updates) covers both.
 
 ## If something goes wrong
 

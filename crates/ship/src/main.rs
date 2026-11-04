@@ -3,6 +3,7 @@ mod commands;
 mod diagnostics;
 mod local;
 mod runlog;
+mod update;
 
 use std::{io, process::ExitCode, time::Duration};
 
@@ -11,7 +12,9 @@ use cli::{Cli, Command, Target};
 use reqwest::redirect::Policy;
 use ship_client::{
     Client,
+    keymap::ClientSettings,
     ui::{self, InitialSelection},
+    updates,
 };
 use ship_core::{
     HealthResponse, PROTOCOL_VERSION, SERVICE, config, endpoint::Endpoint, prelude::*,
@@ -81,13 +84,16 @@ fn detach() -> Result<()> {
 /// Application compatibility boundary, shared by explicit requests and local readiness.
 async fn health(client: &Client) -> Result<HealthResponse> {
     let response = client.health().await?;
-    if response.service != SERVICE || response.protocol_version != PROTOCOL_VERSION {
+    if response.service != SERVICE {
         return Err(err!(
             Validation,
             "incompatible health response: expected service {} and protocol {}",
             SERVICE,
             PROTOCOL_VERSION
         ));
+    }
+    if response.protocol_version != PROTOCOL_VERSION {
+        return Err(err!(Validation, "{}", updates::mismatch(&response)));
     }
     Ok(response)
 }
@@ -155,6 +161,16 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
             print!("{}", config::DEFAULTS);
             Ok(())
         }
+        Some(Command::Update(args)) => {
+            let settings = ClientSettings::load(&cli.config_path()?)?;
+            let context = update_context()?;
+            if args.check {
+                let checker = updates::Checker::new(context.cache)?;
+                return update::check(&checker, &settings.updates).await;
+            }
+            let server = update_server(&cli.target()?.endpoint()?).await?;
+            return update::update(&settings.updates, &context, server).await;
+        }
         Some(Command::Completions(cli::CompletionsArgs { shell })) => {
             clap_complete::generate(
                 shell,
@@ -193,13 +209,26 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
                     (client, initial_selection)
                 }
             };
-            ui::run(&client, initial_selection, &cli.config_path()?, diagnostics.run_output())
+            ui::run(
+                &client,
+                initial_selection,
+                &cli.config_path()?,
+                update_context()?,
+                diagnostics.run_output(),
+            )
                 .await
                 // The client log has no stderr layer, so this doesn't repeat main's message.
                 .inspect_err(|error| tracing::error!(%error, "client failed"))
         }
     }
     .map(|()| ExitCode::SUCCESS)
+}
+
+fn update_context() -> Result<updates::UpdateContext> {
+    Ok(updates::UpdateContext {
+        cache: runlog::state_dir()?.join("update.json"),
+        self_replace: cfg!(feature = "self-update"),
+    })
 }
 
 /// Validate a URL without starting it; otherwise reuse or start the named server.
@@ -259,6 +288,25 @@ async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<Checked> 
             client: http2,
             health: result?,
         }),
+    }
+}
+
+/// The running server for `ship update`'s sync message, or `None` when none
+/// answers. Unlike `health`, it accepts any protocol: a server older than the
+/// installed binary is the one that needs the restart guidance. Never starts
+/// a server.
+async fn update_server(endpoint: &Endpoint) -> Result<Option<HealthResponse>> {
+    match client(endpoint, true)?.health().await {
+        Ok(response) if response.service == SERVICE => Ok(Some(response)),
+        Ok(response) => {
+            tracing::warn!(server = %endpoint, service = %response.service, "not a Ship server");
+            Ok(None)
+        }
+        Err(error) if error.code() == ErrorCode::ConnectionRefused => Ok(None),
+        Err(error) => {
+            tracing::warn!(server = %endpoint, %error, "cannot read the server's health");
+            Ok(None)
+        }
     }
 }
 
