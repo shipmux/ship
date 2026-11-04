@@ -5,7 +5,7 @@ Scope: Build prerequisites, installing Ship from a checkout, building without in
 Not here: first-session keys (README.md), server management (windows-and-the-server.md), packaging or cross-compilation.
 -->
 
-Ship has no releases yet, so installation is from source. On Linux or macOS, with the [prerequisites](#prerequisites) installed:
+Linux and macOS can install a prebuilt release with the [install command](../../README.md#installation) instead. To build from source on Linux or macOS, with the [prerequisites](#prerequisites) installed:
 
 ```sh
 git clone https://github.com/shipmux/ship.git

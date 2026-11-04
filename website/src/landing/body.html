@@ -33,13 +33,11 @@
       <p>run your editor, shells and agents side by side, see who needs you, and close the window without stopping the work.</p>
       <div class="install-quick">
         <div class="term cmd">
-          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
-<pre tabindex="0" role="region" aria-label="install commands, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
-<span class="t-prompt">$ </span>cd ship
-<span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
+          <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh">copy</button>
+<pre tabindex="0" role="region" aria-label="install command, scroll sideways if it is wide"><span class="t-prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh</pre>
         </div>
-        <p>a work in progress you can try today. builds from source with rust and zig 0.17.</p>
-        <div class="links"><a href="#install">build and try ship</a><a href="#waterline" class="watch">watch a real session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
+        <p>a work in progress you can try today, on linux and macos.</p>
+        <div class="links"><a href="#install">install and try ship</a><a href="#waterline" class="watch">watch a real session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
       </div>
     </div>
     <div class="rig">
@@ -348,13 +346,13 @@ Apply changes?
     <div class="cargo">
       <section class="crate-col" id="install" aria-labelledby="install-title">
         <h3 id="install-title" class="pixel p22">install</h3>
-        <p>ship builds from source for now. install the <a href="/docs/building-from-source/#prerequisites">build prerequisites</a>, including rust, zig 0.17 and <code>git</code>, then:</p>
+        <p>on linux or macos, install the latest release:</p>
         <div class="term cmd">
-          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
-<pre tabindex="0" role="region" aria-label="install commands in the hold, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
-<span class="t-prompt">$ </span>cd ship
-<span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
+          <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh">copy</button>
+<pre tabindex="0" role="region" aria-label="install command in the hold, scroll sideways if it is wide"><span class="t-prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh</pre>
         </div>
+        <p data-downloads hidden></p>
+        <p>elsewhere, or to build it yourself, follow <a href="/docs/building-from-source/">building from source</a>.</p>
         <p>run <code>ship</code> to open a shell. try <code>alt-|</code> to split it, then <code>alt-q</code> to detach. run <code>ship</code> again and both shells are still there.</p>
         <p class="note">on macos, set your terminal to use option as alt, often called "option as meta", or ship's keys will type special characters instead.</p>
         <p class="hold-links"><a href="/docs/building-from-source/">full build and update instructions</a><a href="/docs/">read the docs</a><a href="https://github.com/shipmux/ship">ship on github</a></p>
@@ -468,12 +466,10 @@ Apply changes?
       <h2 id="seabed-title" class="pixel p66"><span class="place">seabed</span> run a tight ship</h2>
       <div class="install-final">
         <div class="term cmd">
-          <button class="copy" type="button" data-copy="git clone https://github.com/shipmux/ship.git&#10;cd ship&#10;cargo install --path crates/ship">copy</button>
-<pre tabindex="0" role="region" aria-label="install commands at the seabed, scroll sideways if they are wide"><span class="t-prompt">$ </span>git clone https://github.com/shipmux/ship.git
-<span class="t-prompt">$ </span>cd ship
-<span class="t-prompt">$ </span>cargo install --path crates/ship</pre>
+          <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh">copy</button>
+<pre tabindex="0" role="region" aria-label="install command at the seabed, scroll sideways if it is wide"><span class="t-prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh</pre>
         </div>
-        <p>start with one shell, add a split, and see how it fits the way you work. builds from source with rust and zig 0.17.</p>
+        <p>start with one shell, add a split, and see how it fits the way you work.</p>
         <div class="links"><a href="/docs/#first-run">try your first session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
       </div>
     </div>

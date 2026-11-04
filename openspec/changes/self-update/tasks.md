@@ -57,11 +57,11 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 6. Install, releases and docs
 
-- [ ] 6.1 Add `install.sh`. Verify with `shellcheck` and `sh -n`, then on this Mac against a test release: it installs to a temporary `HOME`'s `~/.local/bin` and prints the `PATH` hint. A faked unsupported `uname -m` refuses with a link to building from source, and a wrong checksum installs nothing. Report the clean Linux account run as unverified unless it was done there.
-- [ ] 6.2 Try `x86_64-apple-darwin` on the arm64 runner's toolchain locally and run it with `arch -x86_64 ./ship --version` (OU-3). If it works without real fixes, add the row to `release.yml`; either way, record the outcome in the deviation log and settle OU-3 with Cyan.
-- [ ] 6.3 Run the release workflow's dry run, or the closest local equivalent, and verify that the asset names match what `install.sh` and `self_replace` expect.
-- [ ] 6.4 Following `docs/agents/docs.md`, add the install command to `README.md`, and add the download count to `website/src/landing/`. Verify with `pnpm --dir website build`.
-- [ ] 6.5 Check that the `installation` delta and the README part of the `local-foundation` delta match what was built, and report implementation Rust and test line counts separately.
+- [x] 6.1 Add `install.sh`. Verify with `shellcheck` and `sh -n`, then on this Mac against a test release: it installs to a temporary `HOME`'s `~/.local/bin` and prints the `PATH` hint. A faked unsupported `uname -m` refuses with a link to building from source, and a wrong checksum installs nothing. Report the clean Linux account run as unverified unless it was done there.
+- [x] 6.2 Try `x86_64-apple-darwin` on the arm64 runner's toolchain locally and run it with `arch -x86_64 ./ship --version` (OU-3). If it works without real fixes, add the row to `release.yml`; either way, record the outcome in the deviation log and settle OU-3 with Cyan.
+- [x] 6.3 Run the release workflow's dry run, or the closest local equivalent, and verify that the asset names match what `install.sh` and `self_replace` expect.
+- [x] 6.4 Following `docs/agents/docs.md`, add the install command to `README.md`, and add the download count to `website/src/landing/`. Verify with `pnpm --dir website build`.
+- [x] 6.5 Check that the `installation` delta and the README part of the `local-foundation` delta match what was built, and report implementation Rust and test line counts separately.
 
 ## Workflow follow-up
 

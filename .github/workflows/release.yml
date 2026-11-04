@@ -30,6 +30,8 @@ jobs:
             os: ubuntu-22.04-arm
           - target: aarch64-apple-darwin
             os: macos-15
+          - target: x86_64-apple-darwin
+            os: macos-15
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -60,3 +62,6 @@ jobs:
           dry-run: ${{ github.event_name != 'release' }}
           dry-run-intended: ${{ github.event_name != 'release' }}
           token: ${{ secrets.GITHUB_TOKEN }}
+      # Intel macOS ships only if it runs under Rosetta (installation spec).
+      - if: matrix.target == 'x86_64-apple-darwin'
+        run: arch -x86_64 target/x86_64-apple-darwin/release/ship --version

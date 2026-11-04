@@ -17,7 +17,7 @@ Not here: keys, configuration and CLI walkthroughs (docs/site/).
 </div>
 
 > [!NOTE]
-> **Ship is a work in progress.** There are no releases yet, but you can build it from source and try it today.
+> **Ship is a work in progress.** It's early, but you can install it and try it today.
 
 [![Claude Code and Pi working side by side in nested tabs, with the sidebar marking each agent's state](https://shipmux.github.io/ship/demo/waterline.gif)](https://shipmux.github.io/ship/)
 
@@ -63,14 +63,23 @@ Linux and macOS are the priority platforms, and both have been used successfully
 
 ### Not built yet
 
-- Releases and packages. Installation is from source for now.
+- Packages, and prebuilt releases for platforms other than Linux and macOS. Elsewhere, build from source.
 - Built-in history search and keyboard copy mode. Use [scrollback in your editor](docs/site/panes.md#edit-scrollback) instead.
 - Resuming agent conversations or rerunning programs after a server restart. Saved tabs start fresh shells.
 - A combined view of servers on several machines. You can already [run Ship over SSH or forward a remote socket](docs/site/windows-and-the-server.md#using-ship-on-another-machine).
 
 ## Installation
 
-Install the [build prerequisites](docs/site/building-from-source.md#prerequisites), including Rust, Zig 0.17 and `git`, then:
+On Linux (x86_64 or arm64) or macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh
+ship
+```
+
+The script installs `ship` to `~/.local/bin` and tells you if that isn't on your `PATH` yet. Run `ship update` to get later releases.
+
+On other platforms, or to build it yourself, install the [build prerequisites](docs/site/building-from-source.md#prerequisites), including Rust, Zig 0.17 and `git`, then:
 
 ```sh
 git clone https://github.com/shipmux/ship.git
