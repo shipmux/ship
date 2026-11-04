@@ -1,6 +1,10 @@
-# Spec Delta
+# updates Specification
 
-## ADDED Requirements
+## Purpose
+
+Tell people when a newer Ship release is out without slowing the client down, show what changed, and update Ship from the CLI or the full-screen client, saying afterwards whether the running server must restart.
+
+## Requirements
 
 ### Requirement: Scheduled checks
 A full-screen client SHALL check for the latest release when it starts and then every hour while it runs. A check SHALL NOT delay startup or input. CLI commands other than `ship update` SHALL NOT check. `[client.updates] check = false` SHALL stop the schedule, while the panel's `[check]` and `ship update --check` still work.
@@ -112,15 +116,19 @@ Before an update, the panel SHALL say the server restarts afterwards to stay in 
 - **THEN** the server row says to restart the server to match
 
 ### Requirement: Update from the panel
-`[update]` SHALL create a top-level tab named `update` with one selected pane running `ship update` that stays after its program exits. The panel SHALL then follow that pane: updating while it runs, installed with the restart answer when it exits 0, update failed when it exits otherwise, and back to its earlier status when the tab is closed first.
+`[update]` SHALL run `ship update` in a new selected pane that stays after its program exits. The pane SHALL go in the tab that held the last run's pane while that tab exists, and otherwise in a new top-level tab named `update`. The panel SHALL follow that pane: updating while it runs, installed with the restart answer after exit 0, update failed otherwise, and back to its earlier status if the tab closes before the run ends.
 
 #### Scenario: Success
 - **WHEN** a release build with a newer release clicks `[update]` and the program exits 0
-- **THEN** a tab `update` shows the run, and the panel shows `installed v0.2.0` and whether the server must restart
+- **THEN** a tab `update` shows the run, and the panel shows `installed v0.2.0` and whether the server must restart, which stays after the tab is closed
 
 #### Scenario: Failure
 - **WHEN** the update's program exits 1
 - **THEN** the panel shows `update failed · see tab "update"`
+
+#### Scenario: Retry after a failure
+- **WHEN** a failed run's tab is still open and the user clicks `[update]` again
+- **THEN** the new pane opens in that tab, and no second `update` tab appears
 
 ### Requirement: Update method
 `ship update` SHALL use the first available method: `[client.updates] command`, the build-time `SHIP_UPDATE_COMMAND`, self-replace in builds from Ship's release workflow, or none. A command SHALL run as a shell line. Self-replace SHALL download this platform's archive from the latest release and verify it against its published `.sha256` before replacing anything.

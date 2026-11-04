@@ -74,7 +74,7 @@ Every binding SHALL name one action, under `server.` or `client.`. A `server.` a
 - **THEN** the binding works from its key, and `ship run` is reported as an unknown command
 
 ### Requirement: Client actions
-`client.` actions SHALL have no CLI form and be reachable only from keys and the mouse. They SHALL change only this client's view, except: `client.pane.swap` resolves direction locally and submits an explicit server swap pair; `client.pane.zoom` resolves its switch locally and submits the tab's zoomed pane; `client.tab.move` resolves direction locally and submits one explicit tab move; rename actions submit the typed name; `client.run` starts a command locally (see run-actions).
+`client.` actions SHALL have no CLI form and be reachable only from keys and the mouse. They SHALL change only this client's view, except: `client.pane.swap`, `client.pane.zoom` and `client.tab.move` resolve locally and submit one explicit swap pair, zoomed pane or tab move; rename actions submit the typed name; `client.updates.update` creates a tab (see updates); `client.run` starts a command locally (see run-actions).
 
 #### Scenario: Local resolution submits shared swap
 - **WHEN** a user invokes `client.pane.swap` right in an unzoomed tab
@@ -95,6 +95,10 @@ Every binding SHALL name one action, under `server.` or `client.`. A `server.` a
 #### Scenario: A rename reaches every viewer on Enter
 - **WHEN** a user invokes `client.tab.rename`, types `frontend` and presses Enter
 - **THEN** that client sends one `server.tab.set` naming the tab by ID with the name `frontend`, and all viewers see the new name
+
+#### Scenario: Update action creates a shared tab
+- **WHEN** a user invokes `client.updates.update` in a release build with a newer release
+- **THEN** every viewer sees a new top-level tab named `update`, and only this client's panel follows it
 
 ### Requirement: Relative tab moves
 `client.tab.move` SHALL take a required `direction` of `"up"`, `"down"`, `"in"` or `"out"`. It SHALL move the selected tab, or the selected pane's tab, with its subtree and panes, in one tab move: `up` to just before its previous sibling, `down` to just after its next sibling, `in` to the last child of its previous sibling, and `out` to just after its parent, leaving its siblings in place. Folded siblings SHALL count. The moved tab, or the pane selected in it, SHALL stay selected.
@@ -493,3 +497,14 @@ Default `panes` mode SHALL be sticky and bind `h`, `j`, `k` and `l` to `client.p
 #### Scenario: Labels in panes mode
 - **WHEN** a user with no config presses `alt-p`
 - **THEN** the status line shows `swap left`, `swap down`, `swap up` and `swap right` for the four shifted keys, and `rename` for `r`
+
+### Requirement: Updates actions
+`client.updates.open = {}` SHALL open the updates panel. `client.updates.check = {}` SHALL check for the latest release at once, as the panel's `[check]` does. `client.updates.update = {}` SHALL start an update, as the panel's `[update]` does, and SHALL do nothing when this install has no update method. None SHALL be bound to a key by default, and each SHALL be usable from any mode's bindings and from menu items.
+
+#### Scenario: Custom binding
+- **WHEN** the file binds `"alt-u" = { action = { client.updates.open = {} } }` and the user presses `alt-u`
+- **THEN** the updates panel opens
+
+#### Scenario: No default key
+- **WHEN** a user with no config presses `alt-m`
+- **THEN** no panel opens, and the key reaches the selected pane's program

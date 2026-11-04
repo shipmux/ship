@@ -124,11 +124,15 @@ Outside normal mode the status line SHALL show the active mode's name and key hi
 - **THEN** the hints include `f fill` and not `f zoom`
 
 ### Requirement: Status line messages
-The status line SHALL show a disconnected indicator while reconnecting, and the selected pane's exit status once its program has exited. It SHALL show the latest config error, a key action's failure or "not available yet" until the next key action.
+The status line SHALL show a disconnected indicator while reconnecting, and the selected pane's exit status once its program has exited. It SHALL show the latest config error, a key action's failure, "not available yet" or an update's one-time note (see updates) until the next key action.
 
 #### Scenario: Exited program
 - **WHEN** the selected pane's program exits with code 3
 - **THEN** the status line appears showing `exited (3)` and stays while that pane is selected
+
+#### Scenario: Update note
+- **WHEN** a check first finds `v0.2.0`
+- **THEN** the status line shows `ship v0.2.0 is available · ≡ updates` until the next key action
 
 ### Requirement: Derived labels
 An unnamed pane's label SHALL be its program's current title, else its command. An unnamed tab's label SHALL be the last component of its first own pane's current directory in layout order, `~` for the home directory, else that pane's label, else its 1-based position among its siblings. Labels SHALL update as titles and current directories change and SHALL return to the derived form when a name is cleared.
@@ -310,7 +314,7 @@ When the connection drops, queued input SHALL be dropped and an in-flight action
 - **THEN** the client logs a warning, reattaches with its last view, and input typed after the reattach reaches the selected pane
 
 ### Requirement: Sidebar sections
-Whenever the sidebar is shown, it SHALL hold the tabs section on top and the agents section (see agent-attention) below, with a divider row between them. Each section SHALL scroll on its own when its content overflows, and the tabs section SHALL keep the selected row visible as it does today.
+Whenever the sidebar is shown, it SHALL hold the tabs section on top and the agents section (see agent-attention) below, with a divider row between them, and the version row (see updates) as its bottom row. Each section SHALL scroll on its own when its content overflows, and the tabs section SHALL keep the selected row visible as it does today.
 
 #### Scenario: No agents
 - **WHEN** a client shows the sidebar with no pane reporting
@@ -319,6 +323,10 @@ Whenever the sidebar is shown, it SHALL hold the tabs section on top and the age
 #### Scenario: Overflow
 - **WHEN** a short terminal holds 30 tabs and 20 reporting panes
 - **THEN** each section scrolls with the wheel without moving the other
+
+#### Scenario: Version row
+- **WHEN** a client shows the sidebar
+- **THEN** its bottom row shows the client's version, below the agents section
 
 ### Requirement: Sidebar split
 The split between the sidebar's sections SHALL default to half the sidebar's height. A client MAY move it by dragging the divider row or with `client.sidebar.resize` up or down. The split SHALL stay between 10% and 90% of the height with at least 3 rows for each section, SHALL apply only to that client, and SHALL last until the client exits.
