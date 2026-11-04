@@ -16,13 +16,13 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 2. `ship update --check`, config and cache
 
-- [ ] 2.1 Finish `updates/mod.rs`: `UpdateSettings`, `UpdateContext`, the build-time consts, `Method`, `method`, `latest_command` and `shell`.
-- [ ] 2.2 Add `updates/check.rs`: `Freshness`, `Release`, `Found`, `Checked` and `Checker`, using the workspace `reqwest` with a `User-Agent` and writing the cache by temp file and rename.
-- [ ] 2.3 In `crates/ship-client/src/keymap.rs`, parse `[client.updates]` through `UpdatesFile` with `deny_unknown_fields` into `ClientSettings::updates`, and add the table to `crates/ship-core/src/defaults.toml`. Verify that `ship config check` accepts the defaults and reports `chek = false` with its line and column, and that `ship config defaults` prints the table with its comments.
-- [ ] 2.4 Add `Command::Update(UpdateArgs)` with `--check` in `cli.rs`, `update::check` in `crates/ship/src/update.rs`, and its route in `dispatch`. Verify `no releases yet` against `shipmux/ship`, `0.1.0 → 9.9.9` with `latest_command = "echo 9.9.9"`, and `up to date` with `latest_command = "echo 0.1.0"`, and that `<state dir>/update.json` is written.
-- [ ] 2.5 Delete the cache, then corrupt it. Verify that both runs behave as if there were no cache and rewrite a valid file.
-- [ ] 2.6 Following `docs/agents/docs.md`, document `[client.updates]` in `docs/site/configuration.md`. Verify that every key and default matches `defaults.toml`.
-- [ ] 2.7 Check that the `config-file` delta's Update settings and the `updates` delta's Where the latest version comes from and Check from the CLI match what was built.
+- [x] 2.1 Finish `updates/mod.rs`: `UpdateSettings`, `UpdateContext`, the build-time consts, `Method`, `method`, `latest_command` and `shell`.
+- [x] 2.2 Add `updates/check.rs`: `Freshness`, `Release`, `Found`, `Checked` and `Checker`, using the workspace `reqwest` with a `User-Agent` and writing the cache by temp file and rename.
+- [x] 2.3 In `crates/ship-client/src/keymap.rs`, parse `[client.updates]` through `UpdatesFile` with `deny_unknown_fields` into `ClientSettings::updates`, and add the table to `crates/ship-core/src/defaults.toml`. Verify that `ship config check` accepts the defaults and reports `chek = false` with its line and column, and that `ship config defaults` prints the table with its comments.
+- [x] 2.4 Add `Command::Update(UpdateArgs)` with `--check` in `cli.rs`, `update::check` in `crates/ship/src/update.rs`, and its route in `dispatch`. Verify `no releases yet` against `shipmux/ship`, `0.1.0 → 9.9.9` with `latest_command = "echo 9.9.9"`, and `up to date` with `latest_command = "echo 0.1.0"`, and that `<state dir>/update.json` is written.
+- [x] 2.5 Delete the cache, then corrupt it. Verify that both runs behave as if there were no cache and rewrite a valid file.
+- [x] 2.6 Following `docs/agents/docs.md`, document `[client.updates]` in `docs/site/configuration.md`. Verify that every key and default matches `defaults.toml`.
+- [x] 2.7 Check that the `config-file` delta's Update settings and the `updates` delta's Where the latest version comes from and Check from the CLI match what was built.
 
 ## 3. `ship update`
 

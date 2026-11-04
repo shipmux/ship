@@ -3,6 +3,7 @@ mod commands;
 mod diagnostics;
 mod local;
 mod runlog;
+mod update;
 
 use std::{io, process::ExitCode, time::Duration};
 
@@ -11,6 +12,7 @@ use cli::{Cli, Command, Target};
 use reqwest::redirect::Policy;
 use ship_client::{
     Client,
+    keymap::ClientSettings,
     ui::{self, InitialSelection},
     updates,
 };
@@ -158,6 +160,14 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
         Some(Command::Config(cli::ConfigCommand::Defaults)) => {
             print!("{}", config::DEFAULTS);
             Ok(())
+        }
+        Some(Command::Update(args)) => {
+            if !args.check {
+                return Err(err!(Unavailable, "installing updates is not implemented yet; use ship update --check"));
+            }
+            let settings = ClientSettings::load(&cli.config_path()?)?;
+            let checker = updates::Checker::new(runlog::state_dir()?.join("update.json"))?;
+            return update::check(&checker, &settings.updates).await;
         }
         Some(Command::Completions(cli::CompletionsArgs { shell })) => {
             clap_complete::generate(

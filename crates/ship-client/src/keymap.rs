@@ -21,13 +21,17 @@ use ship_core::{
     prelude::*,
 };
 
-use crate::sound::{Clip, Cue};
+use crate::{
+    sound::{Clip, Cue},
+    updates::UpdateSettings,
+};
 
 pub struct ClientSettings {
     pub mouse: bool,
     pub keymap: Keymap,
     pub sidebar_width: u16,
     pub agents: AgentSettings,
+    pub updates: UpdateSettings,
 }
 
 /// `[client.agents]` with defaults applied.
@@ -398,6 +402,15 @@ struct Client {
     #[serde(default)]
     modes: HashMap<ModeName, ModeFile>,
     agents: AgentsFile,
+    updates: UpdatesFile,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpdatesFile {
+    check: bool,
+    command: Option<String>,
+    latest_command: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -469,6 +482,7 @@ impl ClientSettings {
             menus,
             modes: file_modes,
             agents,
+            updates,
         } = file.client;
         let mut modes = config::defaults::<File>().client.modes;
         for (name, over) in file_modes {
@@ -496,6 +510,11 @@ impl ClientSettings {
                 delay: Duration::from_millis(agents.delay_ms),
                 popups: agents.popups,
                 sounds: agents.sounds.load(base),
+            },
+            updates: UpdateSettings {
+                check: updates.check,
+                command: updates.command,
+                latest_command: updates.latest_command,
             },
         }
     }

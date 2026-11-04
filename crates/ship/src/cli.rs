@@ -124,6 +124,8 @@ pub enum Command {
     /// Check the config file or print the defaults
     #[command(subcommand)]
     Config(ConfigCommand),
+    /// Check for updates with --check
+    Update(UpdateArgs),
     /// Print a tab-completion script for your shell
     Completions(CompletionsArgs),
 }
@@ -161,6 +163,13 @@ pub enum ConfigCommand {
     },
     /// Print every default setting, key and menu, with what each accepts
     Defaults,
+}
+
+#[derive(Args)]
+pub struct UpdateArgs {
+    /// Ask for the latest version without installing anything
+    #[arg(long)]
+    pub check: bool,
 }
 
 #[derive(Args)]
