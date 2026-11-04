@@ -7,6 +7,7 @@ mod execute;
 pub mod keymap;
 pub mod sound;
 pub mod ui;
+pub mod updates;
 mod watch;
 
 use std::{error::Error, io, iter, time::Duration};

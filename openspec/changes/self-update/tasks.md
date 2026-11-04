@@ -8,11 +8,11 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 1. Versions and the mismatch error
 
-- [ ] 1.1 Add `semver` to `crates/ship-client/Cargo.toml`, `pub mod updates;` to `lib.rs`, and `updates/mod.rs` with only `core_version` and `installed`. Verify that `cargo tree -d` shows no new duplicate crates.
-- [ ] 1.2 Add `crates/ship-client/src/updates/probe.rs` with `Probed`, `Sync`, `probe`, `Sync::of`, `Sync::describe` and `mismatch`.
-- [ ] 1.3 In `crates/ship/src/cli.rs`, make the version string `ship 0.1.0 (protocol 21)`, choosing how to get `PROTOCOL_VERSION` into a const string (record the choice in the deviation log if it adds anything to `ship-core`). Verify that `ship --version` prints exactly that and starts no server.
-- [ ] 1.4 In `crates/ship/src/main.rs` `health()`, report a protocol mismatch with `updates::mismatch`. Verify by starting an owned server from this build, bumping `PROTOCOL_VERSION` locally, and running bare `ship` against it: the error names both versions, both protocols and the restart command, exits 1, and leaves the server running.
-- [ ] 1.5 Check that the `health-exchange` delta and the version part of the `local-foundation` delta match what was built.
+- [x] 1.1 Add `semver` to `crates/ship-client/Cargo.toml`, `pub mod updates;` to `lib.rs`, and `updates/mod.rs` with only `core_version` and `installed`. Verify that `cargo tree -d` shows no new duplicate crates.
+- [x] 1.2 Add `crates/ship-client/src/updates/probe.rs` with `Probed`, `Sync`, `probe`, `Sync::of`, `Sync::describe` and `mismatch`.
+- [x] 1.3 In `crates/ship/src/cli.rs`, make the version string `ship 0.1.0 (protocol 21)`, choosing how to get `PROTOCOL_VERSION` into a const string (record the choice in the deviation log if it adds anything to `ship-core`). Verify that `ship --version` prints exactly that and starts no server.
+- [x] 1.4 In `crates/ship/src/main.rs` `health()`, report a protocol mismatch with `updates::mismatch`. Verify by starting an owned server from this build, bumping `PROTOCOL_VERSION` locally, and running bare `ship` against it: the error names both versions, both protocols and the restart command, exits 1, and leaves the server running.
+- [x] 1.5 Check that the `health-exchange` delta and the version part of the `local-foundation` delta match what was built.
 
 ## 2. `ship update --check`, config and cache
 

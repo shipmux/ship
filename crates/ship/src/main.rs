@@ -12,6 +12,7 @@ use reqwest::redirect::Policy;
 use ship_client::{
     Client,
     ui::{self, InitialSelection},
+    updates,
 };
 use ship_core::{
     HealthResponse, PROTOCOL_VERSION, SERVICE, config, endpoint::Endpoint, prelude::*,
@@ -81,13 +82,16 @@ fn detach() -> Result<()> {
 /// Application compatibility boundary, shared by explicit requests and local readiness.
 async fn health(client: &Client) -> Result<HealthResponse> {
     let response = client.health().await?;
-    if response.service != SERVICE || response.protocol_version != PROTOCOL_VERSION {
+    if response.service != SERVICE {
         return Err(err!(
             Validation,
             "incompatible health response: expected service {} and protocol {}",
             SERVICE,
             PROTOCOL_VERSION
         ));
+    }
+    if response.protocol_version != PROTOCOL_VERSION {
+        return Err(err!(Validation, "{}", updates::mismatch(&response)));
     }
     Ok(response)
 }

@@ -3430,6 +3430,7 @@ dependencies = [
  "ratatui",
  "reqwest",
  "rodio",
+ "semver",
  "serde",
  "serde_json",
  "ship-core",

@@ -2,11 +2,13 @@ use std::{
     env,
     path::{self, PathBuf},
     str::FromStr,
+    sync::LazyLock,
 };
 
 use clap::{Args, Parser, Subcommand};
 use etcetera::BaseStrategy;
 use ship_core::{
+    PROTOCOL_VERSION,
     command::Command as ServerAction,
     endpoint::{Endpoint, ServerName},
     id::{Attachment, IdOf},
@@ -14,9 +16,17 @@ use ship_core::{
     prelude::*,
 };
 
+/// Clap needs a static string; format once from the protocol's sole constant.
+static VERSION: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        "{} (protocol {PROTOCOL_VERSION})",
+        env!("CARGO_PKG_VERSION")
+    )
+});
+
 #[derive(Parser)]
 #[command(
-    version,
+    version = VERSION.as_str(),
     about = "Open the Ship client, run a named-socket server or script tabs and panes",
     long_about = "Open the Ship client, run a named-socket server or script tabs and panes.\n\nBare ship opens a full-screen client on the whole server; alt-q detaches.\nBare ship and tab and pane commands reuse the default-local server or start a missing one in the background.\nThat server stays running after the client and launching terminal exit."
 )]

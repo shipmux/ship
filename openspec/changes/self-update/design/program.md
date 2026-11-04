@@ -481,4 +481,9 @@ Checks: run the script against the fork's release on this Mac and a clean Linux 
 
 ## Deviation log
 
-Empty.
+### Slice 1: versions and mismatch guidance
+
+- `cli.rs` formats clap's static version string once with `std::sync::LazyLock<String>`, using the existing numeric `PROTOCOL_VERSION`. This is the build-script-free formatting choice left to slice 1; no string constant or other change was added to `ship-core`.
+- Verification on macOS: `ship --version` printed exactly `ship 0.1.0 (protocol 21)` and created no server or runtime files. `cargo tree -d` was unchanged. A temporary Rust executable checked release tags, packager suffixes, malformed versions, a real binary probe, failed probes, all three sync states and restart guidance; no permanent tests were added.
+- An owned protocol-21 server used isolated temporary XDG directories. After a temporary protocol-22 build, bare `ship` (with `SHIP_SERVER_NAME`), explicit name/URL targets and `server stop` each exited 1 with both labeled versions/protocols and the restart command and cost. The original server remained healthy. The constant was restored to 21, the binary rebuilt, and the owned server stopped with its matching binary.
+- `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` and `openspec validate self-update --type change --strict` passed. The health-exchange delta and local-foundation version requirements match the implementation. Linux remains unverified.
