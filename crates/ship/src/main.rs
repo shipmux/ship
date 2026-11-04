@@ -162,12 +162,17 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
             Ok(())
         }
         Some(Command::Update(args)) => {
-            if !args.check {
-                return Err(err!(Unavailable, "installing updates is not implemented yet; use ship update --check"));
-            }
             let settings = ClientSettings::load(&cli.config_path()?)?;
-            let checker = updates::Checker::new(runlog::state_dir()?.join("update.json"))?;
-            return update::check(&checker, &settings.updates).await;
+            let context = updates::UpdateContext {
+                cache: runlog::state_dir()?.join("update.json"),
+                self_replace: cfg!(feature = "self-update"),
+            };
+            if args.check {
+                let checker = updates::Checker::new(context.cache)?;
+                return update::check(&checker, &settings.updates).await;
+            }
+            let server = update_server(&cli.target()?.endpoint()?).await?;
+            return update::update(&settings.updates, &context, server).await;
         }
         Some(Command::Completions(cli::CompletionsArgs { shell })) => {
             clap_complete::generate(
@@ -273,6 +278,25 @@ async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<Checked> 
             client: http2,
             health: result?,
         }),
+    }
+}
+
+/// The running server for `ship update`'s sync message, or `None` when none
+/// answers. Unlike `health`, it accepts any protocol: a server older than the
+/// installed binary is the one that needs the restart guidance. Never starts
+/// a server.
+async fn update_server(endpoint: &Endpoint) -> Result<Option<HealthResponse>> {
+    match client(endpoint, true)?.health().await {
+        Ok(response) if response.service == SERVICE => Ok(Some(response)),
+        Ok(response) => {
+            tracing::warn!(server = %endpoint, service = %response.service, "not a Ship server");
+            Ok(None)
+        }
+        Err(error) if error.code() == ErrorCode::ConnectionRefused => Ok(None),
+        Err(error) => {
+            tracing::warn!(server = %endpoint, %error, "cannot read the server's health");
+            Ok(None)
+        }
     }
 }
 

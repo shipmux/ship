@@ -34,6 +34,27 @@ pub const RELEASE_REPO: &str = match option_env!("SHIP_RELEASE_REPO") {
     Some(repo) => repo,
     None => "shipmux/ship",
 };
+const _: () = assert!(
+    is_owner_and_name(RELEASE_REPO),
+    "SHIP_RELEASE_REPO must be owner/name"
+);
+
+/// Exactly one `/`, with something on each side.
+const fn is_owner_and_name(repo: &str) -> bool {
+    let bytes = repo.as_bytes();
+    let mut slash = None;
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'/' {
+            if slash.is_some() {
+                return false;
+            }
+            slash = Some(at);
+        }
+        at += 1;
+    }
+    matches!(slash, Some(slash) if slash > 0 && slash + 1 < bytes.len())
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Method {
@@ -57,15 +78,16 @@ impl UpdateSettings {
     }
 }
 
+/// A configured shell line, shared by release checking and installation.
 #[cfg(unix)]
-fn shell(line: &str) -> Command {
+pub fn shell(line: &str) -> Command {
     let mut command = Command::new("sh");
     command.args(["-c", line]).kill_on_drop(true);
     command
 }
 
 #[cfg(not(unix))]
-fn shell(line: &str) -> Command {
+pub fn shell(line: &str) -> Command {
     let mut command = Command::new("cmd");
     command.args(["/C", line]).kill_on_drop(true);
     command

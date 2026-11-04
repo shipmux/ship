@@ -124,7 +124,7 @@ pub enum Command {
     /// Check the config file or print the defaults
     #[command(subcommand)]
     Config(ConfigCommand),
-    /// Check for updates with --check
+    /// Install an update, or check for one with --check
     Update(UpdateArgs),
     /// Print a tab-completion script for your shell
     Completions(CompletionsArgs),
