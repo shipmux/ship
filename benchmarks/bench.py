@@ -47,6 +47,8 @@ COLS, ROWS = 200, 50
 # while the reader thread waits on the GIL, which shows up as a 10-20 ms stall
 # in the typing tail; 0 samples only before and after the window.
 RSS_SAMPLE_S = 1.0
+# --wire: relay Ship's client through wiretap.py to count what its server sends.
+WIRE = False
 SHIP_BIN = os.environ.get("SHIP_BENCH_BIN", str(HERE.parent / "target/release/ship"))
 HERDR_BIN = os.environ.get("HERDR_BENCH_BIN") or shutil.which("herdr")
 ZELLIJ_BIN = os.environ.get("ZELLIJ_BENCH_BIN") or shutil.which("zellij")
@@ -122,7 +124,9 @@ def run_processes(home):
         try:
             if proc.environ().get("HOME") == home:
                 found.append(proc)
-        except (psutil.Error, OSError):  # gone, a zombie, or another user's
+        # Gone, a zombie, or another user's. psutil raises SystemError when a
+        # process exits while its environment is being read.
+        except (psutil.Error, OSError, SystemError):
             pass
     return found
 
@@ -144,19 +148,6 @@ def mux_processes(home, names):
         except (psutil.Error, OSError):
             pass
     return found
-
-
-def net_bytes_in(pid):
-    """Bytes `pid` has received over the network so far, from nettop.
-    nettop counts TCP only, and every tool now talks to its server over a
-    Unix socket, so this finds nothing; it measured Ship back when Ship used
-    TCP. macOS only: Linux has no per-process counter, so it's None there."""
-    if sys.platform != "darwin":
-        return None
-    res = subprocess.run(["nettop", "-P", "-L", "1", "-x", "-p", str(pid), "-J", "bytes_in"],
-                         capture_output=True, text=True)
-    rows = [l.split(",") for l in res.stdout.splitlines()[1:] if l.strip()]
-    return sum(int(r[1]) for r in rows if len(r) > 1 and r[1].isdigit()) if rows else None
 
 
 class Session:
@@ -192,9 +183,9 @@ class Session:
         return sum(p[2] for p in procs), len(procs)
 
     def wire(self):
-        """Bytes the client has received from its server, where that can be
-        measured (Ship only); None otherwise."""
-        return net_bytes_in(self.pid) if self.mux.name == "ship" else None
+        """Bytes the client has received from its server, with --wire (Ship
+        only); None otherwise."""
+        return self.mux.wire_bytes() if self.mux.name == "ship" else None
 
     def pump(self, timeout):
         """Read whatever arrives within `timeout`, answering queries."""
@@ -337,6 +328,9 @@ class Ship:
             try:
                 status = json.loads(cli([SHIP_BIN, "server", "status", "--server-name", SHIP_NAME], env, timeout=5))
                 self.url = "unix://" + status["socket"]
+                self.client_url = self.url
+                if WIRE:
+                    self.tap(env, status["socket"])
                 return
             except Exception:
                 if self.server.poll() is not None:
@@ -344,8 +338,26 @@ class Ship:
                 time.sleep(0.1)
         raise RuntimeError("ship server never became healthy")
 
+    def tap(self, env, socket_path):
+        """Point the client at a wiretap.py relay in front of the server."""
+        listen = env.root / "run/wiretap.sock"
+        self.counter = env.root / "wiretap.count"
+        self.relay = subprocess.Popen([PY, "-I", str(HERE / "wiretap.py"), str(listen), socket_path, str(self.counter)],
+                                      env=env.vars, stdin=subprocess.DEVNULL, start_new_session=True)
+        for _ in range(100):
+            if listen.exists():
+                self.client_url = "unix://" + str(listen)
+                return
+            time.sleep(0.05)
+        raise RuntimeError("wiretap.py never listened")
+
+    def wire_bytes(self):
+        if not WIRE:
+            return None
+        return struct.unpack("<Q", self.counter.read_bytes())[0]
+
     def client_argv(self, env):
-        return [SHIP_BIN, "--server-url", self.url]
+        return [SHIP_BIN, "--server-url", self.client_url]
 
     def side_pane(self, env, cmd):
         tabs = json.loads(cli([SHIP_BIN, "tab", "list", "--server-url", self.url], env))
@@ -362,6 +374,9 @@ class Ship:
         except subprocess.TimeoutExpired:
             self.server.kill()
             self.server.wait()
+        if WIRE:
+            self.relay.kill()
+            self.relay.wait()
 
 
 class Herdr:
@@ -853,7 +868,7 @@ def interrupt(*_):
 
 
 def main():
-    global RSS_SAMPLE_S
+    global RSS_SAMPLE_S, WIRE
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--mux", nargs="+", default=list(MUXES), choices=list(MUXES))
     p.add_argument("--workload", nargs="+", default=list(WORKLOADS), choices=list(WORKLOADS))
@@ -879,10 +894,14 @@ def main():
     p.add_argument("--rss-sample-s", type=float, default=RSS_SAMPLE_S,
                    help="seconds between peak-RSS samples; 0 samples only before and after the window. "
                         "Each sample stalls the reader thread 10-20 ms, which inflates typing p99")
+    p.add_argument("--wire", action="store_true",
+                   help="count the bytes Ship's server sends its client through a relay "
+                        "(adds a hop; keep these runs out of latency comparisons)")
     p.add_argument("--out", default=str(HERE / "results"))
     p.add_argument("--summarize", metavar="JSONL", help="print the summary for a results file and exit")
     cfg = p.parse_args()
     RSS_SAMPLE_S = cfg.rss_sample_s
+    WIRE = cfg.wire
     # SIGTERM unwinds like Ctrl-C, so the current run's teardown still runs.
     signal.signal(signal.SIGTERM, interrupt)
     if cfg.summarize:

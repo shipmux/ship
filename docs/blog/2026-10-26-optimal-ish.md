@@ -558,7 +558,7 @@ Checking that meant following one keystroke all the way through, and Ship doesn'
 
 > how the hell are we going to be able to trace a key through the input and back out the output in a way that keeps the correct dumb pipe architecture where ship works no matter what program is running in the tty?
 
-So my agent built a trace that watches from the outside. The program in the pane stamps each read and write, the window and the server mark the edges they own, and a script stitches all three into one timeline. That took its own detours. The idea of tagging each key with an ID died right away because all input goes over one long request, and the trace tool writes every process as process 1, so the files had to be renumbered before they'd line up. Ship stays a dumb pipe with timing only at the edges it owns, so the tracing added three lines to the code.
+So my agent built a trace that watches from the outside. The program in the pane stamps each read and write, the window and the server mark the edges they own, and a script stitches all three into one timeline. That took its own detours. The idea of tagging each key with an ID died right away because back then all input went over one long request, and the trace tool writes every process as process 1, so the files had to be renumbered before they'd line up. Ship stays a dumb pipe with timing only at the edges it owns, so the tracing added three lines to the code.
 
 | step                        | µs after keypress |
 | --------------------------- | ----------------- |
@@ -642,23 +642,88 @@ All of the above leans on screens repeating themselves, so I added a workload th
 Ship sends a lot more for noise, but still about a third of what tmux writes, and that's the number that matters if you use either over ssh, because Ship's window can already connect to a server on another machine through an ssh tunnel, and with tmux everything it draws goes through ssh as is.
 
 > [!TIP]
-> To try that, forward the server's port and point `ship` at it from another terminal. [Using Ship on another machine](/docs/windows-and-the-server/#using-ship-on-another-machine) has the details.
+> To try that, forward the other machine's server socket over ssh and point `ship` at it from another terminal. `ship server status` on the other machine prints the socket's path, and [Using Ship on another machine](/docs/windows-and-the-server/#using-ship-on-another-machine) has the details.
 >
 > ```sh
-> ssh -N -L 43179:127.0.0.1:43179 otherbox
-> ship --server-url http://127.0.0.1:43179
+> ssh -N -o StreamLocalBindUnlink=yes -L ~/.ship-otherbox.sock:/run/user/1000/ship/default.sock otherbox
+> ship --server-url unix://$HOME/.ship-otherbox.sock
 > ```
+
+## 13. One more pass before the release
+
+A week after that race, a couple of things had changed underneath it. The window and the server stopped talking over a TCP port and started using a Unix socket only my user can open, and every keystroke became its own numbered request instead of a line on one long stream. I'd also cloned Ship onto my Linux machine and run the benchmark there.
+
+> so basically we're still winning by about the same as on macos?
+
+Mostly. Ship had the same wins and the same losses on both, and everything was faster on that machine, so the gaps barely moved. The flood lead over Herdr shrank from 1.6x to 1.3x, and a quiet keystroke was still about twice Herdr's and five times tmux's.
+
+With the first release close, I wanted one more profiling run, and this time across everything instead of just the slow tail.
+
+> do you think we could investigate all of the major workloads? not JUST p99? that way we don't miss other potential improvements that only show up on other paths?
+
+This time there was real waste to find. Every time the server published a screen, it copied all 10,000 cells of the pane and converted all 50 rows, even when a keystroke had changed one of them. Ghostty already renders only the rows that changed, so now the widget remembers which rows it wrote and the server copies and converts just those. What gets published is still the whole screen, compressed the same way as before, so everything in section 3 still holds.
+
+> how do you know which rows are dirty though? doesn't that have the risk of desync?
+
+It would if that record were ever wrong, so debug builds compare the copy against a full render after every capture. In those runs, idle typing went from 1.87 ms to 1.54 ms and the agent screen's CPU from 1.76% to 1.35%.
+
+The rest was smaller. The window used to redraw for each keystroke and again when the new screen showed up, and now it only redraws when a screen arrives, which took a tab switch from three redraws to one. Starting Ship with no server running took 113 ms because it checked for the server every 100 ms, and now it checks every 5 ms and takes 23.
+
+The input side was mostly threads waking each other up, and my agent's idea for saving a hop there was to go back to one long stream for input.
+
+> i already DID try the long lived input stream thing. it was just really awkward and didn't really play very well with actions. it's literally the reason i built the whole order thing
+
+The output side had one more surprise. ratatui's diff, which works out what the window actually has to send to your terminal, checked how wide every one of the 10,000 cells was before checking whether it had changed at all. Swapping those two checks made typing on a busy screen about 0.1 ms faster.
+
+> that actually so funny... really? we get that much of a boost from moving one line a branch down and getting rid of another?
+
+It was faster because it was wrong. When a border overwrote the second half of a wide character, the swapped version stopped noticing, and the version that got that right gained nothing.
+
+> i'm guessing that means that we can't actually make it faster?
+
+Not from there. Even a free diff would only save a tenth of a millisecond, and the rest is the same two-process design from section 9.
+
+> welp... i don't think we're gonna be able to squeeze much more out of this... how's about we call it here for the perf stuff and open the pr?
+
+So I reran the race from section 12 on the merged code, same laptop, same five rounds, with one change to the benchmark itself.
+
+| medians                   | Ship before | Ship now     | Herdr    | Zellij  | tmux        |
+| ------------------------- | ----------- | ------------ | -------- | ------- | ----------- |
+| log flood                 | 198 MB/s    | **206 MB/s** | 124 MB/s | 40 MB/s | 40 MB/s     |
+| wide-text flood           | 139 MB/s    | **141 MB/s** | 84 MB/s  | 56 MB/s | 9 MB/s      |
+| animation CPU             | 29%         | **27%**      | 41%      | 66%     | 47%         |
+| animation fps             | 60          | **60**       | 54       | **60**  | **60**      |
+| CPU while typing in flood | 82%         | **81%**      | 102%     | 207%    | 100%        |
+| typing during a flood     | 0.36 ms     | **0.33 ms**  | 0.57 ms  | 9.6 ms  | 0.53 ms     |
+| typing during a flood p99 | 8.3 ms      | **0.62 ms**  | 1.2 ms   | 12.5 ms | 0.90 ms     |
+| typing (idle)             | 1.66 ms     | 1.40 ms      | 0.62 ms  | 13.5 ms | **0.32 ms** |
+| agent screen CPU          | 1.7%        | 1.2%         | 1.6%     | 1.3%    | **0.25%**   |
+| memory (idle)             | 35 MB       | 41 MB        | 48 MB    | 108 MB  | **10 MB**   |
+
+The change to the benchmark is in the p99 row, and it's the answer to the loss I couldn't explain. Once a second the benchmark ran `ps` to check everyone's memory, and while it did, its own reader stalled for 10 to 20 ms, so any key typed in that moment looked slow no matter which multiplexer it went through. With that turned off for the typing runs, the slowest 1% beside a flood went from 8.3 ms to 0.62 ms for Ship, from 9.0 to 0.90 for tmux, and Ship has the best tail of the four. tmux's animation also turns out to have been running at 60 fps all along.
+
+A quiet keystroke split in half again shows where the 0.26 ms came from, and where some of it went.
+
+| typing (idle), median | key in  | screen out |
+| --------------------- | ------- | ---------- |
+| Ship before           | 0.31 ms | 1.31 ms    |
+| Ship now              | 0.54 ms | 0.81 ms    |
+| Herdr                 | 0.28 ms | 0.29 ms    |
+
+Half a millisecond came off the way back out, and about a quarter of it went back on the way in, most likely because every key is its own request now. Memory is up by about 6 MB across the board, and I haven't tracked down why yet.
+
+Over the wire, the noise screen still costs Ship 2.9 MB/s, but at a real 60 fps tmux writes 11 MB/s, so that's about a quarter of tmux now instead of a third. A quiet keystroke went the other way, from 18 B to 67 B, since each key now gets its own small reply.
 
 ## What it came down to
 
-The part I was most worried about, sending the whole screen every time, held up the whole way and never needed fixing. Every win came from waste around it, a timer that rounded up, copies nobody looked at, a thread woken 91,000 times a second, a redraw that landed right as your letter did and 256 KiB of stack per thread that nobody used, and most of those fixes were a few lines. Ship is still about a millisecond behind Herdr on a quiet keystroke, and closing that would take something like Herdr's fast path, which I'd rather not have.
+The part I was most worried about, sending the whole screen every time, held up the whole way and never needed fixing. Every win came from waste around it, a timer that rounded up, copies nobody looked at, a thread woken 91,000 times a second, a redraw that landed right as your letter did and 256 KiB of stack per thread that nobody used, and most of those fixes were a few lines. Ship is still about 0.8 ms behind Herdr on a quiet keystroke, and closing that would take something like Herdr's fast path, which I'd rather not have.
 
 These numbers are from my laptop, and the benchmark is in [`benchmarks/`](https://github.com/shipmux/ship/tree/main/benchmarks) if you want to run it on yours.
 
 > [!NOTE]
-> It needs [uv](https://docs.astral.sh/uv/) and a release build of Ship, and a full run takes about half an hour. Leave out anything you don't have installed with `--mux`.
+> It needs [uv](https://docs.astral.sh/uv/) and a release build of Ship, and a full run takes about 40 minutes. Leave out anything you don't have installed with `--mux`.
 >
 > ```sh
 > cargo build --release
-> cd benchmarks && uv run bench.py --mux ship tmux
+> cd benchmarks && uv run bench.py --mux ship tmux --rss-sample-s 0
 > ```
