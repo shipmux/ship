@@ -53,6 +53,7 @@ jobs:
         with:
           bin: ship
           target: ${{ matrix.target }}
+          features: self-update
           locked: true
           include: LICENSE,README.md,THIRD-PARTY-LICENSES.txt
           checksum: sha256

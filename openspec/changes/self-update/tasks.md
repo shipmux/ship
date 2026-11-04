@@ -30,9 +30,9 @@ Verification uses real commands and a running client, not permanent authored tes
 - [x] 3.2 Add `update::update` and `#[cfg(feature = "self-update")] self_replace` to `crates/ship/src/update.rs`, and route `ship update` in `dispatch`. Find out whether `self_update`'s `checksums` feature reads `upload-rust-binary-action`'s `.sha256` files; if it doesn't, verify with `sha2` in `update.rs` and record that in the deviation log.
 - [x] 3.3 Verify that with `command = "echo updating"`, `ship update` runs it and prints the sync message from the `PATH` probe, and that with no server running it prints no server line and starts none.
 - [x] 3.4 Verify that a plain `cargo build` binary prints that this install can't update itself and how to update it, and exits 1.
-- [ ] 3.5 Add `features: self-update` to the upload step in `.github/workflows/release.yml`. Verify self-replace against a local stub of the GitHub releases API, pointed at by a temporary `api_base_url` in `self_replace` that's reverted afterwards, serving a newer release packed like the action's: a `--features self-update` build replaces itself and `ship --version` shows the newer version, and a wrong or missing `.sha256` leaves the binary unchanged and says why. The self-replace checks are done (see the deviation log); the `release.yml` line remains.
-- [ ] 3.6 Following `docs/agents/docs.md`, add the updates paragraph to `docs/site/building-from-source.md`: source builds don't replace themselves, and packagers set `SHIP_UPDATE_COMMAND` and `SHIP_LATEST_COMMAND`.
-- [ ] 3.7 Check that the `updates` delta's Update method, No update method and Sync after an update match what was built.
+- [x] 3.5 Add `features: self-update` to the upload step in `.github/workflows/release.yml`. Verify self-replace against a local stub of the GitHub releases API, pointed at by a temporary `api_base_url` in `self_replace` that's reverted afterwards, serving a newer release packed like the action's: a `--features self-update` build replaces itself and `ship --version` shows the newer version, and a wrong or missing `.sha256` leaves the binary unchanged and says why. The self-replace checks are done (see the deviation log).
+- [x] 3.6 Following `docs/agents/docs.md`, add the updates paragraph to `docs/site/building-from-source.md`: source builds don't replace themselves, and packagers set `SHIP_UPDATE_COMMAND` and `SHIP_LATEST_COMMAND`.
+- [x] 3.7 Check that the `updates` delta's Update method, No update method and Sync after an update match what was built.
 
 ## 4. The notice in the client
 

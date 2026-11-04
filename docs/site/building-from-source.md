@@ -72,7 +72,9 @@ git pull --ff-only
 cargo install --path crates/ship
 ```
 
-Reinstalling doesn't replace a running server. When you're ready to end its programs, [stop the server](windows-and-the-server.md) and run `ship` again to use the new version.
+A build from source can't replace itself, so `ship update` just tells you to update it the way you installed it, which here means the two commands above. `ship update --check` still tells you whether there's a newer release. Reinstalling doesn't replace a running server. When you're ready to end its programs, [stop the server](windows-and-the-server.md) and run `ship` again to use the new version.
+
+If you're packaging Ship, set `SHIP_UPDATE_COMMAND` and `SHIP_LATEST_COMMAND` when you build it, and `ship update` runs your package manager's upgrade instead and asks it for the latest version. [Updates](configuration.md#updates) covers both.
 
 ## If something goes wrong
 
