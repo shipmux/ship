@@ -3655,6 +3655,7 @@ dependencies = [
  "crokey",
  "crossterm",
  "etcetera",
+ "fastrand",
  "futures-util",
  "indexmap 2.14.2",
  "mitsein",

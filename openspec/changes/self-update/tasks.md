@@ -36,13 +36,13 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 4. The notice in the client
 
-- [ ] 4.1 Add `crates/ship-client/src/ui/updates/mod.rs` with `Run`, `Tracker` and `VersionRow`, without the panel's half (`update`, `pending_start`, `started`).
-- [ ] 4.2 In `crates/ship-client/src/ui/mod.rs`, have `run` take `UpdateContext` and read `/health` once, add `Local::updates`, add the `until(due)` and `finish(pending_check)` branches to `drive`, put an announced note in `local.message`, and call `updates.configure` on reload. In `crates/ship/src/main.rs`, build the `UpdateContext` and pass it in.
-- [ ] 4.3 In `crates/ship-client/src/ui/sidebar/mod.rs`, have `draw` take `VersionRow` and draw it on the bottom row, dimmed or in the accent color.
-- [ ] 4.4 Verify in a running client: the row shows `v0.1.0` dimmed; with `latest_command = "echo 9.9.9"` it changes to `v0.1.0 → v9.9.9` soon after startup, and the mode bar shows `ship v9.9.9 is available · ≡ updates` once; restarting the client and attaching a second one doesn't show the note again; with the sidebar hidden the note still shows.
-- [ ] 4.5 Verify that `check = false` keeps the row dimmed and runs no check, that saving `check = true` makes one due at once, that a second client within the hour reuses the cache with no second request in the client log, and that `ship tab create` makes no request.
-- [ ] 4.6 Compare attach time with checks on and with `check = false` (SC-002), with `latest_command` set to a command that sleeps, and record both.
-- [ ] 4.7 Check that the `terminal-client` delta and the `updates` delta's checking, sidebar row and one-time note requirements match what was built.
+- [x] 4.1 Add `crates/ship-client/src/ui/updates/mod.rs` with `Run`, `Tracker` and `VersionRow`, without the panel's half (`update`, `pending_start`, `started`).
+- [x] 4.2 In `crates/ship-client/src/ui/mod.rs`, have `run` take `UpdateContext` and read `/health` once, add `Local::updates`, add the `until(due)` and `finish(pending_check)` branches to `drive`, put an announced note in `local.message`, and call `updates.configure` on reload. In `crates/ship/src/main.rs`, build the `UpdateContext` and pass it in.
+- [x] 4.3 In `crates/ship-client/src/ui/sidebar/mod.rs`, have `draw` take `VersionRow` and draw it on the bottom row, dimmed or in the accent color.
+- [x] 4.4 Verify in a running client: the row shows `v0.1.0` dimmed; with `latest_command = "echo 9.9.9"` it changes to `v0.1.0 → v9.9.9` soon after startup, and the mode bar shows `ship v9.9.9 is available · ≡ updates` once; restarting the client and attaching a second one doesn't show the note again; with the sidebar hidden the note still shows.
+- [x] 4.5 Verify that `check = false` keeps the row dimmed and runs no check, that saving `check = true` makes one due at once, that a second client within the hour reuses the cache with no second request in the client log, and that `ship tab create` makes no request.
+- [x] 4.6 Compare attach time with checks on and with `check = false` (SC-002), with `latest_command` set to a command that sleeps, and record both.
+- [x] 4.7 Check that the `terminal-client` delta and the `updates` delta's checking, sidebar row and one-time note requirements match what was built.
 
 ## 5. The panel
 

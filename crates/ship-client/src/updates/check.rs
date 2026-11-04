@@ -88,6 +88,7 @@ impl Checker {
             return Ok(found.clone());
         }
 
+        tracing::info!(command = latest_command, "asking for the latest release");
         let from_command = match latest_command {
             Some(line) => {
                 let output = shell(line)

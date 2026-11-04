@@ -163,10 +163,7 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
         }
         Some(Command::Update(args)) => {
             let settings = ClientSettings::load(&cli.config_path()?)?;
-            let context = updates::UpdateContext {
-                cache: runlog::state_dir()?.join("update.json"),
-                self_replace: cfg!(feature = "self-update"),
-            };
+            let context = update_context()?;
             if args.check {
                 let checker = updates::Checker::new(context.cache)?;
                 return update::check(&checker, &settings.updates).await;
@@ -212,13 +209,26 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
                     (client, initial_selection)
                 }
             };
-            ui::run(&client, initial_selection, &cli.config_path()?, diagnostics.run_output())
+            ui::run(
+                &client,
+                initial_selection,
+                &cli.config_path()?,
+                update_context()?,
+                diagnostics.run_output(),
+            )
                 .await
                 // The client log has no stderr layer, so this doesn't repeat main's message.
                 .inspect_err(|error| tracing::error!(%error, "client failed"))
         }
     }
     .map(|()| ExitCode::SUCCESS)
+}
+
+fn update_context() -> Result<updates::UpdateContext> {
+    Ok(updates::UpdateContext {
+        cache: runlog::state_dir()?.join("update.json"),
+        self_replace: cfg!(feature = "self-update"),
+    })
 }
 
 /// Validate a URL without starting it; otherwise reuse or start the named server.

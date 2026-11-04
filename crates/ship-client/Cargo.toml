@@ -15,6 +15,7 @@ tracing.workspace = true
 crokey.workspace = true
 crossterm = { workspace = true, features = ["bracketed-paste", "event-stream", "osc52"] }
 etcetera.workspace = true
+fastrand = "2"
 futures-util.workspace = true
 indexmap.workspace = true
 mitsein.workspace = true
