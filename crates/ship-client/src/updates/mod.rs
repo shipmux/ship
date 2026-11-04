@@ -4,7 +4,7 @@ mod check;
 mod probe;
 
 pub use check::{Checked, Checker, FRESH_FOR, Found, Freshness, Release};
-pub use probe::{Probed, Sync, mismatch, probe};
+pub use probe::{Probed, RESTART, Sync, mismatch, probe};
 
 use std::path::PathBuf;
 

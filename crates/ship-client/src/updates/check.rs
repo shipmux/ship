@@ -96,11 +96,15 @@ impl Checker {
                     .await
                     .map_err(|error| err!(Io, "cannot run latest_command", @external: error))?;
                 if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let why = match stderr.trim() {
+                        "" => String::new(),
+                        stderr => format!(": {stderr}"),
+                    };
                     return Err(err!(
                         Validation,
-                        "latest_command failed: {}: {}",
-                        output.status,
-                        String::from_utf8_lossy(&output.stderr).trim()
+                        "latest_command failed: {}{why}",
+                        output.status
                     ));
                 }
                 let text = String::from_utf8(output.stdout).map_err(|error| {

@@ -66,6 +66,8 @@ pub(super) enum Hit {
     Tabs(tabs::Hit),
     /// An agent's rows.
     Agent(IdOf<Pane>),
+    /// The version row at the bottom.
+    Version,
 }
 
 impl Sidebar {
@@ -176,6 +178,10 @@ impl Sidebar {
             } else {
                 Hit::Heading
             });
+        }
+        // Drawn last, so it wins where a short sidebar overlaps it.
+        if at.y == self.area.bottom().saturating_sub(FOOTER) {
+            return Some(Hit::Version);
         }
         let split = self.split_row();
         match at.y.cmp(&split) {

@@ -77,13 +77,13 @@ use self::{
     rename::Rename,
     sidebar::{Sidebar, movable},
     terminal::TerminalGuard,
-    updates::Tracker,
+    updates::{Finished, Panel, Tracker},
 };
 use crate::{
     Client, KeyScope, Scope,
     keymap::{
         Action, AgentSettings, ClientAction, ClientAgents, ClientPane, ClientSettings, ClientTab,
-        ConfigAction, Menus, ModeName, Sidebar as SidebarAction,
+        ClientUpdates, ConfigAction, Menus, ModeName, Sidebar as SidebarAction,
     },
     sound::Speaker,
     updates::{Freshness, UpdateContext},
@@ -322,8 +322,15 @@ async fn drive(
                 local.updates.check(Freshness::Cached);
                 None
             }
-            result = finish(local.updates.pending_check()) => {
-                local.note = local.updates.checked(result).or(local.note.take());
+            finished = local.updates.finished() => {
+                match finished {
+                    Finished::Check(result) => {
+                        local.note = local.updates.checked(result).or(local.note.take());
+                    }
+                    Finished::Run(result) => {
+                        local.message = local.updates.ran(result).or(local.message.take());
+                    }
+                }
                 Some(Effect::Redraw)
             }
             event = terminal_events.next() => match event {
@@ -480,6 +487,7 @@ impl Pass {
 enum Overlay {
     Menu(Menu),
     Rename(Rename),
+    Updates(Panel),
 }
 
 /// Client-local state used to resolve each input at its turn.
@@ -616,12 +624,14 @@ impl<'a> Local<'a> {
                 let picked = match overlay {
                     Overlay::Menu(menu) => menu.handle(&event),
                     Overlay::Rename(rename) => rename.handle(&event),
+                    Overlay::Updates(panel) => panel.handle(&event),
                 };
                 match picked {
                     Picked::Run(action) => {
                         self.overlay = None;
                         Some(Item::Action(action))
                     }
+                    Picked::Stay(action) => Some(Item::Action(action)),
                     Picked::Close => {
                         self.overlay = None;
                         None
@@ -648,6 +658,7 @@ impl<'a> Local<'a> {
         };
         self.sidebar.tabs.reconcile(&replica.tabs);
         self.mouse.reconcile(&replica.tabs);
+        self.updates.reconcile(&replica.tabs);
         let Some(Overlay::Rename(rename)) = &self.overlay else {
             return false;
         };
@@ -988,6 +999,22 @@ impl<'a> Local<'a> {
             ClientAction::Tab(ClientTab::Select { .. }) => unavailable("tab select"),
             ClientAction::Run(Run { command }) => {
                 run::start(&self.runner, client, &self.observer, command)
+            }
+            ClientAction::Updates(ClientUpdates::Open {}) => {
+                self.overlay = Some(Overlay::Updates(Panel::default()));
+                Ok(())
+            }
+            ClientAction::Updates(ClientUpdates::Check {}) => {
+                self.updates.check(Freshness::Force);
+                Ok(())
+            }
+            ClientAction::Updates(ClientUpdates::Update {}) => {
+                if let (Some(attachment), Some(replica)) =
+                    (self.observer.attachment, &self.observer.replica)
+                {
+                    self.updates.update(client, attachment, &replica.tabs);
+                }
+                Ok(())
             }
             ClientAction::Detach {} => return Turn::Detach,
             action @ (ClientAction::Mode(_)

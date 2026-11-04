@@ -269,6 +269,7 @@ impl Action {
             Self::Client(ClientAction::Sidebar(action)) => action.into(),
             Self::Client(ClientAction::Config(action)) => action.into(),
             Self::Client(ClientAction::Agents(action)) => action.into(),
+            Self::Client(ClientAction::Updates(action)) => action.into(),
             Self::Client(action) => action.into(),
         };
         Cow::Borrowed(name)
@@ -291,6 +292,7 @@ pub enum ClientAction {
     Detach {},
     Config(ConfigAction),
     Agents(ClientAgents),
+    Updates(ClientUpdates),
 }
 
 #[derive(Clone, Debug, Deserialize, strum::IntoStaticStr)]
@@ -379,6 +381,18 @@ pub enum ClientAgents {
 #[strum(serialize_all = "snake_case")]
 pub enum ConfigAction {
     Reload {},
+}
+
+#[derive(Clone, Debug, Deserialize, strum::IntoStaticStr)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[strum(serialize_all = "snake_case")]
+pub enum ClientUpdates {
+    /// The updates panel.
+    Open {},
+    /// Ask for the latest release now, even with checks off.
+    Check {},
+    /// Run `ship update` in tab `update`; nothing without a method.
+    Update {},
 }
 
 /// The client's part of the config file, already over the defaults except

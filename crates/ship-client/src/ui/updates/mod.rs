@@ -1,43 +1,100 @@
 //! What the client knows about updates for the session: read by the
 //! sidebar row, the one-time note and the panel.
 
-use std::time::{Duration, Instant};
+mod panel;
+
+pub(super) use panel::Panel;
+
+use std::{
+    env,
+    ffi::OsString,
+    time::{Duration, Instant},
+};
 
 use semver::Version;
-use ship_core::{HealthResponse, prelude::*};
+use ship_core::{
+    HealthResponse,
+    id::{Attachment, IdOf},
+    model::{ExitBehavior, ExitStatus, Pane, PaneStatus, Tab},
+    prelude::*,
+    protocol::{CreatePane, CreateTab, MoveTab, NewPane, NewTab, PaneAt},
+    tree::{self, Tabs},
+};
 
-use super::Request;
-use crate::updates::{
-    Checker, FRESH_FOR, Found, Freshness, UpdateContext, UpdateSettings, installed,
+use super::{Request, finish};
+use crate::{
+    Client,
+    updates::{
+        Checker, FRESH_FOR, Found, Freshness, Method, Sync, UpdateContext, UpdateSettings,
+        installed, probe,
+    },
 };
 
 /// Clients that reused one result go stale together; a random share of
 /// this spreads their next checks so the first to ask refreshes it for all.
 const SPREAD: Duration = Duration::from_secs(60);
 
+/// The update's tab and pane once created; the pane's status is the
+/// replica's.
+#[derive(Clone, Copy)]
+pub(super) struct Started {
+    tab: IdOf<Tab>,
+    pane: IdOf<Pane>,
+}
+
+/// What a pending update request produced.
+pub(super) enum Done {
+    Started(Started),
+    Probed(Sync),
+}
+
+/// The update's part of the panel's status, read from the replica on each
+/// draw (FR-011, FR-013).
+pub(super) enum Progress<'a> {
+    Idle,
+    /// Creating the tab, running, or probing what a clean exit installed.
+    Updating,
+    Installed(&'a Sync),
+    /// While its pane is kept, which shows why.
+    Failed,
+}
+
 pub(super) struct Tracker<'a> {
     checker: Checker,
-    #[expect(dead_code, reason = "the panel's update method reads it in slice 5")]
     context: UpdateContext,
     settings: UpdateSettings,
     /// From `/health` at startup; a restarted server ends this client.
-    #[expect(dead_code, reason = "the panel's server row reads it in slice 5")]
     server: HealthResponse,
-    installed: Version,
+    /// Read at startup: once self-replace swaps the file, Linux reports
+    /// this path with " (deleted)".
+    exe: Option<OsString>,
     found: Option<Found>,
-    /// Polled with `finish`, like the lane's running request.
+    /// Polled by `finished`, like the lane's running request.
     checking: Option<Request<'a, Found>>,
     /// Why the last check failed; the previous `found` still stands.
     check_failed: Option<String>,
     /// When the schedule asks next; None while checks are off.
     due: Option<Instant>,
+    /// Creating the tab and pane, or probing after a clean exit.
+    pending: Option<Request<'a, Done>>,
+    /// The last run's, whose tab the next reuses while it exists.
+    started: Option<Started>,
+    /// The probe's answer for `started`, the one thing the replica can't
+    /// say; it stands after the tab closes.
+    sync: Option<Sync>,
+}
+
+/// A request of the tracker's that finished, for `checked` or `ran`.
+pub(super) enum Finished {
+    Check(Result<Found>),
+    Run(Result<Done>),
 }
 
 /// What the sidebar's bottom row draws (FR-006).
 pub(super) enum VersionRow<'a> {
-    Current(&'a Version),
+    Current(Version),
     Available {
-        installed: &'a Version,
+        installed: Version,
         latest: &'a Version,
     },
 }
@@ -57,9 +114,12 @@ impl<'a> Tracker<'a> {
             context,
             settings,
             server,
-            installed: installed(),
+            exe: env::current_exe().ok().map(Into::into),
             checking: None,
             check_failed: None,
+            pending: None,
+            started: None,
+            sync: None,
         })
     }
 
@@ -84,9 +144,12 @@ impl<'a> Tracker<'a> {
         }));
     }
 
-    /// The pending check, for `finish` in the loop.
-    pub fn pending_check(&mut self) -> &mut Option<Request<'a, Found>> {
-        &mut self.checking
+    /// The next pending check or run to finish; never while none is.
+    pub async fn finished(&mut self) -> Finished {
+        tokio::select! {
+            result = finish(&mut self.checking) => Finished::Check(result),
+            result = finish(&mut self.pending) => Finished::Run(result),
+        }
     }
 
     /// Stores a finished check; the one-time note when it announces.
@@ -125,14 +188,139 @@ impl<'a> Tracker<'a> {
         note
     }
 
+    /// The latest release when it's newer than this client.
+    pub fn available(&self) -> Option<&Version> {
+        self.found
+            .as_ref()
+            .and_then(|found| found.latest.as_ref())
+            .filter(|latest| *latest > &installed())
+    }
+
     pub fn row(&self) -> VersionRow<'_> {
-        match self.found.as_ref().and_then(|found| found.latest.as_ref()) {
-            Some(latest) if latest > &self.installed => VersionRow::Available {
-                installed: &self.installed,
+        match self.available() {
+            Some(latest) => VersionRow::Available {
+                installed: installed(),
                 latest,
             },
-            _ => VersionRow::Current(&self.installed),
+            None => VersionRow::Current(installed()),
         }
+    }
+
+    pub fn progress(&self, tabs: &Tabs) -> Progress<'_> {
+        if self.pending.is_some() {
+            return Progress::Updating;
+        }
+        if let Some(sync) = &self.sync {
+            return Progress::Installed(sync);
+        }
+        let pane = self
+            .started
+            .and_then(|started| tree::pane(tabs, started.pane).ok());
+        match pane.map(|pane| &pane.status) {
+            None => Progress::Idle,
+            Some(PaneStatus::Exited(exit)) if !clean(exit) => Progress::Failed,
+            // Running, or exited 0 with the probe about to start.
+            Some(_) => Progress::Updating,
+        }
+    }
+
+    /// `client.updates.update`: a pane running `ship update` for
+    /// `attachment`, in the last run's tab or a new tab `update`, unless an
+    /// update is under way or this install has no method.
+    pub fn update(&mut self, client: &'a Client, attachment: IdOf<Attachment>, tabs: &Tabs) {
+        if matches!(self.progress(tabs), Progress::Updating) || self.method() == Method::Unavailable
+        {
+            return;
+        }
+        self.sync = None;
+        let reused = self
+            .started
+            .map(|started| started.tab)
+            .filter(|&tab| tree::tab(tabs, tab).is_ok());
+        self.pending = Some(Box::pin(async move {
+            let tab = match reused {
+                Some(tab) => tab,
+                None => {
+                    client
+                        .create_tab(&CreateTab {
+                            at: MoveTab::top(),
+                            tab: NewTab {
+                                name: Some("update".into()),
+                            },
+                            starter: None,
+                            select: None,
+                        })
+                        .await?
+                        .id
+                }
+            };
+            // Like the pane menu's `edit scrollback`, the server's own binary.
+            let pane = client
+                .create_pane(&CreatePane {
+                    at: PaneAt::Tab(tab),
+                    place: Default::default(),
+                    pane: NewPane {
+                        command: Some(
+                            ["sh", "-c", "exec \"$SHIP_BIN\" update"]
+                                .map(Into::into)
+                                .into(),
+                        ),
+                        exit_behavior: Some(ExitBehavior::Keep),
+                        ..Default::default()
+                    },
+                    select: Some(attachment),
+                })
+                .await?;
+            Ok(Done::Started(Started { tab, pane: pane.id }))
+        }));
+    }
+
+    /// Stores what the pending run produced; the error for the status line
+    /// when the tab couldn't be created.
+    pub fn ran(&mut self, result: Result<Done>) -> Option<String> {
+        self.pending = None;
+        match result {
+            Ok(Done::Started(started)) => {
+                self.started = Some(started);
+                None
+            }
+            Ok(Done::Probed(sync)) => {
+                self.sync = Some(sync);
+                None
+            }
+            Err(error) => {
+                tracing::warn!(%error, "cannot start the update");
+                Some(error.to_string())
+            }
+        }
+    }
+
+    /// After each publication: probes the installed ship once the update's
+    /// pane exits 0.
+    pub fn reconcile(&mut self, tabs: &Tabs) {
+        let Some(started) = self.started else {
+            return;
+        };
+        let exited_clean = tree::pane(tabs, started.pane)
+            .is_ok_and(|pane| matches!(&pane.status, PaneStatus::Exited(exit) if clean(exit)));
+        if !exited_clean || self.sync.is_some() || self.pending.is_some() {
+            return;
+        }
+        // `ship update` probes the same binary: the one it replaced, or
+        // `ship` on PATH after a command.
+        let program = match self.method() {
+            Method::SelfReplace => self.exe.clone(),
+            _ => None,
+        }
+        .unwrap_or_else(|| "ship".into());
+        let server = self.server.clone();
+        self.pending = Some(Box::pin(async move {
+            Ok(Done::Probed(Sync::of(probe(&program).await, &server)))
+        }));
+    }
+
+    fn method(&self) -> Method {
+        self.settings.method(&self.context)
     }
 
     /// On config reload; turning checks on makes it due now.
@@ -144,4 +332,8 @@ impl<'a> Tracker<'a> {
         };
         self.settings = settings;
     }
+}
+
+fn clean(exit: &ExitStatus) -> bool {
+    exit.code == 0 && exit.signal.is_none()
 }

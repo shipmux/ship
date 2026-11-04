@@ -46,14 +46,14 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 5. The panel
 
-- [ ] 5.1 Add `tui-markdown` to `crates/ship-client/Cargo.toml` with default features off. Verify with `cargo tree -d` that it adds no second ratatui or crossterm.
-- [ ] 5.2 Add `crates/ship-client/src/ui/updates/panel.rs` and the tracker's `update`, `pending_start`, `started` and `reconcile`.
-- [ ] 5.3 Wire the panel in: `ClientUpdates` (`open`, `check`, `update`) in `keymap.rs`; `Overlay::Updates`, the `act` arms, the `finish(pending_start)` branch and `updates.reconcile` in `ui/mod.rs`; `Hit::Version` in `ui/sidebar/mod.rs` and `ui/mouse.rs`; the `updates` global menu item in `defaults.toml`.
-- [ ] 5.4 Verify that `≡ → updates`, clicking the version row and a custom `client.updates.open` binding each open the panel, and that Esc and a click outside close it like the menu. Verify that `alt-m` still reaches the program.
-- [ ] 5.5 Walk every FR-011 status by hand: up to date and available with `latest_command`; checking with a slow `latest_command`; check failed with a failing one; checks off with `check = false`, then `[check]`; updating, installed and failed with `command = "sleep 5"`, `command = "true"` and `command = "false"`; back to available after closing the `update` tab mid-run; no method in a plain build, with `[update]` disabled and the reason shown.
-- [ ] 5.6 Verify that the notes render from a real release body (the fork's from 3.5, or a read-only fetch of another repository's release in a scratch build), that they scroll, and that each URL is shown.
-- [ ] 5.7 Following `docs/agents/docs.md`, add `updates` to the global menu row in `docs/site/scrolling-copying-and-the-mouse.md`.
-- [ ] 5.8 Check that the `keymap`, `context-menus` and `mouse-input` deltas and the `updates` delta's panel requirements match what was built.
+- [x] 5.1 Add `tui-markdown` to `crates/ship-client/Cargo.toml` with default features off. Verify with `cargo tree -d` that it adds no second ratatui or crossterm.
+- [x] 5.2 Add `crates/ship-client/src/ui/updates/panel.rs` and the tracker's `update`, `pending_start`, `started` and `reconcile`.
+- [x] 5.3 Wire the panel in: `ClientUpdates` (`open`, `check`, `update`) in `keymap.rs`; `Overlay::Updates`, the `act` arms, the `finish(pending_start)` branch and `updates.reconcile` in `ui/mod.rs`; `Hit::Version` in `ui/sidebar/mod.rs` and `ui/mouse.rs`; the `updates` global menu item in `defaults.toml`.
+- [x] 5.4 Verify that `≡ → updates`, clicking the version row and a custom `client.updates.open` binding each open the panel, and that Esc and a click outside close it like the menu. Verify that `alt-m` still reaches the program.
+- [x] 5.5 Walk every FR-011 status by hand: up to date and available with `latest_command`; checking with a slow `latest_command`; check failed with a failing one; checks off with `check = false`, then `[check]`; updating, installed and failed with `command = "sleep 5"`, `command = "true"` and `command = "false"`; back to available after closing the `update` tab mid-run; no method in a plain build, with `[update]` disabled and the reason shown.
+- [x] 5.6 Verify that the notes render from a real release body (the fork's from 3.5, or a read-only fetch of another repository's release in a scratch build), that they scroll, and that each URL is shown.
+- [x] 5.7 Following `docs/agents/docs.md`, add `updates` to the global menu row in `docs/site/scrolling-copying-and-the-mouse.md`.
+- [x] 5.8 Check that the `keymap`, `context-menus` and `mouse-input` deltas and the `updates` delta's panel requirements match what was built.
 
 ## 6. Install, releases and docs
 

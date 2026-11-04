@@ -8,7 +8,7 @@ use tokio::process::Command;
 
 use super::{core_version, installed};
 
-const RESTART: &str =
+pub const RESTART: &str =
     "restart the server: ship server stop && ship (ends running programs; tabs are restored)";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -70,19 +70,26 @@ impl Sync {
         }
     }
 
-    /// Shared by the update CLI and panel, including the restart's cost.
+    /// Whether the server must restart, for the update CLI and the panel.
+    pub fn guidance(&self) -> &'static str {
+        match self {
+            Self::Compatible(_) => "server is compatible; restart when convenient",
+            Self::Restart(_) => "server must restart to stay in sync",
+            Self::Unknown => "could not probe the installed ship; the server may need a restart",
+        }
+    }
+
+    /// The versions, the guidance and the restart's cost.
     pub fn describe(&self, server: &HealthResponse) -> String {
         match self {
-            Self::Compatible(probed) | Self::Restart(probed) => {
-                let guidance = match self {
-                    Self::Compatible(_) => "server is compatible; restart when convenient",
-                    _ => "server must restart to stay in sync",
-                };
-                format!(
-                    "installed ship {} (protocol {}); server ship {} (protocol {})\n{guidance}\n{RESTART}",
-                    probed.version, probed.protocol, server.version, server.protocol_version
-                )
-            }
+            Self::Compatible(probed) | Self::Restart(probed) => format!(
+                "installed ship {} (protocol {}); server ship {} (protocol {})\n{}\n{RESTART}",
+                probed.version,
+                probed.protocol,
+                server.version,
+                server.protocol_version,
+                self.guidance()
+            ),
             Self::Unknown => format!(
                 "could not probe the installed ship; server ship {} (protocol {}) may need a restart to stay in sync\n{RESTART}",
                 server.version, server.protocol_version

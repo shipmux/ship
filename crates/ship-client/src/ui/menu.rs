@@ -48,6 +48,8 @@ pub(super) struct Menu {
 
 pub(super) enum Picked {
     Run(Action),
+    /// Runs the action and stays open, as the updates panel's buttons do.
+    Stay(Action),
     Close,
     Open,
 }
