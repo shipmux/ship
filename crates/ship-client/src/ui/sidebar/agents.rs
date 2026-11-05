@@ -13,7 +13,11 @@ use ship_core::{
     tree::Tabs,
 };
 
-use super::Scroll;
+use super::{
+    Scroll,
+    fit::{self, Cut, Piece},
+    tags,
+};
 use crate::{
     keymap::Token,
     ui::{
@@ -25,7 +29,6 @@ use crate::{
 
 /// Drawn before each line, lining entries up with the `tabs` heading.
 const MARGIN: &str = " ";
-const ELLIPSIS: &str = "…";
 
 /// Distinct by shape and color; tab rows use the same.
 pub(super) fn icon(display: Display) -> Span<'static> {
@@ -140,37 +143,29 @@ impl Agents {
 }
 
 /// The entry's lines, leaving out tokens without a value and lines left
-/// empty. `tab` drops leading labels until its line fits in `width`.
+/// empty. Values too wide for `width` share it (amendment P4).
 fn row(agent: &Agent, rows: &[Vec<Token>], width: u16) -> Vec<Line<'static>> {
     rows.iter()
         .filter_map(|tokens| {
-            let values: Vec<_> = tokens
+            let values = tokens
                 .iter()
-                .filter_map(|token| Some((*token, value(agent, *token)?)))
+                .filter_map(|token| {
+                    let span = value(agent, token)?;
+                    let cut = match token {
+                        Token::Icon => Cut::Keep,
+                        Token::Tab => Cut::Start,
+                        _ => Cut::End,
+                    };
+                    Some(vec![Piece { span, cut }])
+                })
                 .collect();
-            let fixed = values
-                .iter()
-                .filter(|(token, _)| !matches!(token, Token::Tab))
-                .map(|(_, span)| span.width())
-                .sum::<usize>()
-                + values.len().saturating_sub(1);
-            let room = usize::from(width).saturating_sub(fixed);
-            let mut spans = vec![Span::raw(MARGIN)];
-            for (index, (token, span)) in values.into_iter().enumerate() {
-                if index > 0 {
-                    spans.push(Span::raw(" "));
-                }
-                spans.push(match token {
-                    Token::Tab => Span::from(shorten(&span.content, room)),
-                    _ => span,
-                });
-            }
-            (spans.len() > 1).then(|| Line::from(spans))
+            let spans = fit::line(values, " ", usize::from(width));
+            (!spans.is_empty()).then(|| Line::from([vec![Span::raw(MARGIN)], spans].concat()))
         })
         .collect()
 }
 
-fn value(agent: &Agent, token: Token) -> Option<Span<'static>> {
+fn value(agent: &Agent, token: &Token) -> Option<Span<'static>> {
     let text = |text: &str| (!text.is_empty()).then(|| Span::from(text.to_owned()));
     match token {
         Token::Icon => Some(icon(agent.display)),
@@ -180,19 +175,6 @@ fn value(agent: &Agent, token: Token) -> Option<Span<'static>> {
         Token::Pane => text(pane_label(agent.pane)),
         Token::Title => text(agent.root.title.as_deref()?),
         Token::Msg => text(agent.root.msg.as_deref()?),
+        Token::Tag(name) => tags::span(agent.pane.tags.get(name)?),
     }
-}
-
-/// `path` cut from the left behind an ellipsis to fit `room` cells.
-fn shorten(path: &str, room: usize) -> String {
-    if Span::raw(path).width() <= room {
-        return path.to_owned();
-    }
-    let room = room.saturating_sub(Span::raw(ELLIPSIS).width());
-    let start = path
-        .char_indices()
-        .map(|(index, _)| index)
-        .find(|index| Span::raw(&path[*index..]).width() <= room)
-        .unwrap_or(path.len());
-    format!("{ELLIPSIS}{}", &path[start..])
 }

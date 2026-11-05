@@ -14,11 +14,13 @@ use serde::{
     Deserialize, Deserializer,
     de::{Error as _, IgnoredAny},
 };
+use serde_with::{DisplayFromStr, serde_as};
 use ship_core::{
     command::{Command, Direction, Run, pane::PaneCommand},
     config,
     model::Switch,
     prelude::*,
+    tag::TagName,
 };
 
 use crate::{
@@ -31,7 +33,25 @@ pub struct ClientSettings {
     pub keymap: Keymap,
     pub sidebar_width: u16,
     pub agents: AgentSettings,
+    pub tabs: TabSettings,
     pub updates: UpdateSettings,
+}
+
+/// `[client.tabs]` with defaults applied. Replaced whole on reload.
+#[derive(Clone, Debug)]
+pub struct TabSettings {
+    /// The lines of a tab's entry in the sidebar.
+    pub rows: Vec<Vec<TabToken>>,
+}
+
+/// One value in a tab's entry: `"name"` or `{ tag = "git.branch" }`.
+#[serde_as]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TabToken {
+    /// The tab's name, else its automatic name, with the zoom marker.
+    Name,
+    Tag(#[serde_as(as = "DisplayFromStr")] TagName),
 }
 
 /// `[client.agents]` with defaults applied.
@@ -45,8 +65,10 @@ pub struct AgentSettings {
     pub sounds: Sounds<Cue>,
 }
 
-/// One value in an agent's entry.
-#[derive(Clone, Copy, Debug, Deserialize)]
+/// One value in an agent's entry: a bare name, or `{ tag = "git.branch" }`
+/// for a tag on the agent's pane.
+#[serde_as]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Token {
     Icon,
@@ -56,6 +78,7 @@ pub enum Token {
     Pane,
     Title,
     Msg,
+    Tag(#[serde_as(as = "DisplayFromStr")] TagName),
 }
 
 /// The two kinds of notification. In config it also names a bundled
@@ -416,7 +439,14 @@ struct Client {
     #[serde(default)]
     modes: HashMap<ModeName, ModeFile>,
     agents: AgentsFile,
+    tabs: TabsFile,
     updates: UpdatesFile,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TabsFile {
+    rows: Vec<Vec<TabToken>>,
 }
 
 #[derive(Deserialize)]
@@ -496,6 +526,7 @@ impl ClientSettings {
             menus,
             modes: file_modes,
             agents,
+            tabs,
             updates,
         } = file.client;
         let mut modes = config::defaults::<File>().client.modes;
@@ -525,6 +556,7 @@ impl ClientSettings {
                 popups: agents.popups,
                 sounds: agents.sounds.load(base),
             },
+            tabs: TabSettings { rows: tabs.rows },
             updates: UpdateSettings {
                 check: updates.check,
                 command: updates.command,

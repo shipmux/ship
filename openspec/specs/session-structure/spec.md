@@ -378,7 +378,7 @@ A selecting create SHALL take its attachment from `--attachment ID`, defaulting 
 - **THEN** the CLI reports an unknown subcommand, exits 2 and nothing changes
 
 ### Requirement: Set attribute fields
-A tab's attributes SHALL be `name` (`--name`) and `zoomed` (`--zoomed`). A pane's attributes SHALL be `name` (`--name`), `right_click_passthrough` (`--right-click-passthrough`), `exit_behavior` (`--exit-behavior`) and `scrollback_bytes` (`--scrollback-bytes`).
+A tab's attributes SHALL be `name` (`--name`), `zoomed` (`--zoomed`) and `tags` (`--tag`, `--tag-fg`, `--tag-bg`, `--clear-tags`). A pane's attributes SHALL be `name` (`--name`), `right_click_passthrough` (`--right-click-passthrough`), `exit_behavior` (`--exit-behavior`), `scrollback_bytes` (`--scrollback-bytes`) and `tags` (`--tag`, `--tag-fg`, `--tag-bg`, `--clear-tags`), as the `tags` capability describes.
 
 #### Scenario: Exit behavior and history in one edit
 - **WHEN** a script runs `ship pane set --pane <id> --exit-behavior keep_failed --scrollback-bytes 50000000`
@@ -386,6 +386,10 @@ A tab's attributes SHALL be `name` (`--name`) and `zoomed` (`--zoomed`). A pane'
 
 #### Scenario: Name and zoom in one edit
 - **WHEN** a script runs `ship tab set --tab <t> --name build --zoomed <p>` for a pane `<p>` in `<t>`
+- **THEN** both change in one edit, and `ship tab get` shows them
+
+#### Scenario: Name and tag in one edit
+- **WHEN** a script runs `ship tab set --tab <t> --name build --tag ci.state=green`
 - **THEN** both change in one edit, and `ship tab get` shows them
 
 ### Requirement: Two-valued attributes
@@ -407,7 +411,7 @@ From keys and menus, `set` SHALL act on the selected tab or pane. From the CLI i
 - **THEN** the key or menu acts on the selected tab or pane, and the CLI acts on `--tab`, `--pane` or the caller's pane, as other tab and pane commands do
 
 ### Requirement: HTTP set fields
-Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "right_click_passthrough"?, "exit_behavior"?, "scrollback_bytes"? }`, following JSON Merge Patch (RFC 7386). An absent field SHALL leave its attribute unchanged, and JSON `null` SHALL clear it. `null` SHALL be accepted only on `name` and `zoomed`; on any other field it SHALL get 400 `validation`.
+Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"?, "tags"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "right_click_passthrough"?, "exit_behavior"?, "scrollback_bytes"?, "tags"? }`, as JSON Merge Patch (RFC 7396). An absent field SHALL leave its attribute unchanged, and JSON `null` SHALL clear it. `null` SHALL be accepted only on `name`, `zoomed` and `tags`; on any other field it SHALL get 400 `validation`. `tags` follows the `tags` capability's merge rules.
 
 #### Scenario: Omitted and blank HTTP fields
 - **WHEN** a caller patches a pane with `{}`, then `{"name": "  x "}`, then `{"name": ""}`, then `{"name": null}`
@@ -420,6 +424,10 @@ Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"? }` and `PA
 #### Scenario: Toggle over HTTP
 - **WHEN** a caller patches a pane with `{"right_click_passthrough": "toggle"}`
 - **THEN** the setting flips
+
+#### Scenario: Null tags
+- **WHEN** a caller patches a pane that has tags with `{"tags": null}`
+- **THEN** the pane has no tags
 
 ### Requirement: HTTP set results
 Both HTTP set routes SHALL return the entity. Unknown fields SHALL be ignored; a PATCH with only unknown fields SHALL change nothing and leave the revision unchanged.

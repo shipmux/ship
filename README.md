@@ -54,7 +54,7 @@ The name started as a joke about shipping software faster, and the ship and crew
 - **Leave the window, not the work.** Detach and come back to the same running programs, or open several terminal windows onto one server. [Windows and the server](docs/site/windows-and-the-server.md)
 - **Get your layout back after a restart.** Tabs, stacks, splits and directories return with fresh shells. Your old programs don't restart. [Saved tabs](docs/site/saved-tabs.md)
 - **Search output in your own editor.** Open a pane's scrollback in your editor, or drag to copy straight from the terminal. [Scrollback and copy](docs/site/scrolling-copying-and-the-mouse.md)
-- **Give scripts and agents the controls.** Create panes, send prompts or keys, wait for status reports and read output through the CLI. [Scripting Ship](docs/site/scripting/README.md)
+- **Give scripts and agents the controls.** Create panes, send prompts or keys, wait for status reports and read output through the CLI. Scripts can follow Ship's state and show their own text in the sidebar, like [each tab's git branch](examples/plugins/README.md). [Scripting Ship](docs/site/scripting/README.md)
 - **Keep your habits.** Rebind keys, add a tmux-style prefix, customize menus or run your own scripts from a key. Config changes apply when you save. [Configuration](docs/site/configuration.md)
 
 Agents report through the [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status). Anything that reports its own status can work with Ship; there's no per-agent plugin list to maintain.

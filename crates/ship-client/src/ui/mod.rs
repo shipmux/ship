@@ -153,7 +153,7 @@ pub async fn run(
             tabs: &client.tabs().await?,
             selection: None,
             memory: &Memory::default(),
-            sidebar: &Sidebar::new(settings.sidebar_width),
+            sidebar: &Sidebar::new(settings.sidebar_width, settings.tabs.clone()),
         }
         .navigate(Step::Tab(CycleDirection::Next)),
         InitialSelection::None => None,
@@ -227,7 +227,7 @@ async fn drive(
     let mut local = Local {
         observer: Observer::default(),
         memory: Memory::default(),
-        sidebar: Sidebar::new(settings.sidebar_width),
+        sidebar: Sidebar::new(settings.sidebar_width, settings.tabs),
         keys: Keys::new(settings.keymap),
         mouse: Mouse::default(),
         overlay: None,
@@ -743,7 +743,8 @@ impl<'a> Local<'a> {
         guard.set_mouse(settings.mouse)?;
         self.mouse = Mouse::default();
         self.overlay = None;
-        self.sidebar.configure(settings.sidebar_width);
+        self.sidebar
+            .configure(settings.sidebar_width, settings.tabs);
         self.keys.replace(settings.keymap);
         self.agents = settings.agents;
         self.updates.configure(settings.updates);

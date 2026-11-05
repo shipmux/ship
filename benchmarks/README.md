@@ -40,7 +40,7 @@ python3 profsum.py /tmp/ship-prof/scale/client.json.gz --top 25 --check
 
 For a slow key, `keysplit.py` splits every key of a typing run at the probe (input leg, program, output leg) and lists the slow ones, and `keytrace.py` walks a `--trace` run key by key, with `--key N` to dump every client and server event in that key's window. `bench.py` and `extra.py` both write `clock.json` for a traced run, which is what lines the harness up with the traces.
 
-Runs on macOS and Linux. Needs [uv](https://docs.astral.sh/uv/), which reads the Python version and the one dependency (psutil) from the top of `bench.py`, and `herdr`, `zellij` and `tmux` on `PATH`. Set `SHIP_BENCH_BIN`, `HERDR_BENCH_BIN`, `ZELLIJ_BENCH_BIN` or `TMUX_BENCH_BIN` to measure a different binary, or leave a tool out with `--mux`. `uv run bench.py --help` lists the duration and key-count knobs.
+Runs on macOS and Linux. Needs [uv](https://docs.astral.sh/uv/), which reads the Python version and the one dependency (psutil) from the top of `bench.py`, and `herdr`, `zellij` and `tmux` on `PATH`. Set `SHIP_BENCH_BIN`, `HERDR_BENCH_BIN`, `ZELLIJ_BENCH_BIN` or `TMUX_BENCH_BIN` to measure a different binary, or leave a tool out with `--mux`. `uv run bench.py --help` lists the duration and key-count knobs. `--watchers N` attaches N `ship watch` processes to Ship's server for every run, to measure what watchers cost.
 
 On Linux, `taskset` limits every tool, pane and the harness itself to a set of cores, which stands in for a smaller machine; the CPUs a run was allowed are recorded:
 

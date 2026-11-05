@@ -14,6 +14,7 @@ use ship_core::{
     id::{Attachment, IdOf},
     model::NodeId,
     prelude::*,
+    protocol::FeedMode,
 };
 
 /// Clap needs a static string; format once from the protocol's sole constant.
@@ -121,6 +122,9 @@ pub enum Command {
     /// List clients' views, or read or set one client's selection
     #[command(subcommand)]
     View(ViewCommand),
+    /// Print the server's state as JSON lines, one per change, for plugins;
+    /// never starts a server
+    Watch(WatchArgs),
     /// Check the config file or print the defaults
     #[command(subcommand)]
     Config(ConfigCommand),
@@ -152,6 +156,13 @@ pub struct ViewTarget {
     /// Attachment ID, from ship view list
     #[arg(long, env = "SHIP_ATTACHMENT_ID", value_name = "ID")]
     pub attachment: IdOf<Attachment>,
+}
+
+#[derive(Args)]
+pub struct WatchArgs {
+    /// Which states to print
+    #[arg(long, value_enum, default_value_t)]
+    pub feed: FeedMode,
 }
 
 #[derive(Subcommand)]

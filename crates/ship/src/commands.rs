@@ -5,9 +5,16 @@ use std::{
     time::Duration,
 };
 
+use futures_util::StreamExt;
 use serde::Serialize;
 use ship_client::{Client, Outcome, Scope, keymap::ClientSettings};
-use ship_core::{command::Command, config::ServerSettings, prelude::*, protocol::SelectView};
+use ship_core::{
+    HealthResponse,
+    command::Command,
+    config::ServerSettings,
+    prelude::*,
+    protocol::{EndReason, Ended, FeedMode, SelectView, SseEvent},
+};
 
 use crate::{
     cli::{LogArgs, ViewCommand},
@@ -42,6 +49,52 @@ pub async fn view(client: &Client, command: ViewCommand) -> Result<()> {
                 .select(view.attachment, &SelectView { selection: node })
                 .await?,
         ),
+    }
+}
+
+/// `ship watch`: the health answer (C2), then every attach event as the
+/// client receives it, one JSON line each (amendment P3). After `ended`,
+/// or a cut stream, it fails (FR-004); a closed stdout is a normal end.
+pub async fn watch(client: &Client, health: &HealthResponse, feed: FeedMode) -> Result<()> {
+    let mut out = io::stdout();
+    let mut events = std::pin::pin!(client.observe(feed).await?);
+    if closed(line(&mut out, health))? {
+        return Ok(());
+    }
+    loop {
+        let event = match events.next().await {
+            Some(Ok(event)) => event,
+            Some(Err(error)) => return Err(error.context("lost the connection to the server")),
+            None => return Err(err!(Network, "lost the connection to the server")),
+        };
+        if closed(line(&mut out, &event))? {
+            return Ok(());
+        }
+        match event {
+            SseEvent::Ended(Ended {
+                reason: EndReason::ServerShutdown,
+            }) => return Err(err!(Unavailable, "the server shut down")),
+            SseEvent::Ended(Ended {
+                reason: EndReason::Lost,
+            }) => return Err(err!(Unavailable, "fell behind the server")),
+            _ => {}
+        }
+    }
+}
+
+/// One JSON line. Stdout is line-buffered, so it reaches a pipe at once.
+/// `println!` would panic on a closed pipe.
+fn line(out: &mut impl Write, value: &impl Serialize) -> io::Result<()> {
+    serde_json::to_writer(&mut *out, value)?;
+    writeln!(out)
+}
+
+/// Whether the reader closed stdout, which ends `watch` normally.
+fn closed(written: io::Result<()>) -> Result<bool> {
+    match written {
+        Ok(()) => Ok(false),
+        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(true),
+        Err(error) => Err(err!(Io, "cannot print state", @external: error)),
     }
 }
 

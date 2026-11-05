@@ -15,6 +15,7 @@ pub mod relay;
 #[cfg(feature = "run")]
 pub mod run;
 pub mod screen;
+pub mod tag;
 pub mod tree;
 
 /// Common operation errors and construction helpers.

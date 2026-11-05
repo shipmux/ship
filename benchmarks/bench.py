@@ -49,6 +49,7 @@ COLS, ROWS = 200, 50
 RSS_SAMPLE_S = 1.0
 # --wire: relay Ship's client through wiretap.py to count what its server sends.
 WIRE = False
+WATCHERS = 0  # `ship watch` processes beside Ship's server (SC-003)
 SHIP_BIN = os.environ.get("SHIP_BENCH_BIN", str(HERE.parent / "target/release/ship"))
 HERDR_BIN = os.environ.get("HERDR_BENCH_BIN") or shutil.which("herdr")
 ZELLIJ_BIN = os.environ.get("ZELLIJ_BENCH_BIN") or shutil.which("zellij")
@@ -331,6 +332,10 @@ class Ship:
                 self.client_url = self.url
                 if WIRE:
                     self.tap(env, status["socket"])
+                self.watchers = [subprocess.Popen([SHIP_BIN, "watch", "--server-url", self.url], env=env.vars,
+                                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                                  stderr=subprocess.DEVNULL, start_new_session=True)
+                                 for _ in range(WATCHERS)]
                 return
             except Exception:
                 if self.server.poll() is not None:
@@ -369,6 +374,9 @@ class Ship:
             cli([SHIP_BIN, "server", "stop", "--server-url", self.url], env, timeout=10)
         except Exception:
             pass
+        for watcher in getattr(self, "watchers", []):
+            watcher.kill()
+            watcher.wait()
         try:
             self.server.wait(timeout=10)
         except subprocess.TimeoutExpired:
@@ -868,7 +876,7 @@ def interrupt(*_):
 
 
 def main():
-    global RSS_SAMPLE_S, WIRE
+    global RSS_SAMPLE_S, WIRE, WATCHERS
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--mux", nargs="+", default=list(MUXES), choices=list(MUXES))
     p.add_argument("--workload", nargs="+", default=list(WORKLOADS), choices=list(WORKLOADS))
@@ -897,11 +905,14 @@ def main():
     p.add_argument("--wire", action="store_true",
                    help="count the bytes Ship's server sends its client through a relay "
                         "(adds a hop; keep these runs out of latency comparisons)")
+    p.add_argument("--watchers", type=int, default=0,
+                   help="attach this many `ship watch` processes to Ship's server for each run")
     p.add_argument("--out", default=str(HERE / "results"))
     p.add_argument("--summarize", metavar="JSONL", help="print the summary for a results file and exit")
     cfg = p.parse_args()
     RSS_SAMPLE_S = cfg.rss_sample_s
     WIRE = cfg.wire
+    WATCHERS = cfg.watchers
     # SIGTERM unwinds like Ctrl-C, so the current run's teardown still runs.
     signal.signal(signal.SIGTERM, interrupt)
     if cfg.summarize:

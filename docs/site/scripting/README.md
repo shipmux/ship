@@ -23,3 +23,4 @@ Tab, pane and view commands start a missing named server, just like bare `ship`.
 - [Handing work to another agent](handing-work-to-another-agent.md)
 - [Reading command errors](reading-command-errors.md)
 - [Steering a window](steering-a-window.md)
+- [Writing a plugin](writing-a-plugin.md)

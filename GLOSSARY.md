@@ -31,3 +31,7 @@ _Avoid_: Agent state, Status (alone)
 **Display state**:
 What a client shows for a pane with a root record: `blocked`, `error`, `working`, `unseen` or `idle`. Each client derives its own; `unseen` means that client saw the program finish while the pane wasn't in view in a focused window, and a reported `done` alone displays as `idle`.
 _Avoid_: Agent status, Done (as a display state)
+
+**Tag**:
+A named piece of short display text, optionally colored, that a script puts on a tab or pane. Tags don't affect display states or attention, and the server doesn't save them.
+_Avoid_: Label (a tab's or pane's display name, its own name or one derived from its program or position)

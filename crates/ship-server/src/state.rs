@@ -119,6 +119,7 @@ impl ServerState {
     fn restore_tab(&mut self, mut tab: Tab) -> Tab {
         tab.tabs = self.restore(tab.tabs);
         tab.geometry = None;
+        tab.tags.clear();
         let panes: Vec<_> = tab.panes().cloned().collect();
         for saved in panes {
             let cwd = match Self::pane_cwd(Some(saved.cwd.clone())) {
@@ -365,6 +366,7 @@ impl ServerState {
             title: None,
             status: PaneStatus::Running,
             program: Default::default(),
+            tags: Default::default(),
         })
     }
 
@@ -501,6 +503,7 @@ impl Message<CreateTab> for ServerState {
             layout,
             geometry: None,
             zoomed: None,
+            tags: Default::default(),
         };
         self.commit(|tabs, viewers| {
             if let Some(attachment) = create.select {
@@ -533,10 +536,15 @@ impl Message<Set<Tab, SetTab>> for ServerState {
         }
         let name = set.name.unwrap_or_else(|| tab.name.clone());
         let zoomed = set.zoomed.unwrap_or(tab.zoomed);
-        if name != tab.name || zoomed != tab.zoomed {
+        let mut tags = tab.tags.clone();
+        if let Some(patch) = set.tags {
+            tags.patch(patch);
+        }
+        if name != tab.name || zoomed != tab.zoomed || tags != tab.tags {
             self.commit(|tabs, _| {
                 let tab = tree::tab_mut(tabs, id)?;
                 tab.name = name;
+                tab.tags = tags;
                 if let Some(Some(pane)) = set.zoomed {
                     layout::bring_to_front(tab, pane)?;
                 }
@@ -684,6 +692,9 @@ impl Message<Set<Pane, SetPane>> for ServerState {
         }
         if let Some(bytes) = set.scrollback_bytes {
             pane.scrollback_bytes = bytes;
+        }
+        if let Some(patch) = set.tags {
+            pane.tags.patch(patch);
         }
         if &pane != before {
             self.commit(|tabs, _| {

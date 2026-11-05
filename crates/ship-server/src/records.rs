@@ -2,7 +2,7 @@
 
 use indexmap::IndexMap;
 use ratatui_ghostty::program_status::{ProgramKind, ProgramState, ProgramStatus};
-use ship_core::model::{BlockedKind, ROOT, ReportedState, StatusRecord};
+use ship_core::model::{BlockedKind, ROOT, ReportedState, StatusRecord, disarm};
 
 const MAX_RECORDS: usize = 64;
 
@@ -68,8 +68,4 @@ fn within(id: &str, ancestor: &str) -> bool {
         || id
             .strip_prefix(ancestor)
             .is_some_and(|rest| rest.starts_with('/'))
-}
-
-fn disarm(text: String) -> String {
-    text.chars().filter(|c| !matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')).collect()
 }
