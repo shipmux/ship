@@ -63,10 +63,10 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 6. The git example
 
-- [ ] 6.1 Add `examples/plugins/git-branch.sh` and `examples/plugins/README.md`. Verify with `shellcheck` and `sh -n`.
-- [ ] 6.2 Verify with the example running that a pane in a checkout carries `git.branch`, that `cd` into another repo or `git switch` updates it when the prompt returns, and that `cd /tmp` removes it.
+- [x] 6.1 Add `examples/plugins/git.sh` (was `git-branch.sh`, amendment P5) and `examples/plugins/README.md`. Verify with `shellcheck` and `sh -n`.
+- [x] 6.2 Verify with the example running that a pane in a checkout carries `git.branch`, that `cd` into another repo or `git switch` updates it when the prompt returns, and that `cd /tmp` removes it.
 - [ ] 6.3 Run the example through a day of normal use on macOS to settle SC-002. Report Linux as unverified unless it runs there.
-- [ ] 6.4 Following `docs/agents/docs.md`, add the example to `writing-a-plugin.md` and the README. Verify that the site build strips the new page's scope comment without complaint.
+- [x] 6.4 Following `docs/agents/docs.md`, add the example to `writing-a-plugin.md` and the README. Verify that the site build strips the new page's scope comment without complaint.
 
 ## Workflow follow-up
 

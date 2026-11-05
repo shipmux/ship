@@ -66,6 +66,21 @@ Setting a tag replaces it whole, so a later `--tag gh.checks=ok` without color f
 
 Tags last as long as their tab or pane and aren't saved: after the server restarts, a plugin sets them again. Whichever script writes a tag last wins, since tags have no owner.
 
+## The git example
+
+[`examples/plugins/git.sh`](../../../examples/plugins/git.sh) tags each pane in a git checkout with its branch as `git.branch`, and with its pull request's state and checks as `git.pr`. Start it once the server is running, and show the tags under each tab's name:
+
+```sh
+sh examples/plugins/git.sh &
+```
+
+```toml
+[client.tabs]
+rows = [["name"], [{ tag = "git.branch" }, { tag = "git.pr" }]]
+```
+
+For each state from `ship watch`, it asks git for the branch of every pane's `dir` and runs `ship pane set` only where that differs from the pane's tags, so the script never keeps a copy of them. Pull requests change on GitHub without anything changing in Ship, so it also looks them up with `gh` every 30 seconds. [Its README](../../../examples/plugins/README.md) lists what each tag looks like and when it updates.
+
 ## Conventions
 
 - Name tags `plugin.key`, such as `git.branch`. Ship gives the `.` no meaning; it keeps plugins from colliding. Names starting with `ship.` are reserved for Ship.
