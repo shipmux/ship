@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Agent settings
-`[client.agents]` SHALL configure agent-attention. `rows` SHALL be a list of lines, each a list of the tokens `icon`, `app`, `state`, `tab`, `pane`, `title` and `msg`, or tag items written `{ tag = "NAME" }`, defaulting to `[["icon", "app", "state"], ["tab"]]`. `delay_ms` SHALL be the notification delay in milliseconds, defaulting to 1000. `popups` SHALL turn popups on or off, defaulting to off. An unknown token or key SHALL fail loading with its line, column and the accepted values, like every other config error.
+`[client.agents]` SHALL configure agent-attention. `rows` SHALL be a list of lines, each a list of the tokens `icon`, `app`, `state`, `tab`, `pane`, `title` and `msg`, or tag items written `{ tag = "NAME" }`, defaulting to `[["icon", "app", "state"], ["tab"]]`. `delay_ms` SHALL be the notification delay in milliseconds, defaulting to 1000. `popups` SHALL turn popups on or off, defaulting to off. An unknown token or key SHALL fail loading with its line, column and the accepted values.
 
 #### Scenario: Misspelled token
 - **WHEN** the file sets `rows = [["icon", "apps"]]` and the user runs `ship config check`

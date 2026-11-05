@@ -14,7 +14,7 @@ The saved tabs SHALL hold the tab tree with its order and nesting, tab and pane 
 - **THEN** that pane's saved directory is `~/projects/ship`
 
 ### Requirement: Nothing live is saved
-The saved tabs SHALL NOT hold a pane's program or arguments, its title, its exit status, its status records, its geometry, or its screen and scrollback.
+The saved tabs SHALL NOT hold a pane's program or arguments, its title, its exit status, its status records, its geometry, or its screen and scrollback, nor any tab's or pane's tags.
 
 #### Scenario: Program arguments stay off disk
 - **WHEN** a pane runs `sleep 1234` and the saved tabs are written
@@ -24,6 +24,10 @@ The saved tabs SHALL NOT hold a pane's program or arguments, its title, its exit
 - **WHEN** a pane's program has reported `working` and the saved tabs are written
 - **THEN** the saved file has no `program` field, and after a restart the restored pane has no records
 
+#### Scenario: Tags stay off disk
+- **WHEN** a tab and a pane have tags and the saved tabs are written
+- **THEN** the saved file has no `tags` field, and after a restart neither has tags
+
 ### Requirement: Saved file permissions
 The saved file SHALL be readable and writable only by the server's user, mode `0600` on Unix, in a `tabs` directory of mode `0700` on Unix.
 
@@ -32,11 +36,15 @@ The saved file SHALL be readable and writable only by the server's user, mode `0
 - **THEN** the file is mode `0600` and its `tabs` directory mode `0700`
 
 ### Requirement: Saved file format
-The saved file SHALL hold pretty-printed JSON in the shape `ship tab list` prints, with each pane's `cwd` set to its saved directory, `command` empty, `status` running, and `dir`, `title` and tab `geometry` absent. Loading SHALL ignore `command`, `status`, `dir`, `title` and `geometry`, so `ship tab list` output is a valid saved file.
+The saved file SHALL hold pretty-printed JSON in the shape `ship tab list` prints, with each pane's `cwd` set to its saved directory, `command` empty, `status` running, and `dir`, `title`, `tags` and tab `geometry` absent. Loading SHALL ignore `command`, `status`, `dir`, `title`, `tags` and `geometry`, so `ship tab list` output is a valid saved file.
 
 #### Scenario: Hand-written file
 - **WHEN** a user saves `ship tab list` output as the server name's saved file and starts the server
 - **THEN** the server restores those tabs, each pane running a shell in that pane's `cwd`
+
+#### Scenario: Tags in a hand-written file
+- **WHEN** the saved file was written from `ship tab list` output in which a tab and a pane have tags
+- **THEN** the restored tab and pane have no tags
 
 ### Requirement: Saving changes
 A change made by a user or a script, through any tab or pane command, key, mouse action or menu item, or reported by a shell as a directory change, SHALL schedule a save for 5 seconds after the first unsaved change while the server keeps running. Later changes SHALL NOT postpone that deadline. The save SHALL write the latest projection at that deadline; serialization and disk I/O take additional time. A change that leaves the saved tabs as last written SHALL NOT cause a write.

@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Tab sidebar presentation
-The sidebar's tabs section SHALL show a plain `tabs` title above one entry per visible tab in tree order, indented by depth and using derived labels. Tabs with children SHALL have expanded/folded markers. It SHALL highlight the selected tab or the selected pane's tab, and no entry when nothing is selected. A zoomed tab's entry SHALL carry a zoom marker; while the sidebar is hidden, no zoom marker is shown. A tab entry SHALL end its first line with its rollup icon as agent-attention's Tab rollup describes.
+The sidebar's tabs section SHALL show a plain `tabs` title above one entry per visible tab in tree order, indented by depth and using derived labels. Tabs with children SHALL have fold markers. It SHALL highlight the selected tab or the selected pane's tab, and no entry when nothing is selected. A zoomed tab's entry SHALL carry a zoom marker; while the sidebar is hidden, no zoom marker is shown. A tab entry SHALL end its first line with its rollup icon as agent-attention's Tab rollup describes.
 
 #### Scenario: Nested rows
 - **WHEN** a client opens a three-level tab tree and folds an intermediate row
