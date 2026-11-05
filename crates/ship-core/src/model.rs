@@ -8,6 +8,7 @@ use crate::{
     geometry::TabGeometry,
     id::{Id, IdOf, Identified, Prefixed, id_map_schema},
     layout::{Layout, Slot},
+    tag::Tags,
     tree::Tabs,
 };
 
@@ -26,6 +27,8 @@ pub struct Tab {
     pub geometry: Option<Box<TabGeometry>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub zoomed: Option<IdOf<Pane>>,
+    #[serde(default, skip_serializing_if = "Tags::is_empty")]
+    pub tags: Tags,
 }
 
 /// A leaf running one program in its own terminal. Owns no layout or children.
@@ -60,6 +63,8 @@ pub struct Pane {
     /// OSC 7501 records keyed by id, oldest update first; ROOT is the root.
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub program: IndexMap<String, StatusRecord>,
+    #[serde(default, skip_serializing_if = "Tags::is_empty")]
+    pub tags: Tags,
 }
 
 /// What happens to a pane when its program exits.
@@ -90,6 +95,13 @@ impl ExitBehavior {
 
 /// The root record's id, which an explicit protocol id cannot claim.
 pub const ROOT: &str = "";
+
+/// Bidirectional formatting characters removed, as the Program Status
+/// Protocol advises for text shown outside the terminal grid. Status records
+/// and tag values both go through it.
+pub fn disarm(text: String) -> String {
+    text.chars().filter(|c| !matches!(c, '\u{061c}' | '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')).collect()
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]

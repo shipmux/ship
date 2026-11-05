@@ -78,6 +78,7 @@ fn blank(tabs: &mut Tabs) {
     for tab in tabs.values_mut() {
         let tab = Arc::make_mut(tab);
         tab.geometry = None;
+        tab.tags.clear();
         blank(&mut tab.tabs);
         for pane in tab.panes_mut() {
             if let Some(dir) = pane.dir.take() {
@@ -86,6 +87,7 @@ fn blank(tabs: &mut Tabs) {
             pane.title = None;
             pane.command.clear();
             pane.program.clear();
+            pane.tags.clear();
             pane.status = PaneStatus::Running;
         }
     }

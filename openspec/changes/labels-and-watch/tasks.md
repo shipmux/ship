@@ -10,17 +10,17 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 1. Tags in core and the server
 
-- [ ] 1.1 Enable serde_with's `indexmap_2` feature in the workspace `Cargo.toml`. Verify with `cargo tree -d` that it adds no duplicate crates.
-- [ ] 1.2 Add `crates/ship-core/src/tag.rs` with `TagName`, `Tag`, `NamedColor` (with `From<NamedColor>` for ratatui's `Color`), `Tags` and `TagPatch`, without `parse_edit`, and declare it in `lib.rs`. Verify that `cargo build` passes.
-- [ ] 1.3 Add `tags` to `Pane` and `Tab` in `model.rs` and to `SetPane` and `SetTab` in `protocol.rs`, and bump `PROTOCOL_VERSION` to 22. Verify that `ship pane get` on a fresh pane has no `tags` field and `/health` reports protocol 22.
-- [ ] 1.4 In `crates/ship-server/src/state.rs`, apply the patch in both `Set` handlers before the change comparison, and clear tab tags in `restore_tab`; fill `tags` in the `Pane` and `Tab` literals, including `state/geometry.rs`. Verify with `curl --unix-socket` that a `PATCH` with `{"tags":{"git.branch":{"value":"main","fg":"green"}}}` shows in `ship pane get`, that `{"tags":{"git.branch":null}}` removes one and `{"tags":null}` removes all, and that the same works on tabs with `ship tab list`.
-- [ ] 1.5 Verify the rejections: a name with `=`, an empty name, a name with a control character, `"fg":"pink"`, `"fg":"#ff0000"` and `"fg":null` each get 400 `validation` with a pointer, and nothing changes.
-- [ ] 1.6 Verify the revision rules by reading `x-ship-revision`: the same body sent twice leaves the revision unchanged the second time, and `name` and `tags` in one body move it by one.
-- [ ] 1.7 In `crates/ship-server/src/saver.rs`, clear tags in `blank()`. Verify that after `ship server stop && ship` the tags are gone, that the saved file has no `tags` field, and that a saved file written before this change still restores.
-- [ ] 1.8 Gate OU-2: bring Cyan the value rule with the paper's recommendation (a `TagValue` newtype that refuses control characters, and bidirectional characters stripped with `records.rs`'s `disarm`). Record the decision as a product amendment and in the `tags` delta.
-- [ ] 1.9 After 1.8, build the decided value rule. Verify a value with a control character and a value with a bidirectional character against it over HTTP.
-- [ ] 1.10 Following `docs/agents/domain.md`, add **Tag** to `GLOSSARY.md`, beside the existing meaning of a derived label.
-- [ ] 1.11 Check that the `tags` delta's HTTP, name, color, merge, publish and lifetime requirements, the `session-structure` delta's HTTP set fields and the `session-restore` delta match what was built.
+- [x] 1.1 Enable serde_with's `indexmap_2` feature in the workspace `Cargo.toml`. Verify with `cargo tree -d` that it adds no duplicate crates.
+- [x] 1.2 Add `crates/ship-core/src/tag.rs` with `TagName`, `Tag`, `NamedColor` (with `From<NamedColor>` for ratatui's `Color`), `Tags` and `TagPatch`, without `parse_edit`, and declare it in `lib.rs`. Verify that `cargo build` passes.
+- [x] 1.3 Add `tags` to `Pane` and `Tab` in `model.rs` and to `SetPane` and `SetTab` in `protocol.rs`, and bump `PROTOCOL_VERSION` to 22. Verify that `ship pane get` on a fresh pane has no `tags` field and `/health` reports protocol 22.
+- [x] 1.4 In `crates/ship-server/src/state.rs`, apply the patch in both `Set` handlers before the change comparison, and clear tab tags in `restore_tab`; fill `tags` in the `Pane` and `Tab` literals, including `state/geometry.rs`. Verify with `curl --unix-socket` that a `PATCH` with `{"tags":{"git.branch":{"value":"main","fg":"green"}}}` shows in `ship pane get`, that `{"tags":{"git.branch":null}}` removes one and `{"tags":null}` removes all, and that the same works on tabs with `ship tab list`.
+- [x] 1.5 Verify the rejections: a name with `=`, an empty name, a name with a control character, `"fg":"pink"`, `"fg":"#ff0000"` and `"fg":null` each get 400 `validation` with a pointer, and nothing changes.
+- [x] 1.6 Verify the revision rules by reading `x-ship-revision`: the same body sent twice leaves the revision unchanged the second time, and `name` and `tags` in one body move it by one.
+- [x] 1.7 In `crates/ship-server/src/saver.rs`, clear tags in `blank()`. Verify that after `ship server stop && ship` the tags are gone, that the saved file has no `tags` field, and that a saved file written before this change still restores.
+- [x] 1.8 Gate OU-2: bring Cyan the value rule with the paper's recommendation (a `TagValue` newtype that refuses control characters, and bidirectional characters stripped with `records.rs`'s `disarm`). Record the decision as a product amendment and in the `tags` delta.
+- [x] 1.9 After 1.8, build the decided value rule. Verify a value with a control character and a value with a bidirectional character against it over HTTP.
+- [x] 1.10 Following `docs/agents/domain.md`, add **Tag** to `GLOSSARY.md`, beside the existing meaning of a derived label.
+- [x] 1.11 Check that the `tags` delta's HTTP, name, color, merge, publish and lifetime requirements, the `session-structure` delta's HTTP set fields and the `session-restore` delta match what was built.
 
 ## 2. `--tag` and `--clear-tags`
 

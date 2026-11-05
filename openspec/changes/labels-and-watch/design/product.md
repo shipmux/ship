@@ -79,6 +79,12 @@ Tested independently: set tags by hand, add rows to the config, and look.
 
 Tested independently: run the example on Linux and macOS and use it for daily work.
 
+## Amendments (2026-11-04)
+
+Decided with Cyan during slice 1. Each settles an open unknown and adds to the marked requirement.
+
+- **P1. Tag values refuse control characters and lose bidirectional formatting characters** (OU-2, FR-005). A tag value with a control character fails with 400 `validation` and changes nothing, as an invalid name does. Bidirectional formatting characters are removed from a value before it is stored, so the stored value and the change test both see the cleaned text. This is the program-status rule: text drawn outside the terminal grid can't move the cursor or reorder what is drawn after it, and a script that sends a control character learns about its bug.
+
 ## Non-goals
 
 - An event system, derived events, a plugin SDK, runtime, install command or marketplace.
@@ -140,5 +146,5 @@ Tested independently: run the example on Linux and macOS and use it for daily wo
 ## Open unknowns
 
 - OU-1: **Colors on the CLI.** `--tag NAME=VALUE` has no room for colors, and `gh.checks.fg=red` would read as a tag name. Recommendation: separate repeatable flags, `--tag-fg NAME=COLOR` and `--tag-bg NAME=COLOR`, applied with the `--tag` of the same name; since a write replaces a tag whole, a `--tag` without them clears its colors. Blocks FR-008's color part.
-- OU-2: **Control characters in values.** Values are drawn in the sidebar. Recommendation: the program-status rule, rejecting a value with control characters and removing bidirectional formatting characters. Blocks FR-005.
+- OU-2: **Control characters in values.** Decided by amendment P1: the program-status rule.
 - OU-3: **How `watch` reports its end.** The attach stream already ends with a reason (`server_shutdown`, `lost`). Recommendation: print that as the last JSON line, then exit with an error. Blocks FR-004.

@@ -32,6 +32,17 @@ A tag name SHALL be any non-empty string without `=` or control characters. Ship
 - **WHEN** a caller patches a pane with `{"tags": {"": {"value": "x"}}}`
 - **THEN** it receives 400 `validation` and the pane is unchanged
 
+### Requirement: Tag values
+A tag value SHALL be any string without control characters, including the empty string. A request with a control character in a value SHALL fail with 400 `validation` and change nothing. Bidirectional formatting characters SHALL be removed from a value before it is stored.
+
+#### Scenario: Control character in a value
+- **WHEN** a caller patches a pane with `{"tags": {"k": {"value": "a\nb"}}}`
+- **THEN** it receives 400 `validation` and the pane is unchanged
+
+#### Scenario: Bidirectional override in a value
+- **WHEN** a caller sets tag `k` to a value containing U+202E
+- **THEN** the stored value doesn't contain it
+
 ### Requirement: Tag colors
 A tag's `fg` and `bg` SHALL each be absent or one of the 16 named terminal colors. Any other color, including hex and palette numbers, SHALL fail with 400 `validation` and change nothing. `null` on `fg` or `bg` SHALL also fail with 400 `validation`.
 

@@ -17,13 +17,14 @@ use crate::{
     layout::CycleDirection,
     model::{ExitBehavior, NodeId, Pane, Switch, Tab},
     screen::{Screen, Size},
+    tag::TagPatch,
     tree::Tabs,
 };
 
 pub const HEALTH_PATH: &str = "/health";
 /// What a Ship server reports as `service` from `/health`.
 pub const SERVICE: &str = "ship";
-pub const PROTOCOL_VERSION: u32 = 21;
+pub const PROTOCOL_VERSION: u32 = 22;
 /// Names the attachment a view or input request controls.
 pub const ATTACHMENT_HEADER: &str = "x-ship-attachment-id";
 /// On every response: the server's revision once the request was handled,
@@ -238,9 +239,12 @@ pub struct SetTab {
     /// A pane in this tab fills it; null unzooms.
     #[serde(default, with = "double_option")]
     pub zoomed: Option<Option<IdOf<Pane>>>,
+    /// A merge patch: a tag sets its name, null removes it; null removes all.
+    #[serde(default, with = "double_option")]
+    pub tags: Option<Option<TagPatch>>,
 }
 
-/// PATCH /panes/{id}: absent leaves an attribute, only name accepts null.
+/// PATCH /panes/{id}: absent leaves an attribute, only name and tags accept null.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Default, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -256,10 +260,13 @@ pub struct SetPane {
     #[serde(default, deserialize_with = "present")]
     #[schema(nullable = false)]
     pub scrollback_bytes: Option<usize>,
+    /// A merge patch: a tag sets its name, null removes it; null removes all.
+    #[serde(default, with = "double_option")]
+    pub tags: Option<Option<TagPatch>>,
 }
 
 /// Read a present field as a plain value, refusing null.
-fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+pub(crate) fn present<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
     deserializer: D,
 ) -> Result<Option<T>, D::Error> {
     T::deserialize(deserializer).map(Some)

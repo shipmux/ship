@@ -544,4 +544,10 @@ Checks:
 
 ## Deviation log
 
-Empty until implementation starts.
+Slice 1:
+
+- **`Tags` and `TagPatch` write their schemas by hand, and `TagName` has no `ToSchema`.** utoipa's derive can't put `TagPatch`'s nullable `Tag` (a `oneOf`) under `additionalProperties`, and on `Tags` it emits a qualified map path that trips `unused_qualifications` outside any item an `expect` can reach. Each impl is a few lines building an object of `Tag` refs, nullable for the patch. With the map schemas written out, nothing reads `TagName`'s.
+- **`Tags` has an inherent `is_empty`.** `skip_serializing_if = "Tags::is_empty"` names a path, which doesn't go through `Deref`.
+- **`execute.rs` passes `tags: None` in slice 1.** The client builds `SetTab` and `SetPane` literals, so the workspace doesn't compile without the field; slice 2 replaces both with `tag_patch`.
+- **OU-2's value rule lives in `TagValue`'s `FromStr`, read through `serde_as` like `TagName`, not in the `Set` handlers,** and `disarm` moves from `records.rs` to `ship_core::model` so both callers share it. Parsing is where a value is refused anyway, so stripping there too means the handlers need no access to `TagPatch`'s entries and the change test compares cleaned text.
+- **The `Pane` literal near line 957 of `state.rs` is unchanged.** It ends in `..before.clone()`, which already carries the tags.

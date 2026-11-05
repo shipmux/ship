@@ -197,5 +197,6 @@ fn placeholder(id: IdOf<Pane>) -> Pane {
         scrollback_bytes: 0,
         status: PaneStatus::Running,
         program: Default::default(),
+        tags: Default::default(),
     }
 }

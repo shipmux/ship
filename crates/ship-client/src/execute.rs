@@ -120,7 +120,17 @@ impl Client {
                 }
                 TabCommand::Set(tab::Set { tab, name, zoomed }) => {
                     let id = self.tab_target(tab, scope).await?;
-                    Outcome::Tab(self.set::<Tab>(id, &SetTab { name, zoomed }).await?)
+                    Outcome::Tab(
+                        self.set::<Tab>(
+                            id,
+                            &SetTab {
+                                name,
+                                zoomed,
+                                tags: None,
+                            },
+                        )
+                        .await?,
+                    )
                 }
                 TabCommand::Close(tab::Close { tab }) => {
                     self.remove::<Tab>(self.tab_target(tab, scope).await?)
@@ -230,6 +240,7 @@ impl Client {
                                 right_click_passthrough,
                                 exit_behavior,
                                 scrollback_bytes,
+                                tags: None,
                             },
                         )
                         .await?,
