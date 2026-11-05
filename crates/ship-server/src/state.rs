@@ -240,24 +240,16 @@ impl ServerState {
     }
 
     /// Drop runtimes whose panes are gone and publish the rest's handles,
-    /// before `commit` publishes the replica. Most commits, such as title
-    /// changes, keep the same panes and wake no one. A pane's handle never
-    /// changes, since every runtime starts with a new pane id.
+    /// before `commit` publishes the replica.
     fn retain_runtimes(&mut self) {
         let panes: HashSet<_> = tree::panes(&self.tabs).map(|pane| pane.id).collect();
         self.runtimes.retain(|pane, _| panes.contains(pane));
-        let runtimes = &self.runtimes;
-        self.live.send_if_modified(|live| {
-            let same =
-                live.len() == runtimes.len() && runtimes.keys().all(|pane| live.contains_key(pane));
-            if !same {
-                *live = runtimes
-                    .iter()
-                    .map(|(pane, runtime)| (*pane, runtime.handle.clone()))
-                    .collect();
-            }
-            !same
-        });
+        self.live.send_replace(
+            self.runtimes
+                .iter()
+                .map(|(pane, runtime)| (*pane, runtime.handle.clone()))
+                .collect(),
+        );
     }
 
     /// The tab's viewed size, else the 80x24 fallback.
