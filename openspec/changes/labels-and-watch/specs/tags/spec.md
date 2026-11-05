@@ -73,6 +73,21 @@ A tag's `fg` and `bg` SHALL each be absent or one of the 16 named terminal color
 - **WHEN** a script runs `ship tab set --tab <t> --tag k=1 --tag k=2`
 - **THEN** the tab has `k` with value `2`
 
+### Requirement: Tag colors from the CLI
+`ship pane set` and `ship tab set` SHALL accept repeatable `--tag-fg NAME=COLOR` and `--tag-bg NAME=COLOR`, which give the tag that `--tag NAME=VALUE` sets in the same call that color, whatever their order. `COLOR` SHALL be one of the 16 named terminal colors, and any other SHALL be a usage error. A color for a name the call doesn't set, including one removed with a bare `--tag NAME`, SHALL fail and change nothing. A repeated color flag for one name SHALL take its last occurrence.
+
+#### Scenario: Color the second of two tags
+- **WHEN** a script runs `ship pane set --pane <p> --tag git.branch=main --tag gh.checks=failing --tag-fg gh.checks=white --tag-bg gh.checks=red`
+- **THEN** `ship pane get` shows `git.branch` without colors and `gh.checks` with `fg` `white` and `bg` `red`
+
+#### Scenario: Unknown color
+- **WHEN** a script runs `ship pane set --pane <p> --tag k=v --tag-fg k=pink`
+- **THEN** it fails as a usage error and the pane is unchanged
+
+#### Scenario: Color without its tag
+- **WHEN** a script runs `ship pane set --pane <p> --tag-fg k=red` without `--tag k=…`
+- **THEN** it fails and the pane is unchanged
+
 ### Requirement: Clearing all tags from the CLI
 `ship pane set` and `ship tab set` SHALL accept `--clear-tags`, which removes every tag on the pane or tab.
 

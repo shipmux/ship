@@ -407,7 +407,7 @@ From keys and menus, `set` SHALL act on the selected tab or pane. From the CLI i
 - **THEN** the key or menu acts on the selected tab or pane, and the CLI acts on `--tab`, `--pane` or the caller's pane, as other tab and pane commands do
 
 ### Requirement: HTTP set fields
-Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "right_click_passthrough"?, "exit_behavior"?, "scrollback_bytes"? }`, following JSON Merge Patch (RFC 7386). An absent field SHALL leave its attribute unchanged, and JSON `null` SHALL clear it. `null` SHALL be accepted only on `name` and `zoomed`; on any other field it SHALL get 400 `validation`.
+Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "right_click_passthrough"?, "exit_behavior"?, "scrollback_bytes"? }`, following JSON Merge Patch (RFC 7396). An absent field SHALL leave its attribute unchanged, and JSON `null` SHALL clear it. `null` SHALL be accepted only on `name` and `zoomed`; on any other field it SHALL get 400 `validation`.
 
 #### Scenario: Omitted and blank HTTP fields
 - **WHEN** a caller patches a pane with `{}`, then `{"name": "  x "}`, then `{"name": ""}`, then `{"name": null}`

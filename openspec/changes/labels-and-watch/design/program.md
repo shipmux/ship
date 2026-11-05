@@ -551,3 +551,9 @@ Slice 1:
 - **`execute.rs` passes `tags: None` in slice 1.** The client builds `SetTab` and `SetPane` literals, so the workspace doesn't compile without the field; slice 2 replaces both with `tag_patch`.
 - **OU-2's value rule lives in `TagValue`'s `FromStr`, read through `serde_as` like `TagName`, not in the `Set` handlers,** and `disarm` moves from `records.rs` to `ship_core::model` so both callers share it. Parsing is where a value is refused anyway, so stripping there too means the handlers need no access to `TagPatch`'s entries and the change test compares cleaned text.
 - **The `Pane` literal near line 957 of `state.rs` is unchanged.** It ends in `..before.clone()`, which already carries the tags.
+
+Slice 2:
+
+- **OU-1 took the recommendation (amendment P2), with the color check in the client rather than clap.** `--tag-fg` and `--tag-bg` are `Vec<(TagName, NamedColor)>` fields parsed by `tag::parse_color`, so a bad color name is a clap usage error. Clap can't compare one flag's values with another's, so a color whose name has no `--tag NAME=VALUE` in the call fails in `tag_patch`, now fallible, as a `validation` error like a missing `--pane`. `TagPatch` gains `tag_mut` for that lookup, and `NamedColor` derives strum's `VariantNames` beside `EnumString` so the usage error lists the 16 names.
+- **The `session-structure` delta's Set attribute fields list the color flags.** It named only `--tag` and `--clear-tags`, from before OU-1 was decided.
+- **`writing-a-plugin.md` is also listed in `docs/site/README.md`.** The site's sidebar comes from the overview's lists, and its build fails on a page that isn't in one.

@@ -109,3 +109,4 @@ For scripts and agents that drive Ship from the command line.
 - [Handing work to another agent](scripting/handing-work-to-another-agent.md)
 - [Reading command errors](scripting/reading-command-errors.md)
 - [Steering a window](scripting/steering-a-window.md)
+- [Writing a plugin](scripting/writing-a-plugin.md)

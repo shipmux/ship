@@ -20,6 +20,7 @@ use ship_core::{
         CreatePane, CreateTab, CyclePane, MovePane, MoveTab, MoveTabBody, NewPane, NewTab, PaneAt,
         Place, ReadPane, ResizePane, RunCommand, ScrollPane, SetPane, SetTab, SwapPane,
     },
+    tag::{NamedColor, Tag, TagName, TagPatch},
     tree::{self, Tabs},
 };
 
@@ -118,7 +119,15 @@ impl Client {
                 TabCommand::Get(tab::Get { tab }) => {
                     Outcome::Tab(self.get::<Tab>(self.tab_target(tab, scope).await?).await?)
                 }
-                TabCommand::Set(tab::Set { tab, name, zoomed }) => {
+                TabCommand::Set(tab::Set {
+                    tab,
+                    name,
+                    zoomed,
+                    tags,
+                    tag_fg,
+                    tag_bg,
+                    clear_tags,
+                }) => {
                     let id = self.tab_target(tab, scope).await?;
                     Outcome::Tab(
                         self.set::<Tab>(
@@ -126,7 +135,7 @@ impl Client {
                             &SetTab {
                                 name,
                                 zoomed,
-                                tags: None,
+                                tags: tag_patch(tags, tag_fg, tag_bg, clear_tags)?,
                             },
                         )
                         .await?,
@@ -230,6 +239,10 @@ impl Client {
                     right_click_passthrough,
                     exit_behavior,
                     scrollback_bytes,
+                    tags,
+                    tag_fg,
+                    tag_bg,
+                    clear_tags,
                 }) => {
                     let id = Self::pane_target(pane, scope)?;
                     Outcome::Pane(
@@ -240,7 +253,7 @@ impl Client {
                                 right_click_passthrough,
                                 exit_behavior,
                                 scrollback_bytes,
-                                tags: None,
+                                tags: tag_patch(tags, tag_fg, tag_bg, clear_tags)?,
                             },
                         )
                         .await?,
@@ -442,4 +455,43 @@ pub fn current_dir() -> Result<PathBuf> {
         .map(PathBuf::from)
         .filter(|pwd| pwd.is_absolute() && real.is_some() && fs::canonicalize(pwd).ok() == real)
         .unwrap_or(current))
+}
+
+/// `--clear-tags` is `Some(None)`; entries collect into one map, the last
+/// occurrence of a name winning, and `--tag-fg` and `--tag-bg` color the
+/// tags it sets (amendment P2); none of them leaves tags alone.
+fn tag_patch(
+    entries: Vec<(TagName, Option<Tag>)>,
+    fg: Vec<(TagName, NamedColor)>,
+    bg: Vec<(TagName, NamedColor)>,
+    clear: bool,
+) -> Result<Option<Option<TagPatch>>> {
+    let unchanged = entries.is_empty();
+    let mut patch: TagPatch = entries.into_iter().collect();
+    for (name, color) in fg {
+        colored(&mut patch, "--tag-fg", &name)?.fg = Some(color);
+    }
+    for (name, color) in bg {
+        colored(&mut patch, "--tag-bg", &name)?.bg = Some(color);
+    }
+    Ok(if clear {
+        Some(None)
+    } else if unchanged {
+        None
+    } else {
+        Some(Some(patch))
+    })
+}
+
+/// A color needs the `--tag` it colors, since a write replaces a tag whole.
+fn colored<'a>(patch: &'a mut TagPatch, flag: &str, name: &TagName) -> Result<&'a mut Tag> {
+    patch.tag_mut(name).ok_or_else(|| {
+        err!(
+            Validation,
+            "{} {}=… needs --tag {}=VALUE in the same call",
+            flag,
+            name,
+            name
+        )
+    })
 }

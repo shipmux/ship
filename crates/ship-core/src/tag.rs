@@ -10,6 +10,7 @@ use indexmap::IndexMap;
 use ratatui_core::style::Color;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, serde_as};
+use strum::VariantNames;
 use utoipa::{
     PartialSchema, ToSchema,
     openapi::{
@@ -120,8 +121,20 @@ impl fmt::Display for TagValue {
 /// colors core already has accept more: `screen::Color` takes any palette
 /// index or RGB, and ratatui's `Color` takes hex, indexes and `reset`, under
 /// names where `white` means bright white.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    strum::EnumString,
+    strum::VariantNames,
+)]
 #[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum NamedColor {
     Black,
     Red,
@@ -257,9 +270,50 @@ impl ToSchema for TagPatch {
     }
 }
 
+impl TagPatch {
+    /// The tag this patch sets under `name`, for `--tag-fg` and `--tag-bg`
+    /// to color; `None` if it removes the name or leaves it alone.
+    pub fn tag_mut(&mut self, name: &TagName) -> Option<&mut Tag> {
+        self.0.get_mut(name).and_then(Option::as_mut)
+    }
+}
+
 /// `--tag` entries collect into a patch; the last occurrence of a name wins.
 impl FromIterator<(TagName, Option<Tag>)> for TagPatch {
     fn from_iter<I: IntoIterator<Item = (TagName, Option<Tag>)>>(entries: I) -> Self {
         Self(entries.into_iter().collect())
     }
+}
+
+/// One `--tag` flag as the patch entry it stands for: `NAME=VALUE` sets a
+/// plain tag, a bare `NAME` removes it. Split at the first `=`, which a
+/// name can't contain. Clap's own `KEY=VALUE` idiom: a `value_parser`
+/// function filling a `Vec` of pairs.
+pub fn parse_edit(arg: &str) -> Result<(TagName, Option<Tag>)> {
+    let Some((name, value)) = arg.split_once('=') else {
+        return Ok((arg.parse()?, None));
+    };
+    let tag = Tag {
+        value: value.parse()?,
+        fg: None,
+        bg: None,
+    };
+    Ok((name.parse()?, Some(tag)))
+}
+
+/// One `--tag-fg` or `--tag-bg` flag: `NAME=COLOR`, split at the first `=`
+/// like `--tag`, with one of the 16 color names (amendment P2).
+pub fn parse_color(arg: &str) -> Result<(TagName, NamedColor)> {
+    let Some((name, color)) = arg.split_once('=') else {
+        return Err(err!(Validation, "expected NAME=COLOR"));
+    };
+    let color = color.parse().map_err(|_| {
+        err!(
+            Validation,
+            "unknown color `{}`; expected one of {}",
+            color,
+            NamedColor::VARIANTS.join(", ")
+        )
+    })?;
+    Ok((name.parse()?, color))
 }

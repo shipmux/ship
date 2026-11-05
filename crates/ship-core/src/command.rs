@@ -157,6 +157,7 @@ pub mod tab {
         id::{Attachment, IdOf},
         model::Pane,
         protocol::Starter,
+        tag::{self, NamedColor, Tag, TagName},
     };
 
     /// `get` and `list` are CLI-only, so the config rejects them.
@@ -243,6 +244,31 @@ pub mod tab {
         /// Zoom this pane of the tab to fill it; a bare --zoomed unzooms
         #[cfg_attr(feature = "clap", arg(long, value_name = "PANE"))]
         pub zoomed: Option<Option<IdOf<Pane>>>,
+        /// Set a tag with NAME=VALUE, or remove one with a bare NAME; repeatable
+        #[cfg_attr(
+            feature = "clap",
+            arg(long = "tag", value_name = "NAME[=VALUE]", value_parser = tag::parse_edit)
+        )]
+        #[serde(skip)] // KD-6: TOML has no null, so config can't remove one
+        pub tags: Vec<(TagName, Option<Tag>)>,
+        /// Foreground color for the --tag of the same name; repeatable
+        #[cfg_attr(
+            feature = "clap",
+            arg(long, value_name = "NAME=COLOR", value_parser = tag::parse_color)
+        )]
+        #[serde(skip)]
+        pub tag_fg: Vec<(TagName, NamedColor)>,
+        /// Background color for the --tag of the same name; repeatable
+        #[cfg_attr(
+            feature = "clap",
+            arg(long, value_name = "NAME=COLOR", value_parser = tag::parse_color)
+        )]
+        #[serde(skip)]
+        pub tag_bg: Vec<(TagName, NamedColor)>,
+        /// Remove every tag
+        #[cfg_attr(feature = "clap", arg(long, conflicts_with = "tags"))] // C6
+        #[serde(skip)]
+        pub clear_tags: bool,
     }
 
     #[derive(Clone, Debug, Default, Deserialize)]
@@ -279,6 +305,7 @@ pub mod pane {
         layout::CycleDirection,
         model::{ExitBehavior, Pane, ReportedState, Switch},
         protocol::{Place, ScrollDirection, SplitDirection},
+        tag::{self, NamedColor, Tag, TagName},
     };
 
     /// Inspection, automation and explicit moves are CLI-only; the config rejects them.
@@ -419,6 +446,31 @@ pub mod pane {
         /// oldest history beyond the limit at once
         #[cfg_attr(feature = "clap", arg(long, value_name = "BYTES"))]
         pub scrollback_bytes: Option<usize>,
+        /// Set a tag with NAME=VALUE, or remove one with a bare NAME; repeatable
+        #[cfg_attr(
+            feature = "clap",
+            arg(long = "tag", value_name = "NAME[=VALUE]", value_parser = tag::parse_edit)
+        )]
+        #[serde(skip)] // KD-6: TOML has no null, so config can't remove one
+        pub tags: Vec<(TagName, Option<Tag>)>,
+        /// Foreground color for the --tag of the same name; repeatable
+        #[cfg_attr(
+            feature = "clap",
+            arg(long, value_name = "NAME=COLOR", value_parser = tag::parse_color)
+        )]
+        #[serde(skip)]
+        pub tag_fg: Vec<(TagName, NamedColor)>,
+        /// Background color for the --tag of the same name; repeatable
+        #[cfg_attr(
+            feature = "clap",
+            arg(long, value_name = "NAME=COLOR", value_parser = tag::parse_color)
+        )]
+        #[serde(skip)]
+        pub tag_bg: Vec<(TagName, NamedColor)>,
+        /// Remove every tag
+        #[cfg_attr(feature = "clap", arg(long, conflicts_with = "tags"))] // C6
+        #[serde(skip)]
+        pub clear_tags: bool,
     }
 
     #[derive(Clone, Debug, Default, Deserialize)]

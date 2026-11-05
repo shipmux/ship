@@ -81,9 +81,10 @@ Tested independently: run the example on Linux and macOS and use it for daily wo
 
 ## Amendments (2026-11-04)
 
-Decided with Cyan during slice 1. Each settles an open unknown and adds to the marked requirement.
+Decided with Cyan during slices 1 and 2. Each settles an open unknown and adds to the marked requirement.
 
 - **P1. Tag values refuse control characters and lose bidirectional formatting characters** (OU-2, FR-005). A tag value with a control character fails with 400 `validation` and changes nothing, as an invalid name does. Bidirectional formatting characters are removed from a value before it is stored, so the stored value and the change test both see the cleaned text. This is the program-status rule: text drawn outside the terminal grid can't move the cursor or reorder what is drawn after it, and a script that sends a control character learns about its bug.
+- **P2. Colors on the CLI are separate flags keyed by tag name** (OU-1, FR-008). `ship pane set` and `ship tab set` accept repeatable `--tag-fg NAME=COLOR` and `--tag-bg NAME=COLOR`, which color the `--tag NAME=VALUE` of the same name in the same call, whatever the order. A color for a name that call doesn't set, including a bare `--tag NAME`, is an error and changes nothing, because a write replaces a tag whole. A repeated color flag for one name takes its last occurrence. A full JSON form was weighed and left to a general `ship api` passthrough, outside this change ([#113](https://github.com/shipmux/ship/issues/113)), so the CLI keeps one shell-safe form.
 
 ## Non-goals
 
@@ -115,7 +116,7 @@ Decided with Cyan during slice 1. Each settles an open unknown and adds to the m
 - FR-005: Panes and tabs MUST carry tags: a map from name to a value string with an optional `fg` and `bg`, shown in `ship pane get`, `ship tab list`, and the state every client and watcher receives. A pane or tab with no tags MUST omit the field.
 - FR-006: A tag name MUST be any non-empty string without `=` or control characters. Ship MUST give no meaning to `.` or any other character.
 - FR-007: `fg` and `bg` MUST be one of the 16 named terminal colors when present.
-- FR-008: `ship pane set` and `ship tab set` MUST accept a repeatable `--tag NAME=VALUE` that sets a tag, a bare `--tag NAME` that removes one, and `--clear-tags` that removes all. A repeated name MUST take its last value. An empty value MUST set an empty tag. Setting colors from the CLI: see OU-1.
+- FR-008: `ship pane set` and `ship tab set` MUST accept a repeatable `--tag NAME=VALUE` that sets a tag, a bare `--tag NAME` that removes one, and `--clear-tags` that removes all. A repeated name MUST take its last value. An empty value MUST set an empty tag. Setting colors from the CLI: see amendment P2.
 - FR-009: Writing a tag MUST replace its value and colors whole; the last write wins.
 - FR-010: Over HTTP, `PATCH` on a pane or tab MUST accept `tags` as a merge patch: an absent name is unchanged, a tag sets it, `null` removes it, and `tags: null` removes all.
 - FR-011: Tag changes and other attribute changes in one request MUST be published as one state. A request that changes nothing MUST publish nothing.
@@ -145,6 +146,6 @@ Decided with Cyan during slice 1. Each settles an open unknown and adds to the m
 
 ## Open unknowns
 
-- OU-1: **Colors on the CLI.** `--tag NAME=VALUE` has no room for colors, and `gh.checks.fg=red` would read as a tag name. Recommendation: separate repeatable flags, `--tag-fg NAME=COLOR` and `--tag-bg NAME=COLOR`, applied with the `--tag` of the same name; since a write replaces a tag whole, a `--tag` without them clears its colors. Blocks FR-008's color part.
+- OU-1: **Colors on the CLI.** Decided by amendment P2: the separate flags.
 - OU-2: **Control characters in values.** Decided by amendment P1: the program-status rule.
 - OU-3: **How `watch` reports its end.** The attach stream already ends with a reason (`server_shutdown`, `lost`). Recommendation: print that as the last JSON line, then exit with an error. Blocks FR-004.

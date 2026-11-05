@@ -24,13 +24,13 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 2. `--tag` and `--clear-tags`
 
-- [ ] 2.1 Add `parse_edit` to `tag.rs`, the `tags` and `clear_tags` fields to the pane and tab set commands in `command.rs`, and the patch building in `ship-client/src/execute.rs` and `ui/nav.rs`. Verify that `ship pane set --help` shows both flags.
-- [ ] 2.2 Verify each CLI scenario with `ship pane set` and `ship tab set`, reading `get` after each: `--tag git.branch=main --tag git.ahead=2` sets both, a bare `--tag git.ahead` removes one, `--tag git.ahead=` keeps an empty value, `--tag a=b=c` stores `b=c`, a repeated name takes its last value, and `--clear-tags` removes all.
-- [ ] 2.3 Verify that `--clear-tags` with `--tag` in the same call is refused by clap (C6), and that a config with `server.pane.set = { tags = … }` fails `ship config check` as an unknown field with its line and column.
-- [ ] 2.4 Gate OU-1: bring Cyan the CLI color flags with the paper's recommendation (`--tag-fg NAME=COLOR` and `--tag-bg NAME=COLOR`). Record the decision as a product amendment and in the `tags` delta.
-- [ ] 2.5 After 2.4, build the decided color flags. Verify that a color set from the CLI shows in `ship pane get`, and that a bad color name is a usage error.
-- [ ] 2.6 Following `docs/agents/docs.md`, start `docs/site/scripting/writing-a-plugin.md` with its tags section and link it from `docs/site/scripting/README.md`. Verify that each command on the page runs as written.
-- [ ] 2.7 Check that the `tags` delta's CLI requirements and the `session-structure` delta's Set attribute fields match what was built.
+- [x] 2.1 Add `parse_edit` to `tag.rs`, the `tags` and `clear_tags` fields to the pane and tab set commands in `command.rs`, and the patch building in `ship-client/src/execute.rs` and `ui/nav.rs`. Verify that `ship pane set --help` shows both flags.
+- [x] 2.2 Verify each CLI scenario with `ship pane set` and `ship tab set`, reading `get` after each: `--tag git.branch=main --tag git.ahead=2` sets both, a bare `--tag git.ahead` removes one, `--tag git.ahead=` keeps an empty value, `--tag a=b=c` stores `b=c`, a repeated name takes its last value, and `--clear-tags` removes all.
+- [x] 2.3 Verify that `--clear-tags` with `--tag` in the same call is refused by clap (C6), and that a config with `server.pane.set = { tags = … }` fails `ship config check` as an unknown field with its line and column.
+- [x] 2.4 Gate OU-1: bring Cyan the CLI color flags with the paper's recommendation (`--tag-fg NAME=COLOR` and `--tag-bg NAME=COLOR`). Record the decision as a product amendment and in the `tags` delta.
+- [x] 2.5 After 2.4, build the decided color flags. Verify that a color set from the CLI shows in `ship pane get`, and that a bad color name is a usage error.
+- [x] 2.6 Following `docs/agents/docs.md`, start `docs/site/scripting/writing-a-plugin.md` with its tags section and link it from `docs/site/scripting/README.md`. Verify that each command on the page runs as written.
+- [x] 2.7 Check that the `tags` delta's CLI requirements and the `session-structure` delta's Set attribute fields match what was built.
 
 ## 3. `ship watch`
 

@@ -232,8 +232,8 @@ pub(super) fn set_zoom(pane: IdOf<Pane>, zoomed: Option<IdOf<Pane>>) -> Command 
             id: None,
             pane: Some(pane),
         },
-        name: None,
         zoomed: Some(zoomed),
+        ..Default::default()
     }))
 }
 

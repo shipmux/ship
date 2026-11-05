@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Set attribute fields
-A tab's attributes SHALL be `name` (`--name`), `zoomed` (`--zoomed`) and `tags` (`--tag`, `--clear-tags`). A pane's attributes SHALL be `name` (`--name`), `right_click_passthrough` (`--right-click-passthrough`), `exit_behavior` (`--exit-behavior`), `scrollback_bytes` (`--scrollback-bytes`) and `tags` (`--tag`, `--clear-tags`), as the `tags` capability describes.
+A tab's attributes SHALL be `name` (`--name`), `zoomed` (`--zoomed`) and `tags` (`--tag`, `--tag-fg`, `--tag-bg`, `--clear-tags`). A pane's attributes SHALL be `name` (`--name`), `right_click_passthrough` (`--right-click-passthrough`), `exit_behavior` (`--exit-behavior`), `scrollback_bytes` (`--scrollback-bytes`) and `tags` (`--tag`, `--tag-fg`, `--tag-bg`, `--clear-tags`), as the `tags` capability describes.
 
 #### Scenario: Exit behavior and history in one edit
 - **WHEN** a script runs `ship pane set --pane <id> --exit-behavior keep_failed --scrollback-bytes 50000000`
@@ -18,7 +18,7 @@ A tab's attributes SHALL be `name` (`--name`), `zoomed` (`--zoomed`) and `tags` 
 - **THEN** both change in one edit, and `ship tab get` shows them
 
 ### Requirement: HTTP set fields
-Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"?, "tags"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "right_click_passthrough"?, "exit_behavior"?, "scrollback_bytes"?, "tags"? }`, following JSON Merge Patch (RFC 7386). An absent field SHALL leave its attribute unchanged, and JSON `null` SHALL clear it. `null` SHALL be accepted only on `name`, `zoomed` and `tags`; on any other field it SHALL get 400 `validation`. Inside `tags`, the `tags` capability's merge rules apply.
+Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"?, "tags"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "right_click_passthrough"?, "exit_behavior"?, "scrollback_bytes"?, "tags"? }`, following JSON Merge Patch (RFC 7396). An absent field SHALL leave its attribute unchanged, and JSON `null` SHALL clear it. `null` SHALL be accepted only on `name`, `zoomed` and `tags`; on any other field it SHALL get 400 `validation`. Inside `tags`, the `tags` capability's merge rules apply.
 
 #### Scenario: Omitted and blank HTTP fields
 - **WHEN** a caller patches a pane with `{}`, then `{"name": "  x "}`, then `{"name": ""}`, then `{"name": null}`
