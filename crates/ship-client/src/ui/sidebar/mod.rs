@@ -2,6 +2,7 @@
 //! the split between the tabs section on top and the agents section below.
 
 mod agents;
+mod fit;
 pub(super) mod tabs;
 mod tags;
 
@@ -26,7 +27,7 @@ pub(super) use self::{
     tabs::{Gap, Tabs, movable},
 };
 use super::{attention::Attention, mouse::SidebarEdit, observer::Observer, updates::VersionRow};
-use crate::keymap::Token;
+use crate::keymap::{TabSettings, Token};
 
 const MIN_WIDTH: u16 = 10;
 const MIN_PANES: u16 = 20;
@@ -72,14 +73,14 @@ pub(super) enum Hit {
 }
 
 impl Sidebar {
-    pub fn new(width: u16) -> Self {
+    pub fn new(width: u16, tabs: TabSettings) -> Self {
         Self {
             shown: true,
             configured: width,
             chosen: None,
             split: None,
             area: Rect::ZERO,
-            tabs: Tabs::default(),
+            tabs: Tabs::new(tabs),
             agents: Agents::default(),
         }
     }
@@ -92,7 +93,8 @@ impl Sidebar {
         }
     }
 
-    pub fn configure(&mut self, width: u16) {
+    pub fn configure(&mut self, width: u16, tabs: TabSettings) {
+        self.tabs.configure(tabs);
         if self.configured != width {
             self.configured = width;
             self.chosen = None;

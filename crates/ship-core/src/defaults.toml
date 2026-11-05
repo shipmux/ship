@@ -22,6 +22,9 @@ check = true                         # bool; check at startup and hourly
 # command = "brew upgrade ship"      # what ship update runs instead of the build's method
 # latest_command = "..."             # prints the latest version instead of asking GitHub
 
+[client.tabs]
+rows = [["name"]]                    # lines of: name, or { tag = "..." }
+
 [client.agents]
 rows = [["icon", "app", "state"], ["tab"]]  # lines of: icon app state tab pane title msg, or { tag = "..." }
 delay_ms = 1000                      # ms a new state must hold before it notifies

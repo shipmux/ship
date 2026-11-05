@@ -47,6 +47,17 @@ sidebar_width = 40   # default: 26 columns
 mouse = true         # false leaves the mouse to your terminal
 ```
 
+### Tab rows
+
+Each tab in the sidebar shows its name. To show its git branch on a second line, with how far ahead it is:
+
+```toml
+[client.tabs]
+rows = [["name"], [{ tag = "git.branch" }, { tag = "git.ahead" }]]  # default: [["name"]]
+```
+
+`rows` lists the lines of each tab's entry, and the pieces on a line are joined with ` · `. A piece is `name` or a [tag](scripting/writing-a-plugin.md#tags) like `{ tag = "git.branch" }`. A tag shows the tab's own value, or else its first pane's, the way a tab without a name takes its first pane's folder. Pieces without a value are left out, and lines with nothing on them disappear, so a tab without tags stays one line. Long pieces are cut with `…` as in [agent rows](#agent-settings).
+
 ### Updates
 
 Check for a release without installing anything:

@@ -49,6 +49,13 @@ Each tab's entry SHALL be drawn from the lines of `[client.tabs] rows` (see conf
 - **WHEN** the config has no `[client.tabs]`
 - **THEN** every entry is one line holding the derived label and zoom marker, as before this change
 
+### Requirement: Fitting tab lines
+Items on a tab entry's line SHALL be joined with ` · `. A line too wide for the sidebar SHALL share its width as agent-attention's Fitting agent lines describes, each item losing its end; the zoom marker SHALL keep its width.
+
+#### Scenario: Long branch under a nested tab
+- **WHEN** a 26-column sidebar shows tab `deep` two levels down with `git.branch` `feature/very-long-branch-name` and `git.ahead` `2` on one line
+- **THEN** that line reads `feature/ver… · 2`
+
 ### Requirement: Tab entry tags
 In tab entries, a tag item SHALL show the tab's own tag of that name, else its first own pane's tag of that name, the pane that derived labels use. This fallback SHALL be a display rule only: `ship tab get`, `ship tab list` and `ship watch` SHALL show only the tab's own tags.
 

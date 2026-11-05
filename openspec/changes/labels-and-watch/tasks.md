@@ -54,12 +54,12 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 5. Multi-line tab entries
 
-- [ ] 5.1 Add `TabSettings`, `TabToken` and `TabsFile` in `keymap.rs`, and `[client.tabs]` in `defaults.toml`. Verify that `ship config check` accepts the defaults, reports `rows = [["title"]]` with its line and column, and that `ship config defaults` prints the table with its comment.
-- [ ] 5.2 Pass `TabSettings` through `Sidebar::new` and `configure`, and split `sidebar/tabs.rs` into `Entry` from `walk()` and `Row` per line with `Part`. Verify that with no `[client.tabs]` the sidebar matches a screenshot taken before the change (SC-004).
-- [ ] 5.3 Verify in a running client that with `rows = [["name"], [{ tag = "git.branch" }]]` a tab shows its branch under its name, else its first pane's (FR-015), while `ship tab get` shows only the tab's own, and that a tab with neither keeps one line. Verify that saving a change to the rows updates the sidebar without a restart.
-- [ ] 5.4 On a tree three levels deep with some one-line and some two-line entries, verify that clicking either line selects its tab, that only a head's marker folds, that a drop onto a second line lands above that entry, that wheel scrolling stops at the last line, that stepping through tabs keeps the whole selected entry in view, and that a `bg` tag stays visible on the selected entry.
-- [ ] 5.5 Following `docs/agents/docs.md`, document `[client.tabs] rows` in `docs/site/configuration.md`. Verify that it matches `defaults.toml`.
-- [ ] 5.6 Check that the `terminal-client` delta's tab entry requirements and drop line and the `config-file` delta's Tab settings match what was built.
+- [x] 5.1 Add `TabSettings`, `TabToken` and `TabsFile` in `keymap.rs`, and `[client.tabs]` in `defaults.toml`. Verify that `ship config check` accepts the defaults, reports `rows = [["title"]]` with its line and column, and that `ship config defaults` prints the table with its comment.
+- [x] 5.2 Pass `TabSettings` through `Sidebar::new` and `configure`, and split `sidebar/tabs.rs` into `Entry` from `walk()` and `Row` per line with `Part`. Verify that with no `[client.tabs]` the sidebar matches a screenshot taken before the change (SC-004).
+- [x] 5.3 Verify in a running client that with `rows = [["name"], [{ tag = "git.branch" }]]` a tab shows its branch under its name, else its first pane's (FR-015), while `ship tab get` shows only the tab's own, and that a tab with neither keeps one line. Verify that saving a change to the rows updates the sidebar without a restart.
+- [x] 5.4 On a tree three levels deep with some one-line and some two-line entries, verify that clicking either line selects its tab, that only a head's marker folds, that a drop onto a second line lands above that entry, that wheel scrolling stops at the last line, that stepping through tabs keeps the whole selected entry in view, and that a `bg` tag stays visible on the selected entry.
+- [x] 5.5 Following `docs/agents/docs.md`, document `[client.tabs] rows` in `docs/site/configuration.md`. Verify that it matches `defaults.toml`.
+- [x] 5.6 Check that the `terminal-client` delta's tab entry requirements and drop line and the `config-file` delta's Tab settings match what was built.
 
 ## 6. The git example
 

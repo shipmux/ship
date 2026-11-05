@@ -13,7 +13,11 @@ use ship_core::{
     tree::Tabs,
 };
 
-use super::{Scroll, tags};
+use super::{
+    Scroll,
+    fit::{self, Cut, Piece},
+    tags,
+};
 use crate::{
     keymap::Token,
     ui::{
@@ -25,7 +29,6 @@ use crate::{
 
 /// Drawn before each line, lining entries up with the `tabs` heading.
 const MARGIN: &str = " ";
-const ELLIPSIS: &str = "…";
 
 /// Distinct by shape and color; tab rows use the same.
 pub(super) fn icon(display: Display) -> Span<'static> {
@@ -140,67 +143,26 @@ impl Agents {
 }
 
 /// The entry's lines, leaving out tokens without a value and lines left
-/// empty. Values too wide for `width` share it, as `shares` splits it.
+/// empty. Values too wide for `width` share it (amendment P4).
 fn row(agent: &Agent, rows: &[Vec<Token>], width: u16) -> Vec<Line<'static>> {
     rows.iter()
         .filter_map(|tokens| {
-            let values: Vec<_> = tokens
+            let values = tokens
                 .iter()
-                .filter_map(|token| Some((token, value(agent, token)?)))
+                .filter_map(|token| {
+                    let span = value(agent, token)?;
+                    let cut = match token {
+                        Token::Icon => Cut::Keep,
+                        Token::Tab => Cut::Start,
+                        _ => Cut::End,
+                    };
+                    Some(vec![Piece { span, cut }])
+                })
                 .collect();
-            let shares = shares(&values, usize::from(width));
-            let mut spans = vec![Span::raw(MARGIN)];
-            // A value left no cells goes with its separator.
-            let fitted = values
-                .into_iter()
-                .zip(shares)
-                .filter(|(_, share)| *share > 0);
-            for (index, ((token, span), share)) in fitted.enumerate() {
-                if index > 0 {
-                    spans.push(Span::raw(" "));
-                }
-                spans.push(fit(token, span, share));
-            }
-            (spans.len() > 1).then(|| Line::from(spans))
+            let spans = fit::line(values, " ", usize::from(width));
+            (!spans.is_empty()).then(|| Line::from([vec![Span::raw(MARGIN)], spans].concat()))
         })
         .collect()
-}
-
-/// Each value's width once the line fits in `width`. The icon keeps its
-/// own, and the rest take turns a cell at a time, as in Herdr.
-fn shares(values: &[(&Token, Span)], width: usize) -> Vec<usize> {
-    let mut shares: Vec<usize> = values
-        .iter()
-        .map(|(token, span)| match token {
-            Token::Icon => span.width(),
-            _ => 0,
-        })
-        .collect();
-    let separators = values.len().saturating_sub(1);
-    let mut room = width.saturating_sub(shares.iter().sum::<usize>() + separators);
-    while room > 0 {
-        let before = room;
-        for (share, (_, span)) in shares.iter_mut().zip(values) {
-            if room > 0 && *share < span.width() {
-                *share += 1;
-                room -= 1;
-            }
-        }
-        if room == before {
-            break;
-        }
-    }
-    shares
-}
-
-/// The value cut to its share, keeping its style so a cut tag keeps its
-/// colors. A path loses its start, everything else its end.
-fn fit(token: &Token, span: Span<'static>, share: usize) -> Span<'static> {
-    let content = match token {
-        Token::Tab => shorten(&span.content, share),
-        _ => truncate_end(&span.content, share),
-    };
-    Span::styled(content, span.style)
 }
 
 fn value(agent: &Agent, token: &Token) -> Option<Span<'static>> {
@@ -215,33 +177,4 @@ fn value(agent: &Agent, token: &Token) -> Option<Span<'static>> {
         Token::Msg => text(agent.root.msg.as_deref()?),
         Token::Tag(name) => tags::span(agent.pane.tags.get(name)?),
     }
-}
-
-/// `path` cut from the left behind an ellipsis to fit `room` cells.
-fn shorten(path: &str, room: usize) -> String {
-    if Span::raw(path).width() <= room {
-        return path.to_owned();
-    }
-    let room = room.saturating_sub(Span::raw(ELLIPSIS).width());
-    let start = path
-        .char_indices()
-        .map(|(index, _)| index)
-        .find(|index| Span::raw(&path[*index..]).width() <= room)
-        .unwrap_or(path.len());
-    format!("{ELLIPSIS}{}", &path[start..])
-}
-
-/// `text` cut at the end behind an ellipsis to fit `room` cells.
-fn truncate_end(text: &str, room: usize) -> String {
-    if Span::raw(text).width() <= room {
-        return text.to_owned();
-    }
-    let room = room.saturating_sub(Span::raw(ELLIPSIS).width());
-    let end = text
-        .char_indices()
-        .map(|(index, _)| index)
-        .take_while(|index| Span::raw(&text[..*index]).width() <= room)
-        .last()
-        .unwrap_or(0);
-    format!("{}{ELLIPSIS}", &text[..end])
 }

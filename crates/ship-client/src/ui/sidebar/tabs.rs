@@ -1,5 +1,5 @@
-//! The sidebar's tabs section: client-local folds and the visible tab rows,
-//! drawn from one walk of the tree.
+//! The sidebar's tabs section: client-local folds and the visible tab
+//! entries, drawn from one walk of the tree, one row per line (KD-5).
 
 use std::collections::HashSet;
 
@@ -16,8 +16,16 @@ use ship_core::{
     tree::{self, Tabs as TabTree},
 };
 
-use super::{Scroll, agents::icon};
-use crate::ui::{agents, attention::Attention, draw::tab_label};
+use super::{
+    Scroll,
+    agents::icon,
+    fit::{self, Piece},
+    tags,
+};
+use crate::{
+    keymap::{TabSettings, TabToken},
+    ui::{agents, attention::Attention, draw::tab_label},
+};
 
 /// Columns left of the tree for rollup icons, drawn in the middle one so
 /// they line up with the agents section's icons.
@@ -28,8 +36,9 @@ const CLOSED: &str = "▸ ";
 const LEAF: &str = "  ";
 /// Columns per level.
 const INDENT: u16 = 2;
+/// Between the items of a line (C5).
+const SEPARATOR: &str = " · ";
 
-#[derive(Default)]
 pub(in crate::ui) struct Tabs {
     collapsed: HashSet<IdOf<Tab>>,
     /// First drawn row. Never leaves blank rows below the last one, and
@@ -37,27 +46,47 @@ pub(in crate::ui) struct Tabs {
     offset: usize,
     /// Where the rows were last drawn, gutter included.
     area: Rect,
-    /// Every visible row as last drawn, scrolled out of view or not, for
-    /// clicks, drop gaps and wheel scrolling.
+    /// Every visible line as last drawn, one or more per entry, scrolled
+    /// out of view or not, for clicks, drop gaps and wheel scrolling.
     rows: Vec<Row>,
-    /// The selected row as last drawn. A wheel scroll holds until the
-    /// selection or its row moves.
+    /// The selected entry as last drawn. A wheel scroll holds until the
+    /// selection or its entry moves.
     selected: Option<Placed>,
+    /// `[client.tabs]`, from `Sidebar::configure`.
+    settings: TabSettings,
 }
 
-/// A tab and its index among the visible rows.
+/// A tab and the index of its entry's head among the visible rows.
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Placed {
     tab: IdOf<Tab>,
     index: usize,
 }
 
-/// One visible row, from one walk of the tree under unfolded ancestors.
-struct Row {
+/// One visible tab, from one walk of the tree under unfolded ancestors.
+struct Entry {
     tab: IdOf<Tab>,
     depth: u16,
     fold: Fold,
-    label: Line<'static>,
+    /// Among its siblings, for the automatic name.
+    position: usize,
+}
+
+/// One drawn line of an entry.
+struct Row {
+    tab: IdOf<Tab>,
+    depth: u16,
+    part: Part,
+    text: Line<'static>,
+}
+
+/// Which line of its entry a row is.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Part {
+    /// The first: carries the fold marker and the rollup icon.
+    Head(Fold),
+    /// A later line, indented to the head's text.
+    Tail,
 }
 
 /// A row's fold marker. Was two flags, one meaningless without the other.
@@ -90,6 +119,21 @@ pub(in crate::ui) struct Pointed {
 }
 
 impl Tabs {
+    pub fn new(settings: TabSettings) -> Self {
+        Self {
+            collapsed: HashSet::new(),
+            offset: 0,
+            area: Rect::ZERO,
+            rows: Vec::new(),
+            selected: None,
+            settings,
+        }
+    }
+
+    pub fn configure(&mut self, settings: TabSettings) {
+        self.settings = settings;
+    }
+
     /// The sidebar has already checked that `at` is above the split and off
     /// the divider.
     pub fn hit(&self, at: Position) -> Option<Hit> {
@@ -134,11 +178,11 @@ impl Tabs {
 
     /// Tree order under unfolded ancestors, even while the sidebar is hidden.
     pub fn visible(&self, tabs: &TabTree) -> Vec<IdOf<Tab>> {
-        self.walk(tabs).into_iter().map(|row| row.tab).collect()
+        self.walk(tabs).into_iter().map(|entry| entry.tab).collect()
     }
 
-    fn walk(&self, tabs: &TabTree) -> Vec<Row> {
-        fn walk(section: &Tabs, tabs: &TabTree, depth: u16, rows: &mut Vec<Row>) {
+    fn walk(&self, tabs: &TabTree) -> Vec<Entry> {
+        fn walk(section: &Tabs, tabs: &TabTree, depth: u16, entries: &mut Vec<Entry>) {
             for (position, tab) in tabs.values().enumerate() {
                 let fold = if tab.tabs.is_empty() {
                     Fold::Leaf
@@ -147,24 +191,44 @@ impl Tabs {
                 } else {
                     Fold::Open
                 };
-                // tmux's zoom flag, since a zoomed pane has no border to carry one.
-                let mut label = Line::from(tab_label(tab, position));
-                if tab.zoomed.is_some() {
-                    label.push_span(Span::from(" Z").cyan().bold());
-                }
-                rows.push(Row {
+                entries.push(Entry {
                     tab: tab.id,
                     depth,
                     fold,
-                    label,
+                    position,
                 });
                 if fold == Fold::Open {
-                    walk(section, &tab.tabs, depth + 1, rows);
+                    walk(section, &tab.tabs, depth + 1, entries);
                 }
             }
         }
+        let mut entries = Vec::new();
+        walk(self, tabs, 0, &mut entries);
+        entries
+    }
+
+    /// Each entry's lines in `width` cells, after its indent and marker.
+    fn rows(&self, tabs: &TabTree, width: u16) -> Vec<Row> {
         let mut rows = Vec::new();
-        walk(self, tabs, 0, &mut rows);
+        for entry in self.walk(tabs) {
+            let Ok(tab) = tree::tab(tabs, entry.tab) else {
+                continue;
+            };
+            let room = width.saturating_sub(INDENT.saturating_mul(entry.depth + 1));
+            let lines = lines(tab, entry.position, &self.settings.rows, room);
+            for (index, text) in lines.into_iter().enumerate() {
+                rows.push(Row {
+                    tab: entry.tab,
+                    depth: entry.depth,
+                    part: if index == 0 {
+                        Part::Head(entry.fold)
+                    } else {
+                        Part::Tail
+                    },
+                    text,
+                });
+            }
+        }
         rows
     }
 
@@ -208,7 +272,7 @@ impl Tabs {
             .saturating_add(INDENT.saturating_mul(row.depth));
         Some(Pointed {
             tab: row.tab,
-            marker: row.fold != Fold::Leaf
+            marker: matches!(row.part, Part::Head(Fold::Open | Fold::Folded))
                 && (start..start.saturating_add(INDENT)).contains(&position.x),
         })
     }
@@ -223,10 +287,20 @@ impl Tabs {
         if !section.contains(at) {
             return None;
         }
-        let shown = self.shown();
-        let index = usize::from(at.y - self.area.y).min(shown.len());
-        let below = shown.get(index);
-        let above = index.checked_sub(1).and_then(|index| shown.get(index));
+        let start = self.offset.min(self.rows.len());
+        let end = (self.offset + usize::from(self.area.height)).min(self.rows.len());
+        let mut index = (start + usize::from(at.y - self.area.y)).min(end);
+        // Drops land between entries: a later line stands for its head.
+        while index > 0
+            && self
+                .rows
+                .get(index)
+                .is_some_and(|row| row.part == Part::Tail)
+        {
+            index -= 1;
+        }
+        let below = self.rows.get(index);
+        let above = (index > start).then(|| &self.rows[index - 1]);
         let indent = self.indent();
         let (to, depth, y) = match above {
             None => {
@@ -253,7 +327,7 @@ impl Tabs {
                     };
                     MoveTab::After(ancestor)
                 };
-                (to, depth, self.area.y + (index - 1) as u16)
+                (to, depth, self.area.y + (index - 1 - start) as u16)
             }
         };
         movable(tabs, tab, to).then_some(Gap {
@@ -268,7 +342,7 @@ impl Tabs {
 
     /// The rows in `area`, and the drop line on its rows or the blank row
     /// above them. Keeps the first row in place unless blank rows would
-    /// show below the last, or the selected row is new or moved.
+    /// show below the last, or the selected entry is new or moved.
     #[expect(
         clippy::too_many_arguments,
         reason = "Keep the explicit drawing inputs prescribed by the locked UI design"
@@ -284,12 +358,12 @@ impl Tabs {
         renaming: Option<IdOf<Tab>>,
     ) {
         self.area = area;
-        self.rows = self.walk(tabs);
         let text = Rect {
             x: self.indent(),
             width: area.width.saturating_sub(GUTTER),
             ..area
         };
+        self.rows = self.rows(tabs, text.width);
         let buffer = frame.buffer_mut();
         buffer.set_style(text, Style::new().gray());
         if text.is_empty() {
@@ -303,13 +377,18 @@ impl Tabs {
         });
         let height = usize::from(area.height);
         self.offset = self.offset.min(self.rows.len().saturating_sub(height));
-        if let Some(Placed { index, .. }) = placed
+        if let Some(Placed { tab, index }) = placed
             && placed != self.selected
         {
+            // The whole entry, or its head when it's taller than the section.
+            let lines = self.rows[index..]
+                .iter()
+                .take_while(|row| row.tab == tab)
+                .count();
             self.offset = self
                 .offset
-                .min(index)
-                .max((index + 1).saturating_sub(height));
+                .max((index + lines).saturating_sub(height))
+                .min(index);
         }
         self.selected = placed;
         let band = Style::new().fg(Color::Reset).on_dark_gray().bold();
@@ -319,21 +398,8 @@ impl Tabs {
             band
         };
         for (y, row) in (area.y..area.bottom()).zip(self.shown()) {
-            let marker = match row.fold {
-                Fold::Leaf => LEAF,
-                Fold::Open => OPEN,
-                Fold::Folded => CLOSED,
-            };
-            let indent = " ".repeat(usize::from(INDENT * row.depth));
-            let (x, _) = buffer.set_stringn(
-                text.x,
-                y,
-                format!("{indent}{marker}"),
-                usize::from(text.width),
-                Style::new(),
-            );
-            buffer.set_line(x, y, &row.label, text.right().saturating_sub(x));
             let gutter = Rect::new(area.x, y, GUTTER, 1).intersection(area);
+            // The band goes under the text, so a tag's `bg` stays on top.
             if Some(row.tab) == selected {
                 buffer.set_style(
                     Rect {
@@ -345,8 +411,23 @@ impl Tabs {
                 );
                 buffer.set_style(gutter, band);
             }
-            let display = tree::tab(tabs, row.tab)
-                .ok()
+            let marker = match row.part {
+                Part::Head(Fold::Leaf) | Part::Tail => LEAF,
+                Part::Head(Fold::Open) => OPEN,
+                Part::Head(Fold::Folded) => CLOSED,
+            };
+            let indent = " ".repeat(usize::from(INDENT * row.depth));
+            let (x, _) = buffer.set_stringn(
+                text.x,
+                y,
+                format!("{indent}{marker}"),
+                usize::from(text.width),
+                Style::new(),
+            );
+            buffer.set_line(x, y, &row.text, text.right().saturating_sub(x));
+            let display = matches!(row.part, Part::Head(_))
+                .then(|| tree::tab(tabs, row.tab).ok())
+                .flatten()
                 .and_then(|tab| agents::rollup(tab, attention));
             if let Some(display) = display
                 && gutter.width > 1
@@ -374,6 +455,44 @@ impl Tabs {
                 buffer[at].set_style(Style::new().underlined());
             }
         }
+    }
+}
+
+/// The entry's lines: one per `rows` line with any value, items joined by
+/// ` · ` (C5) and fitted to `width` (amendment P4). At least one line,
+/// blank if nothing has a value, so every visible tab can still be clicked
+/// and stepped to.
+fn lines(tab: &Tab, position: usize, rows: &[Vec<TabToken>], width: u16) -> Vec<Line<'static>> {
+    let mut lines: Vec<_> = rows
+        .iter()
+        .filter_map(|tokens| {
+            let values = tokens
+                .iter()
+                .filter_map(|token| value(tab, position, token))
+                .collect();
+            let spans = fit::line(values, SEPARATOR, usize::from(width));
+            (!spans.is_empty()).then(|| Line::from(spans))
+        })
+        .collect();
+    if lines.is_empty() {
+        lines.push(Line::default());
+    }
+    lines
+}
+
+/// One item's pieces: the name with ` Z` when zoomed, or a tag through
+/// `tags::on_tab`.
+fn value(tab: &Tab, position: usize, token: &TabToken) -> Option<Vec<Piece>> {
+    match token {
+        TabToken::Name => {
+            let mut pieces = vec![Piece::end(Span::from(tab_label(tab, position)))];
+            // tmux's zoom flag, since a zoomed pane has no border to carry one.
+            if tab.zoomed.is_some() {
+                pieces.push(Piece::keep(Span::from(" Z").cyan().bold()));
+            }
+            Some(pieces)
+        }
+        TabToken::Tag(name) => Some(vec![Piece::end(tags::span(tags::on_tab(tab, name)?)?)]),
     }
 }
 
