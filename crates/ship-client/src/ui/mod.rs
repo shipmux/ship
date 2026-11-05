@@ -1064,7 +1064,7 @@ fn take(link: Link, local: &mut Local, guard: &mut TerminalGuard) -> Result<Opti
         Link::Lost => Some(Effect::Cut),
         Link::PutFailed(error) => {
             local.message = Some(error.to_string());
-            None
+            Some(Effect::Redraw)
         }
     })
 }
