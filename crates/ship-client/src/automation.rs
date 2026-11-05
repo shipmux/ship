@@ -154,7 +154,7 @@ impl Client {
     /// Return at once if the snapshot already holds the condition. A pane
     /// without a root record waits for its first report.
     pub(crate) async fn wait(&self, pane: IdOf<Pane>, condition: Condition) -> Result<Pane> {
-        let mut events = pin!(self.observe().await?);
+        let mut events = pin!(self.observe(FeedMode::Every).await?);
         let snapshot = next(&mut events, pane).await?;
         let found = tree::pane(&snapshot.tabs, pane)?;
         if condition.matches(found)? {
@@ -175,7 +175,11 @@ impl Client {
         ready: Condition,
         condition: Condition,
     ) -> Result<Pane> {
-        let mut events = pin!(self.observe().await.context("nothing was sent")?);
+        let mut events = pin!(
+            self.observe(FeedMode::Every)
+                .await
+                .context("nothing was sent")?
+        );
         let snapshot = next(&mut events, pane).await.context("nothing was sent")?;
         let before = tree::pane(&snapshot.tabs, pane)
             .and_then(|found| check(found, &ready).map(|()| found.root_status().cloned()))
@@ -212,12 +216,16 @@ impl Client {
         handled.await.context("the input was sent")
     }
 
-    /// An every-revision observer: no selection or area, so it moves and sizes nothing.
-    async fn observe(&self) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
+    /// An observer: no selection or area, so it moves and sizes nothing
+    /// and gets no screens or clipboard (FR-003).
+    pub async fn observe(
+        &self,
+        feed: FeedMode,
+    ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
         self.attach(&AttachRequest {
             selection: None,
             area: None,
-            feed: FeedMode::Every,
+            feed,
         })
         .await
     }

@@ -34,15 +34,15 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 3. `ship watch`
 
-- [ ] 3.1 Derive clap's `ValueEnum` on `FeedMode` in `protocol.rs`, and make `observe` in `ship-client/src/automation.rs` public with a `feed` argument. Verify that `ship pane wait` still works.
-- [ ] 3.2 Add `Command::Watch` to `crates/ship/src/cli.rs`, its route through `checked_target` in `main.rs`, and `watch` and `line` in `commands.rs`. Verify that `ship watch | jq -c .` prints the health line and then a replica per change, and that creating and renaming a tab from another terminal shows each change arrive.
-- [ ] 3.3 Verify that no line holds screen contents or clipboard text, that `ship watch | head -1` exits 0, and that `ship watch` with no server running fails without starting one (C1).
-- [ ] 3.4 Verify that `--feed every` prints each revision in order: a burst of ten renames shows ten consecutive revisions.
-- [ ] 3.5 Gate OU-3: bring Cyan the end of `watch`'s output with the paper's recommendation (a last `{"reason":…}` line, then an `Unavailable` error). Record the decision as a product amendment and in the `state-watching` delta.
-- [ ] 3.6 After 3.5, build the decided ending. Verify that `ship server stop` ends `watch` that way with a non-zero exit, and that a cut stream without `Ended` is a `Network` error.
-- [ ] 3.7 For SC-003, run `benchmarks/bench.py --mux ship --workload type_idle type_agent` with five `ship watch >/dev/null` processes attached to its server and with none, five reps each, and compare echo latency with `--summarize`. Record both results. If the harness can't reach its server's name from outside, add a flag for it to `bench.py`.
-- [ ] 3.8 Following `docs/agents/docs.md`, add the `watch` section to `writing-a-plugin.md`. Verify that each command on the page runs as written.
-- [ ] 3.9 Check that the `state-watching` delta matches what was built.
+- [x] 3.1 Derive clap's `ValueEnum` on `FeedMode` in `protocol.rs`, and make `observe` in `ship-client/src/automation.rs` public with a `feed` argument. Verify that `ship pane wait` still works.
+- [x] 3.2 Add `Command::Watch` to `crates/ship/src/cli.rs`, its route through `checked_target` in `main.rs`, and `watch` and `line` in `commands.rs`. Verify that `ship watch | jq -c .` prints the health line and then a replica per change, and that creating and renaming a tab from another terminal shows each change arrive.
+- [x] 3.3 Verify that no line holds screen contents or clipboard text, that `ship watch | head -1` exits 0, and that `ship watch` with no server running fails without starting one (C1).
+- [x] 3.4 Verify that `--feed every` prints each revision in order: a burst of ten renames shows ten consecutive revisions.
+- [x] 3.5 Gate OU-3: bring Cyan the end of `watch`'s output with the paper's recommendation (a last `{"reason":…}` line, then an `Unavailable` error). Record the decision as a product amendment and in the `state-watching` delta.
+- [x] 3.6 After 3.5, build the decided ending. Verify that `ship server stop` ends `watch` that way with a non-zero exit, and that a cut stream without `Ended` is a `Network` error.
+- [x] 3.7 For SC-003, run `benchmarks/bench.py --mux ship --workload type_idle type_agent` with five `ship watch >/dev/null` processes attached to its server and with none, five reps each, and compare echo latency with `--summarize`. Record both results. If the harness can't reach its server's name from outside, add a flag for it to `bench.py`.
+- [x] 3.8 Following `docs/agents/docs.md`, add the `watch` section to `writing-a-plugin.md`. Verify that each command on the page runs as written.
+- [x] 3.9 Check that the `state-watching` delta matches what was built.
 
 ## 4. Tags in agent rows
 

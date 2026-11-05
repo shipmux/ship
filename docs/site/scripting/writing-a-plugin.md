@@ -5,7 +5,33 @@ Scope: Following Ship from a script with `ship watch`, and showing text on tabs 
 Not here: the sidebar rows settings (configuration.md), JSON shapes (openspec/specs).
 -->
 
-A plugin is a script that uses `ship` like any other client. Ship has no plugin runtime or install step: you run the script, it reads Ship's state as JSON and puts text on tabs and panes with tags.
+A plugin is a script that uses `ship` like any other client. Ship has no plugin runtime or install step: you run the script, it follows Ship's state with `ship watch` and puts text on tabs and panes with tags.
+
+## Watching
+
+`ship watch` prints Ship's state as JSON, one line per change, until you stop it:
+
+```json
+{"service":"ship","protocol_version":22,"version":"0.1.0",…}
+{"type":"attached","data":{"attachment":"attachment:…","replica":{"revision":1,"tabs":{…},…}}}
+{"type":"state","data":{"revision":2,"tabs":{…},…}}
+```
+
+The first line is what `ship server status` prints. After it comes the same stream the Ship client receives: `attached` holds the first state, and each `state` line holds a newer one. This filter turns them into one state per line:
+
+```sh
+ship watch | jq -c '.data.replica // select(.type == "state").data'
+```
+
+Watching changes nothing in Ship: it doesn't select or resize anything, and it gets no screen contents or clipboard text. It never starts a server either, so it fails if none is running.
+
+A reader that falls behind gets the newest state and skips the ones in between. To see every state in order, use `ship watch --feed every`; it ends if the reader falls too far behind.
+
+When the stream ends, the last line says why, and `watch` exits with an error. The reason is `server_shutdown` when the server stops, and `lost` when an `every` feed fell behind:
+
+```json
+{"type":"ended","data":{"reason":"server_shutdown"}}
+```
 
 ## Tags
 
@@ -43,5 +69,5 @@ Tags last as long as their tab or pane and aren't saved: after the server restar
 ## Conventions
 
 - Name tags `plugin.key`, such as `git.branch`. Ship gives the `.` no meaning; it keeps plugins from colliding. Names starting with `ship.` are reserved for Ship.
-- Ignore JSON fields you don't recognize, so a newer Ship doesn't break your script.
+- Ignore JSON fields and `watch` line types you don't recognize, so a newer Ship doesn't break your script.
 - Before 1.0, the JSON shapes may change between versions. `ship server status` reports the `protocol_version` a script can check.

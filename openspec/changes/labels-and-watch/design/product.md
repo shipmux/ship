@@ -81,10 +81,11 @@ Tested independently: run the example on Linux and macOS and use it for daily wo
 
 ## Amendments (2026-11-04)
 
-Decided with Cyan during slices 1 and 2. Each settles an open unknown and adds to the marked requirement.
+Decided with Cyan during slices 1 to 3. Each settles an open unknown and adds to the marked requirement.
 
 - **P1. Tag values refuse control characters and lose bidirectional formatting characters** (OU-2, FR-005). A tag value with a control character fails with 400 `validation` and changes nothing, as an invalid name does. Bidirectional formatting characters are removed from a value before it is stored, so the stored value and the change test both see the cleaned text. This is the program-status rule: text drawn outside the terminal grid can't move the cursor or reorder what is drawn after it, and a script that sends a control character learns about its bug.
 - **P2. Colors on the CLI are separate flags keyed by tag name** (OU-1, FR-008). `ship pane set` and `ship tab set` accept repeatable `--tag-fg NAME=COLOR` and `--tag-bg NAME=COLOR`, which color the `--tag NAME=VALUE` of the same name in the same call, whatever the order. A color for a name that call doesn't set, including a bare `--tag NAME`, is an error and changes nothing, because a write replaces a tag whole. A repeated color flag for one name takes its last occurrence. A full JSON form was weighed and left to a general `ship api` passthrough, outside this change ([#113](https://github.com/shipmux/ship/issues/113)), so the CLI keeps one shell-safe form.
+- **P3. `watch` forwards the attach stream whole** (OU-3, FR-001, FR-004). After the health line, `ship watch` prints every event the client API delivers, one JSON line each and unchanged: `{"type":"attached","data":{…}}` first, then `{"type":"state","data":{…}}` per state, and last `{"type":"ended","data":{"reason":…}}`. The stream's own `ended` line reports why it stopped, and `watch` then exits with an error. A stream cut without `ended` is a network error. The first state sits at `.data.replica` and the later ones at `.data`; the docs give the one `jq` filter for both. Unwrapping the replicas was considered and dropped: `watch` stays the client's own API, with nothing in between for Ship to own.
 
 ## Non-goals
 
@@ -106,10 +107,10 @@ Decided with Cyan during slices 1 and 2. Each settles an open unknown and adds t
 
 ### Watching
 
-- FR-001: `ship watch` MUST print a first JSON line holding the server's `protocol_version`, then one JSON line per published state, unchanged from what clients receive.
+- FR-001: `ship watch` MUST print a first JSON line holding the server's `protocol_version`, then one JSON line per published state, unchanged from what clients receive. Its line form: see amendment P3.
 - FR-002: `ship watch` MUST accept `--feed latest` and `--feed every`, defaulting to `latest`. `latest` MUST deliver the newest state and may skip intermediate ones; `every` MUST deliver every state in order.
 - FR-003: `ship watch` MUST NOT print screen contents or clipboard text.
-- FR-004: When its stream ends (the server shuts down, or an `every` feed falls behind), `ship watch` MUST print why and exit with an error. See OU-3.
+- FR-004: When its stream ends (the server shuts down, or an `every` feed falls behind), `ship watch` MUST print why and exit with an error. See amendment P3.
 
 ### Tags
 
@@ -148,4 +149,4 @@ Decided with Cyan during slices 1 and 2. Each settles an open unknown and adds t
 
 - OU-1: **Colors on the CLI.** Decided by amendment P2: the separate flags.
 - OU-2: **Control characters in values.** Decided by amendment P1: the program-status rule.
-- OU-3: **How `watch` reports its end.** The attach stream already ends with a reason (`server_shutdown`, `lost`). Recommendation: print that as the last JSON line, then exit with an error. Blocks FR-004.
+- OU-3: **How `watch` reports its end.** The attach stream already ends with a reason (`server_shutdown`, `lost`). Decided by amendment P3: the forwarded `ended` line, then an error exit.

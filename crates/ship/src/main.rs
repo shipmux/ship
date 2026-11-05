@@ -121,6 +121,12 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
         })) => {
             commands::server_log(&checked_target(&cli).await?.client, args).await
         }
+        // Never start a server, so a plugin restarting `watch` in a loop
+        // doesn't bring back one that was stopped (C1).
+        Some(Command::Watch(args)) => {
+            let Checked { client, health } = checked_target(&cli).await?;
+            commands::watch(&client, &health, args.feed).await
+        }
         Some(Command::Server(_)) if cli.server_url.is_some() || cli.server_name.is_some() => {
             Err(err!(
                 Configuration,

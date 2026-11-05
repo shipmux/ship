@@ -14,6 +14,7 @@ self-update = ["dep:self_update"]
 clap.workspace = true
 clap_complete.workspace = true
 etcetera.workspace = true
+futures-util.workspace = true
 ship-client.workspace = true
 ship-server.workspace = true
 ship-core = { workspace = true, features = ["clap"] }

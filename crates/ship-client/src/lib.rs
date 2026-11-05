@@ -154,10 +154,11 @@ fn http_error(error: HttpError) -> AppError {
     if connection_refused {
         return err!(ConnectionRefused, "no server running");
     }
+    // Callers read raw bytes and decode JSON themselves, so reqwest's
+    // "decode" kind here only means reading the body failed: a cut
+    // connection, such as an attach stream ending without `Ended`.
     let code = if error.is_timeout() {
         ErrorCode::Timeout
-    } else if error.is_decode() {
-        ErrorCode::Serialization
     } else {
         ErrorCode::Network
     };

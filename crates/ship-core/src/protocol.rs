@@ -370,6 +370,7 @@ pub struct AttachRequest {
 
 /// Which replicas an attach stream sends. Screens and clipboard are unchanged.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[serde(rename_all = "snake_case")]
 pub enum FeedMode {
     /// The newest replica only; intermediate revisions may be skipped.
