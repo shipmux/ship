@@ -34,7 +34,9 @@ Linux is Cyan's primary environment. Linux and macOS are priority platforms; Win
 
 ## Issues and pull requests
 
-Write issues from `.github/ISSUE_TEMPLATE/issue.md` and pull requests from `.github/pull_request_template.md`. The comments in each template are the rules: follow them, delete slots that don't apply, and file a tracking issue for every open decision or workaround a pull request leaves behind.
+Write issues from `.github/ISSUE_TEMPLATE/issue.md` and pull requests from `.github/pull_request_template.md`. The comments in each template are the rules: follow them and delete slots that don't apply. List every open decision or workaround a pull request leaves behind in its description.
+
+Ask Cyan before opening an issue. Propose the title and a one-line summary, and open it only once Cyan agrees. This applies to tracking issues for a pull request's leftovers too.
 
 Don't open a pull request for a small change, such as a renamed constant, a link fix or a few-line cleanup. Cyan finds a history full of tiny pull requests noisy. Fold the change into a pull request that is already open nearby, even if it's only loosely related, and list it under Details. If no pull request is open, hold small changes until there are enough for one tidy-up pull request. Make a change its own pull request only when it is large or risky enough to review or revert on its own.
 
