@@ -14,11 +14,13 @@ use serde::{
     Deserialize, Deserializer,
     de::{Error as _, IgnoredAny},
 };
+use serde_with::{DisplayFromStr, serde_as};
 use ship_core::{
     command::{Command, Direction, Run, pane::PaneCommand},
     config,
     model::Switch,
     prelude::*,
+    tag::TagName,
 };
 
 use crate::{
@@ -45,8 +47,10 @@ pub struct AgentSettings {
     pub sounds: Sounds<Cue>,
 }
 
-/// One value in an agent's entry.
-#[derive(Clone, Copy, Debug, Deserialize)]
+/// One value in an agent's entry: a bare name, or `{ tag = "git.branch" }`
+/// for a tag on the agent's pane.
+#[serde_as]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Token {
     Icon,
@@ -56,6 +60,7 @@ pub enum Token {
     Pane,
     Title,
     Msg,
+    Tag(#[serde_as(as = "DisplayFromStr")] TagName),
 }
 
 /// The two kinds of notification. In config it also names a bundled

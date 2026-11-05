@@ -81,11 +81,12 @@ Tested independently: run the example on Linux and macOS and use it for daily wo
 
 ## Amendments (2026-11-04)
 
-Decided with Cyan during slices 1 to 3. Each settles an open unknown and adds to the marked requirement.
+Decided with Cyan during slices 1 to 4. Each settles an open unknown and adds to the marked requirement.
 
 - **P1. Tag values refuse control characters and lose bidirectional formatting characters** (OU-2, FR-005). A tag value with a control character fails with 400 `validation` and changes nothing, as an invalid name does. Bidirectional formatting characters are removed from a value before it is stored, so the stored value and the change test both see the cleaned text. This is the program-status rule: text drawn outside the terminal grid can't move the cursor or reorder what is drawn after it, and a script that sends a control character learns about its bug.
 - **P2. Colors on the CLI are separate flags keyed by tag name** (OU-1, FR-008). `ship pane set` and `ship tab set` accept repeatable `--tag-fg NAME=COLOR` and `--tag-bg NAME=COLOR`, which color the `--tag NAME=VALUE` of the same name in the same call, whatever the order. A color for a name that call doesn't set, including a bare `--tag NAME`, is an error and changes nothing, because a write replaces a tag whole. A repeated color flag for one name takes its last occurrence. A full JSON form was weighed and left to a general `ship api` passthrough, outside this change ([#113](https://github.com/shipmux/ship/issues/113)), so the CLI keeps one shell-safe form.
 - **P3. `watch` forwards the attach stream whole** (OU-3, FR-001, FR-004). After the health line, `ship watch` prints every event the client API delivers, one JSON line each and unchanged: `{"type":"attached","data":{…}}` first, then `{"type":"state","data":{…}}` per state, and last `{"type":"ended","data":{"reason":…}}`. The stream's own `ended` line reports why it stopped, and `watch` then exits with an error. A stream cut without `ended` is a network error. The first state sits at `.data.replica` and the later ones at `.data`; the docs give the one `jq` filter for both. Unwrapping the replicas was considered and dropped: `watch` stays the client's own API, with nothing in between for Ship to own.
+- **P4. A sidebar line too wide for the sidebar shares its width** (FR-017). Each text value in an agent or tab line, tags included, gets a share of the room left after the icon and separators, one cell at a time in turns, so short values stay whole and long ones are cut with `…`. A `tab` path loses its start (`…ship-labels`), every other value its end (`labels-a…`), and a cut tag keeps its colors. A value left no cells disappears with its separator. Before this, only `tab` shortened and the rest ran off the edge unmarked; Herdr shares its sidebar lines the same way. Cyan saw a branch tag clipped in daily use.
 
 ## Non-goals
 
@@ -129,7 +130,7 @@ Decided with Cyan during slices 1 to 3. Each settles an open unknown and adds to
 - FR-014: `[client.tabs] rows` MUST lay out each tab's sidebar entry as lines of items. A bare string MUST name a built-in field, starting with `name`, and `{ tag = "..." }` MUST name a tag. The default MUST be `[["name"]]`.
 - FR-015: In tab rows, a tag MUST show the tab's own value, else its first pane's value for the same name, as the tab's name falls back to its first pane. The fallback is a display rule: `ship tab get` and `watch` MUST show only the tab's own tags.
 - FR-016: `[client.agents] rows` MUST also accept `{ tag = "..." }`, naming a tag on the agent's pane.
-- FR-017: A missing tag MUST disappear with its separator, and a line with no values MUST disappear. An unknown bare string MUST be a config error.
+- FR-017: A missing tag MUST disappear with its separator, and a line with no values MUST disappear. An unknown bare string MUST be a config error. A line too wide MUST share its width as amendment P4 describes.
 - FR-018: A tag's `fg` and `bg` MUST apply to its value only. Separators and the rest of a selected row MUST keep the row's style.
 
 ### Example and docs

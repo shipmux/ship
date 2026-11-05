@@ -568,3 +568,11 @@ Slice 3:
 - **SC-003 holds on macOS: five watchers are within noise of none.** `--workload type_idle type_agent --reps 5`, release build, results in `benchmarks/results/results-20261105-015013.jsonl` (none) and `results-20261105-015210.jsonl` (five). Median p50: `type_idle` 1.51 ms with none and 1.58 ms with five, `type_agent` 1.65 ms and 1.57 ms; the per-run p50s overlap (1.32 to 1.58 against 1.39 to 1.67 idle, 1.57 to 1.78 against 1.48 to 1.69 agent). Linux unverified.
 - **Falling behind on `every` was checked with the reader frozen by SIGSTOP and 400 renames, each writing a fresh 40 KB random tag.** Repeating states compress to almost nothing across the stream, so smaller or repeating states never pass the 256-revision ring through the buffers.
 
+
+Slice 4:
+
+- **`tags::on_tab` waits for slice 5.** Nothing calls it until tab rows exist, and an unused function fails clippy's `-D warnings`. `tags.rs` holds only `span` for now.
+- **`ship-client` depends on `serde_with`** (already a workspace dependency) for `Token::Tag`'s `serde_as`.
+- **`Token` is no longer `Copy`,** since `TagName` holds a `String`; `row` and `value` take `&Token` as planned.
+- **An unknown token's error lists `tag` among the accepted values.** That's serde's message for the enum; a bare `"tag"` fails too, as a variant that needs a name.
+- **Amendment P4: agent lines share their width.** Cyan saw a branch tag run off the sidebar unmarked. `row` in `agents.rs` gives each value a width from `shares` (the icon keeps its own, the rest grow a cell at a time in turns, as Herdr's `src/ui/sidebar.rs` at `ee5bfb5` does) and cuts it with `fit`: `shorten` for `tab`, a new `truncate_end` for the rest, keeping the span's style. A zero share drops the value and its separator, where Herdr drops values from the left. The architecture's open "Agent rows' `tab` shortening" note, where a tag took room first, is replaced by this. Slice 5 moves `shares`, `fit` and the two cut helpers into the shared sidebar module for tab rows. Checked in tmux at sidebar widths 26, 22 and 10, including a cut red tag keeping its background on the `…`.

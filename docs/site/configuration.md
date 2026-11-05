@@ -84,7 +84,7 @@ attention = { builtin = "attention" }
 done = "off"
 ```
 
-`rows` lists the lines of each entry. The pieces you can use are `icon`, `app`, `state`, `tab`, `pane` (the pane's label), and `title` and `msg` (whatever the agent reported).
+`rows` lists the lines of each entry. The pieces you can use are `icon`, `app`, `state`, `tab`, `pane` (the pane's label), and `title` and `msg` (whatever the agent reported). A [tag](scripting/writing-a-plugin.md#tags) on the agent's pane goes in as `{ tag = "git.branch" }`. Anything without a value is left out, along with its space, and a line with nothing on it disappears. When a line is too wide for the sidebar, its pieces share the width and the long ones are cut with `…`.
 
 A sound is `"off"`, a built-in (`{ builtin = "done" }` or `{ builtin = "attention" }`), or a file (`{ path = "..." }`) in MP3, WAV, Ogg Vorbis or FLAC. `done` plays when an agent finishes and `attention` when it's blocked or errors. `[client.agents.sounds.apps.<name>]` overrides sounds for one agent. If a sound file is missing or broken, Ship plays the built-in one instead and says so in the client log.
 

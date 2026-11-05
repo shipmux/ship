@@ -3,6 +3,7 @@
 
 mod agents;
 pub(super) mod tabs;
+mod tags;
 
 use std::cmp::Ordering;
 

@@ -3704,6 +3704,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "serde_with",
  "ship-core",
  "ship-macros",
  "sse-stream",

@@ -23,7 +23,7 @@ check = true                         # bool; check at startup and hourly
 # latest_command = "..."             # prints the latest version instead of asking GitHub
 
 [client.agents]
-rows = [["icon", "app", "state"], ["tab"]]  # lines of: icon app state tab pane title msg
+rows = [["icon", "app", "state"], ["tab"]]  # lines of: icon app state tab pane title msg, or { tag = "..." }
 delay_ms = 1000                      # ms a new state must hold before it notifies
 popups = false                       # bool; also write notifications as OSC 9 popups
 

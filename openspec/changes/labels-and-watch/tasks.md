@@ -46,11 +46,11 @@ Verification uses real commands and a running client, not permanent authored tes
 
 ## 4. Tags in agent rows
 
-- [ ] 4.1 Add `crates/ship-client/src/ui/sidebar/tags.rs` with `on_tab` and `span`, and declare it in `sidebar/mod.rs`. Verify that `cargo build` passes.
-- [ ] 4.2 Add `Token::Tag` in `keymap.rs`, draw it in `sidebar/agents.rs`, and update the agents comment in `defaults.toml`. Verify in a running client that with `rows = [["icon", "app", "state", { tag = "git.branch" }], ["tab"]]` an agent whose pane has `git.branch` shows it after its state, and a pane without it shows the line as before.
-- [ ] 4.3 Verify that a tag with `fg = "white"` and `bg = "red"` keeps those colors on the selected agent's band, that the `tab` token still shortens on a narrow sidebar, and that `rows = [["nope"]]` fails `ship config check`.
-- [ ] 4.4 Following `docs/agents/docs.md`, document the tag item in `[client.agents] rows` in `docs/site/configuration.md`. Verify that it matches `defaults.toml`.
-- [ ] 4.5 Check that the `agent-attention` delta, the `config-file` delta's Agent settings and the `terminal-client` delta's tag colors requirement match what was built.
+- [x] 4.1 Add `crates/ship-client/src/ui/sidebar/tags.rs` with `on_tab` and `span`, and declare it in `sidebar/mod.rs`. Verify that `cargo build` passes.
+- [x] 4.2 Add `Token::Tag` in `keymap.rs`, draw it in `sidebar/agents.rs`, and update the agents comment in `defaults.toml`. Verify in a running client that with `rows = [["icon", "app", "state", { tag = "git.branch" }], ["tab"]]` an agent whose pane has `git.branch` shows it after its state, and a pane without it shows the line as before.
+- [x] 4.3 Verify that a tag with `fg = "white"` and `bg = "red"` keeps those colors on the selected agent's band, that the `tab` token still shortens on a narrow sidebar, and that `rows = [["nope"]]` fails `ship config check`.
+- [x] 4.4 Following `docs/agents/docs.md`, document the tag item in `[client.agents] rows` in `docs/site/configuration.md`. Verify that it matches `defaults.toml`.
+- [x] 4.5 Check that the `agent-attention` delta, the `config-file` delta's Agent settings and the `terminal-client` delta's tag colors requirement match what was built.
 
 ## 5. Multi-line tab entries
 
