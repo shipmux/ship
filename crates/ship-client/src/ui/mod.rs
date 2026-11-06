@@ -158,9 +158,11 @@ pub async fn run(
         .navigate(Step::Tab(CycleDirection::Next)),
         InitialSelection::None => None,
     };
+    // The terminal reports focus only on a change, so start focused.
     let request = AttachRequest {
         selection,
         area: Some(area),
+        focused: true,
         feed: Default::default(),
     };
     // Every client line names its connection. Each attach swaps in a new
@@ -261,10 +263,10 @@ async fn drive(
         let area = view_area(terminal, &local.sidebar);
         // Computed here because a `select!` precondition can't hand its
         // value to the branch.
-        let resize = (connection.idle()
+        let view = (connection.idle()
             && local.observer.connected
             && local.observer.caught_up(client.written()))
-        .then(|| local.observer.resized(area))
+        .then(|| local.observer.changed_view(area, local.attention.focused()))
         .flatten();
         let effect = tokio::select! {
             link = connection.next(area) => take(link, &mut local, guard)?,
@@ -382,9 +384,9 @@ async fn drive(
                 Some(Err(error)) => return Err(err!(Io, "cannot read the terminal", @external: error)),
                 None => return Err(err!(Io, "terminal input closed")),
             },
-            _ = tick.tick(), if resize.is_some() => {
-                if let Some(resize) = resize {
-                    connection.put(resize);
+            _ = tick.tick(), if view.is_some() => {
+                if let Some(view) = view {
+                    connection.put(view);
                 }
                 None
             }
@@ -875,7 +877,7 @@ impl<'a> Local<'a> {
             self.overlay = None;
         }
         self.observer.connected = false;
-        self.observer.remembered(area)
+        self.observer.remembered(area, self.attention.focused())
     }
 
     fn select(&self, client: &'a Client, node: NodeId) -> Turn<'a> {

@@ -24,7 +24,7 @@ use crate::{
 pub const HEALTH_PATH: &str = "/health";
 /// What a Ship server reports as `service` from `/health`.
 pub const SERVICE: &str = "ship";
-pub const PROTOCOL_VERSION: u32 = 22;
+pub const PROTOCOL_VERSION: u32 = 23;
 /// Names the attachment a view or input request controls.
 pub const ATTACHMENT_HEADER: &str = "x-ship-attachment-id";
 /// On every response: the server's revision once the request was handled,
@@ -364,6 +364,10 @@ pub struct AttachRequest {
     /// an observer, which has no screen and sizes no tab.
     #[serde(default)]
     pub area: Option<Size>,
+    /// Whether the client's terminal has focus. A focused attachment's
+    /// selected pane is told it has focus, if its program asks.
+    #[serde(default)]
+    pub focused: bool,
     #[serde(default)]
     pub feed: FeedMode,
 }
@@ -380,13 +384,16 @@ pub enum FeedMode {
     Every,
 }
 
-/// PUT /attach/view body: the client's area only.
+/// PUT /attach/view body: the client's area and focus.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct ViewInput {
     /// Where the client draws the viewed tab, after its own chrome.
     pub area: Size,
+    /// Whether the client's terminal has focus.
+    #[serde(default)]
+    pub focused: bool,
 }
 
 /// PUT /views/{attachment}/selection body; `null` selects nothing.
@@ -408,6 +415,10 @@ pub struct ViewingRecord {
     /// observer has none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub area: Option<Size>,
+    /// Whether the client's terminal has focus. Panes selected by a focused
+    /// attachment have focus; the rest don't.
+    #[serde(default)]
+    pub focused: bool,
 }
 
 /// Complete published state, including each viewed tab's derived geometry.

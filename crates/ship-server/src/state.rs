@@ -189,6 +189,7 @@ impl ServerState {
         let replica = self.replica();
         self.replicas.publish(Arc::clone(&replica));
         self.apply_sizes(&replica.tabs, &before.tabs);
+        self.apply_focus(&replica, &before);
         Ok(result)
     }
 
@@ -303,6 +304,21 @@ impl ServerState {
                 && let Some(runtime) = self.runtimes.get(&pane)
             {
                 runtime.handle.commands.send(PaneCommand::Resize(size)).ok();
+            }
+        }
+    }
+
+    /// Like sizes, only panes whose focus differs from the `before` replica's
+    /// are told. A pane absent from `before` is new, so it's always told.
+    fn apply_focus(&self, replica: &Replica, before: &Replica) {
+        let (now, was) = (focused_panes(replica), focused_panes(before));
+        for (pane, runtime) in &self.runtimes {
+            let had = tree::pane_owner(&before.tabs, *pane)
+                .is_ok()
+                .then(|| was.contains(pane));
+            let has = now.contains(pane);
+            if had != Some(has) {
+                runtime.handle.commands.send(PaneCommand::Focus(has)).ok();
             }
         }
     }
@@ -423,10 +439,24 @@ pub struct Select {
     pub attachment: IdOf<Attachment>,
     pub selection: Option<NodeId>,
 }
-/// Update an attachment's area.
+/// Update an attachment's area and focus.
 pub struct SetView {
     pub attachment: IdOf<Attachment>,
     pub view: ViewInput,
+}
+
+/// Panes selected by a focused attachment. A selected tab focuses nothing,
+/// as keys then reach no pane.
+fn focused_panes(replica: &Replica) -> HashSet<IdOf<Pane>> {
+    replica
+        .viewers
+        .values()
+        .filter(|record| record.focused)
+        .filter_map(|record| match record.selection {
+            Some(NodeId::Pane(pane)) => Some(pane),
+            _ => None,
+        })
+        .collect()
 }
 
 /// Every pane's content size in the tabs' published geometry, nested tabs
@@ -850,6 +880,7 @@ impl Message<Attach> for ServerState {
                     .selection
                     .filter(|node| tree::path(tabs, *node).is_some()),
                 area: request.area,
+                focused: request.focused,
             };
             viewers.insert(attachment, record);
             Ok(())
@@ -919,7 +950,7 @@ impl Message<Select> for ServerState {
 impl Message<SetView> for ServerState {
     type Reply = Result<ViewingRecord>;
 
-    /// Update only the area, preserving selection. 404 for an inactive attachment.
+    /// Update the area and focus, preserving selection. 404 for an inactive attachment.
     async fn handle(
         &mut self,
         SetView { attachment, view }: SetView,
@@ -928,6 +959,7 @@ impl Message<SetView> for ServerState {
         self.commit(|_, viewers| {
             let record = viewer_mut(viewers, attachment)?;
             record.area = Some(view.area);
+            record.focused = view.focused;
             Ok(record.clone())
         })
     }

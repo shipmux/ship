@@ -225,6 +225,7 @@ impl Client {
         self.attach(&AttachRequest {
             selection: None,
             area: None,
+            focused: false,
             feed,
         })
         .await

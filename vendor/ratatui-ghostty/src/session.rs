@@ -78,7 +78,8 @@ pub struct SessionConfig {
     pub scrollback_bytes: Option<usize>,
     /// Number of lines scrolled per mouse wheel tick.
     pub scroll_delta: isize,
-    /// Whether the session starts with keyboard focus. Defaults to `true`.
+    /// The focus programs are told before any [`SessionHandle::send_focus`].
+    /// Defaults to `true`.
     pub focused: bool,
     /// Size of the buffer used to read PTY output, in bytes.
     pub read_buffer_size: usize,
@@ -205,7 +206,7 @@ impl<W: Fn() + Send + 'static> SessionBuilder<W> {
         self
     }
 
-    /// Set whether the session starts with keyboard focus.
+    /// Set the focus programs are told before any [`SessionHandle::send_focus`].
     pub fn focused(mut self, focused: bool) -> Self {
         self.config.focused = focused;
         self
@@ -392,7 +393,8 @@ impl SessionHandle {
         }
     }
 
-    /// Notify the terminal of focus gain or loss.
+    /// Report focus gain or loss to the program, once it enables focus
+    /// events. Rendering, including the cursor, doesn't change.
     pub fn send_focus(&self, gained: bool) {
         self.cmd_tx.send(SessionCommand::Focus(gained)).ok();
     }
@@ -711,6 +713,8 @@ struct SessionState<'a> {
     writer: Rc<RefCell<Box<dyn Write + Send>>>,
     resizer: &'a mut Resizer,
     shared: &'a SharedBuffer,
+    /// Reported to the program when it enables focus events. Rendering
+    /// ignores it: the caller picks which session shows a cursor.
     focused: bool,
     cols: u16,
     rows: u16,
@@ -921,6 +925,17 @@ impl<'a> SessionState<'a> {
         Ok(String::from_utf8_lossy(&formatter.format_alloc(None)?).into_owned())
     }
 
+    /// Whether the program enabled focus events (mode 1004).
+    fn reports_focus(&self) -> bool {
+        self.terminal.mode(Mode::FOCUS_EVENT).unwrap_or(false)
+    }
+
+    fn write_focus(&self) {
+        let mut w = self.writer.borrow_mut();
+        w.write_all(input::encode_focus(self.focused)).ok();
+        w.flush().ok();
+    }
+
     /// To the program when it tracks the mouse. Otherwise the vertical wheel
     /// scrolls primary-screen history, or sends arrows on the alternate
     /// screen when the program enabled alternate scroll.
@@ -1005,11 +1020,9 @@ impl<'a> SessionState<'a> {
             SessionCommand::Mouse(input) => self.mouse(input, needs_render),
             SessionCommand::Focus(gained) => {
                 self.focused = gained;
-                let data = input::encode_focus(gained);
-                let mut w = self.writer.borrow_mut();
-                w.write_all(data).ok();
-                w.flush().ok();
-                *needs_render = true;
+                if self.reports_focus() {
+                    self.write_focus();
+                }
             }
             SessionCommand::Resize { cols, rows } => {
                 self.terminal.resize(cols, rows, 0, 0).ok();
@@ -1289,8 +1302,13 @@ fn session_thread(
         pending.take(&mut batch);
         if !batch.is_empty() {
             let _parse = tracing::debug_span!("vt_write", bytes = batch.len()).entered();
+            let reporting = state.reports_focus();
             state.terminal.vt_write(&batch);
             batch.clear();
+            // As in Ghostty, enabling focus events reports the current focus.
+            if !reporting && state.reports_focus() {
+                state.write_focus();
+            }
             needs_render = true;
         }
 
@@ -1389,7 +1407,8 @@ fn render_to_shared(state: &mut SessionState<'_>, render_state: &mut RenderState
         snap.changed = vec![true; usize::from(area.height)];
     }
     let mut widget = TerminalWidget::new(&mut state.terminal, render_state)
-        .focused(state.focused)
+        // Always draw the cursor; the caller decides which session shows it.
+        .focused(true)
         .incremental(!resized);
     (&mut widget).render(area, &mut snap.buffer);
     for &y in widget.rendered() {
