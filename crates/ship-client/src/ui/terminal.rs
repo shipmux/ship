@@ -1,6 +1,6 @@
 //! The user's terminal while the client runs: raw mode, the alternate screen,
-//! bracketed paste and focus reporting, restored on every exit path the
-//! process survives.
+//! bracketed paste, focus reporting and unambiguous keys, restored on every
+//! exit path the process survives.
 
 use std::{
     io::{self, BufWriter, Stdout},
@@ -12,7 +12,8 @@ use crossterm::{
     cursor::{SetCursorStyle, Show},
     event::{
         DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
-        EnableFocusChange, EnableMouseCapture,
+        EnableFocusChange, EnableMouseCapture, KeyboardEnhancementFlags,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
     style::Print,
@@ -69,6 +70,14 @@ impl TerminalGuard {
             EnableFocusChange
         )
         .map_err(|error| err!(Io, "cannot enter the alternate screen", @external: error))?;
+        // So Shift+Enter, Ctrl+I and the like arrive apart from Enter and Tab.
+        // Terminals without the kitty keyboard protocol ignore it, and the
+        // legacy Windows console refuses it, which is fine.
+        execute!(
+            io::stdout(),
+            PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+        )
+        .ok();
         Ok(guard)
     }
 
@@ -144,6 +153,7 @@ impl Drop for TerminalGuard {
 fn restore() {
     execute!(
         io::stdout(),
+        PopKeyboardEnhancementFlags,
         DisableFocusChange,
         DisableMouseCapture,
         DisableBracketedPaste,
