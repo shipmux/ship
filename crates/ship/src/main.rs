@@ -81,8 +81,19 @@ fn detach() -> Result<()> {
     Ok(())
 }
 
+/// Which servers a command accepts.
+#[derive(Clone, Copy)]
+enum Accept {
+    /// Ship servers speaking this client's protocol.
+    Compatible,
+    /// Any Ship server. `server stop` and `server status` must reach one on
+    /// another protocol, since that's the server a restart replaces. Health
+    /// and stop keep their shape across protocols for them.
+    AnyProtocol,
+}
+
 /// Application compatibility boundary, shared by explicit requests and local readiness.
-async fn health(client: &Client) -> Result<HealthResponse> {
+async fn health(client: &Client, accept: Accept) -> Result<HealthResponse> {
     let response = client.health().await?;
     if response.service != SERVICE {
         return Err(err!(
@@ -92,7 +103,7 @@ async fn health(client: &Client) -> Result<HealthResponse> {
             PROTOCOL_VERSION
         ));
     }
-    if response.protocol_version != PROTOCOL_VERSION {
+    if matches!(accept, Accept::Compatible) && response.protocol_version != PROTOCOL_VERSION {
         return Err(err!(Validation, "{}", updates::mismatch(&response)));
     }
     Ok(response)
@@ -107,24 +118,27 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
             command: Some(cli::ServerCommand::Stop),
             ..
         })) => {
-            commands::stop_server(&checked_target(&cli).await?.client).await
+            let Checked { client, .. } = checked_target(&cli, Accept::AnyProtocol).await?;
+            commands::stop_server(&client).await
         }
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Status),
             ..
         })) => {
-            commands::print(&checked_target(&cli).await?.health)
+            let Checked { health, .. } = checked_target(&cli, Accept::AnyProtocol).await?;
+            commands::print(&health)
         }
         Some(Command::Server(cli::ServerArgs {
             command: Some(cli::ServerCommand::Log(args)),
             ..
         })) => {
-            commands::server_log(&checked_target(&cli).await?.client, args).await
+            let Checked { client, .. } = checked_target(&cli, Accept::Compatible).await?;
+            commands::server_log(&client, args).await
         }
         // Never start a server, so a plugin restarting `watch` in a loop
         // doesn't bring back one that was stopped (C1).
         Some(Command::Watch(args)) => {
-            let Checked { client, health } = checked_target(&cli).await?;
+            let Checked { client, health } = checked_target(&cli, Accept::Compatible).await?;
             commands::watch(&client, &health, args.feed).await
         }
         Some(Command::Server(_)) if cli.server_url.is_some() || cli.server_name.is_some() => {
@@ -201,7 +215,10 @@ async fn dispatch(mut cli: Cli, diagnostics: &diagnostics::Diagnostics) -> Resul
             let target = cli.target()?;
             let endpoint = target.endpoint()?;
             let (client, initial_selection) = match target {
-                Target::Url(_) => (checked(&endpoint, true).await?.client, InitialSelection::None),
+                Target::Url(_) => {
+                    let Checked { client, .. } = checked(&endpoint, true, Accept::Compatible).await?;
+                    (client, InitialSelection::None)
+                }
                 Target::Named(name) => {
                     let client = client(&endpoint, true)?;
                     let launched = local::ensure_running(&client, &name, &cli.config_path()?)
@@ -242,7 +259,7 @@ async fn connect(cli: &Cli) -> Result<Client> {
     let target = cli.target()?;
     let endpoint = target.endpoint()?;
     match target {
-        Target::Url(_) => Ok(checked(&endpoint, true).await?.client),
+        Target::Url(_) => Ok(checked(&endpoint, true, Accept::Compatible).await?.client),
         Target::Named(name) => {
             let client = client(&endpoint, true)?;
             local::ensure_running(&client, &name, &cli.config_path()?)
@@ -260,25 +277,30 @@ struct Checked {
 }
 
 /// `checked` on the CLI's target, which is explicit when it's a URL.
-async fn checked_target(cli: &Cli) -> Result<Checked> {
+async fn checked_target(cli: &Cli, accept: Accept) -> Result<Checked> {
     let target = cli.target()?;
-    checked(&target.endpoint()?, matches!(target, Target::Url(_))).await
+    checked(
+        &target.endpoint()?,
+        matches!(target, Target::Url(_)),
+        accept,
+    )
+    .await
 }
 
 /// A client whose health check passed. An explicit target that fails over
 /// HTTP/2 for any reason but an absent or silent server, such as a proxy that
 /// speaks only HTTP/1.1, gets one more check over HTTP/1.1. Ship's own server
 /// always speaks HTTP/2, so the local default target never needs it.
-async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<Checked> {
+async fn checked(endpoint: &Endpoint, explicit_target: bool, accept: Accept) -> Result<Checked> {
     let http2 = client(endpoint, true)?;
-    match health(&http2)
+    match health(&http2, accept)
         .await
         .context(format!("server at {endpoint}"))
     {
         Err(error) if explicit_target && error.code() == ErrorCode::Network => {
             tracing::debug!(%error, "HTTP/2 health check failed; retrying over HTTP/1.1");
             let http1 = client(endpoint, false)?;
-            let response = health(&http1)
+            let response = health(&http1, accept)
                 .await
                 .context(format!("server at {endpoint}"))?;
             tracing::warn!(
@@ -298,16 +320,11 @@ async fn checked(endpoint: &Endpoint, explicit_target: bool) -> Result<Checked> 
 }
 
 /// The running server for `ship update`'s sync message, or `None` when none
-/// answers. Unlike `health`, it accepts any protocol: a server older than the
-/// installed binary is the one that needs the restart guidance. Never starts
-/// a server.
+/// answers. It accepts any protocol: a server older than the installed
+/// binary is the one that needs the restart guidance. Never starts a server.
 async fn update_server(endpoint: &Endpoint) -> Result<Option<HealthResponse>> {
-    match client(endpoint, true)?.health().await {
-        Ok(response) if response.service == SERVICE => Ok(Some(response)),
-        Ok(response) => {
-            tracing::warn!(server = %endpoint, service = %response.service, "not a Ship server");
-            Ok(None)
-        }
+    match health(&client(endpoint, true)?, Accept::AnyProtocol).await {
+        Ok(response) => Ok(Some(response)),
         Err(error) if error.code() == ErrorCode::ConnectionRefused => Ok(None),
         Err(error) => {
             tracing::warn!(server = %endpoint, %error, "cannot read the server's health");

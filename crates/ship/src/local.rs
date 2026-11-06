@@ -15,7 +15,7 @@ use tokio::time::{Instant, sleep, timeout_at};
 /// this call launched it, even if a concurrent launcher's server won the bind.
 /// The launched server reads `config`.
 pub async fn ensure_running(client: &Client, name: &ServerName, config: &Path) -> Result<bool> {
-    match crate::health(client).await {
+    match crate::health(client, crate::Accept::Compatible).await {
         Ok(_) => return Ok(false),
         Err(error) if error.code() == ErrorCode::ConnectionRefused => {}
         Err(error) => return Err(error),
@@ -78,7 +78,7 @@ pub async fn ensure_running(client: &Client, name: &ServerName, config: &Path) -
                 .try_wait()
                 .map_err(|error| err!(Io, "cannot inspect launched child", @external: error))?;
             // Even after child exit, this bounded final probe can accept a concurrent winner.
-            match timeout_at(deadline, crate::health(client))
+            match timeout_at(deadline, crate::health(client, crate::Accept::Compatible))
                 .await
                 .map_err(|_| err!(Network, "local server readiness exceeded five seconds"))?
             {
