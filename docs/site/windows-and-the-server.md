@@ -9,7 +9,7 @@ Ship runs in two parts. A background server owns your tabs, panes and the progra
 
 The first `ship` starts the server for you. Tab, pane and view commands also start it if needed. It restores your [saved tabs](saved-tabs.md), or opens one tab with a shell if there's nothing to restore. `ship server status` tells you whether a server is running, and `ship server stop` shuts it down, ending every program inside.
 
-You can open Ship from several terminals at once. The windows share the work: the same tabs, programs, output, zoom and front panes in stacks. Scrolling and text selection in a pane are shared too. Each window picks its own tab and pane, folds its own sidebar and keeps its own mode. Panes are sized to fit the smallest window looking at that tab, so a bigger window shows some empty space around them.
+You can open Ship from several terminals at once. The windows share the work: the same tabs, programs, output, zoom and front panes in stacks. Scrolling and text selection in a pane are shared too. Each window picks its own tab and pane, folds its own sidebar and keeps its own mode. Panes are sized to fit the smallest window looking at that tab, so a bigger window shows some empty space around them. A program that asks to hear about focus, as many editors do, has it while any focused window has its pane selected.
 
 If a window loses its connection to the server, it reconnects on its own.
 

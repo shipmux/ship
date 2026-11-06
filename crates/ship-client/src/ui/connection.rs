@@ -31,9 +31,9 @@ pub(super) struct Connection<'a> {
     putting: Option<Request<'a>>,
 }
 
-/// A new area for this client's record. Only the area, never a selection
-/// that could overwrite a script's edit.
-pub(super) struct Resize {
+/// A new area or focus for this client's record, never a selection that
+/// could overwrite a script's edit.
+pub(super) struct ViewPut {
     pub attachment: IdOf<Attachment>,
     pub view: ViewInput,
 }
@@ -175,7 +175,7 @@ impl<'a> Connection<'a> {
         self.putting.is_none()
     }
 
-    pub fn put(&mut self, Resize { attachment, view }: Resize) {
+    pub fn put(&mut self, ViewPut { attachment, view }: ViewPut) {
         let client = self.client;
         self.putting = Some(Box::pin(async move {
             client.set_view(attachment, &view).await.map(|_| ())

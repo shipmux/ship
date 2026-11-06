@@ -131,6 +131,10 @@ impl Attention {
         self.focused = focused;
     }
 
+    pub fn focused(&self) -> bool {
+        self.focused
+    }
+
     /// Clear unseen marks for panes in view while focused.
     pub fn viewed(&mut self, observer: &Observer) {
         if self.focused {

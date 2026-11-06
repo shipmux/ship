@@ -231,6 +231,9 @@ pub(crate) enum PaneCommand {
     /// New history byte limit; lowering prunes the oldest history at once.
     Scrollback(usize),
     Read(ReadPane, oneshot::Sender<String>),
+    /// Whether a focused attachment has the pane selected; reported to the
+    /// program only if it enabled focus events.
+    Focus(bool),
 }
 
 /// Every running pane, published by the state actor.
@@ -620,6 +623,7 @@ impl PaneTask {
                 self.session.send_key(key);
             }
             PaneCommand::Paste(text) => self.session.send_paste(text.into_bytes()),
+            PaneCommand::Focus(gained) => self.session.send_focus(gained),
             PaneCommand::Scrollback(bytes) => self.session.set_scrollback_bytes(bytes),
             PaneCommand::Resize(size) => {
                 let size = terminal_size(size);

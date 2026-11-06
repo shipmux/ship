@@ -12,7 +12,7 @@ A plugin is a script that uses `ship` like any other client. Ship has no plugin 
 `ship watch` prints Ship's state as JSON, one line per change, until you stop it:
 
 ```json
-{"service":"ship","protocol_version":22,"version":"0.1.0",…}
+{"service":"ship","protocol_version":23,"version":"0.1.0",…}
 {"type":"attached","data":{"attachment":"attachment:…","replica":{"revision":1,"tabs":{…},…}}}
 {"type":"state","data":{"revision":2,"tabs":{…},…}}
 ```

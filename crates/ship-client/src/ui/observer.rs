@@ -10,7 +10,7 @@ use ship_core::{
 
 use ship_macros::traced;
 
-use super::connection::Resize;
+use super::connection::ViewPut;
 
 /// The client's copy of server-owned state: the replica and the latest screen
 /// of each pane it has been sent.
@@ -93,22 +93,25 @@ impl Observer {
     }
 
     /// What to send on reattach: the last record's selection at the
-    /// terminal's current tab area. `None` before the first `Attached` event.
-    pub fn remembered(&self, area: Size) -> Option<AttachRequest> {
+    /// terminal's current tab area and focus. `None` before the first
+    /// `Attached` event.
+    pub fn remembered(&self, area: Size, focused: bool) -> Option<AttachRequest> {
         let record = self.record()?;
         Some(AttachRequest {
             selection: record.selection,
             area: Some(area),
+            focused,
             feed: Default::default(),
         })
     }
 
-    /// The area PUT when `area` differs from the record's. `None` before
-    /// the first `Attached` or when they match.
-    pub fn resized(&self, area: Size) -> Option<Resize> {
-        (self.record()?.area != Some(area)).then_some(Resize {
+    /// The view PUT when `area` or `focused` differs from the record's.
+    /// `None` before the first `Attached` or when they match.
+    pub fn changed_view(&self, area: Size, focused: bool) -> Option<ViewPut> {
+        let record = self.record()?;
+        (record.area != Some(area) || record.focused != focused).then_some(ViewPut {
             attachment: self.attachment?,
-            view: ViewInput { area },
+            view: ViewInput { area, focused },
         })
     }
 
