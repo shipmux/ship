@@ -1,6 +1,6 @@
 # Proposal
 
-Status: Draft. Assembled from `design/product.md`, `design/architecture.md` and `design/program.md`. The papers are the contract, and this proposal and the deltas under `specs/` are views of them.
+Status: Locked on 2026-11-06. Assembled from `design/product.md`, `design/architecture.md` and `design/program.md`. The papers are the contract, and this proposal and the deltas under `specs/` are views of them.
 
 ## Why
 

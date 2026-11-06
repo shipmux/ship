@@ -1,6 +1,6 @@
 # Focus reports: architecture
 
-Status: Draft
+Status: Locked on 2026-11-06, approved by merging #119 ("just pull and commit the spec updates straight on main").
 
 ## Summary
 
