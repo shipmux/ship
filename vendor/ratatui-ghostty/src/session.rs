@@ -429,8 +429,9 @@ impl SessionHandle {
 
     /// Render what changed since the last render, then call `reply`; take the
     /// result with [`Self::take_if_dirty`]. A stopped session drops `reply`
-    /// without calling it.
-    pub fn render(&self, reply: Box<dyn FnOnce() + Send>) {
+    /// without calling it. Only this mode holds for synchronized output;
+    /// without `render_on_request`, every change renders.
+    pub fn render(&self, reply: Box<dyn FnOnce(RenderReply) + Send>) {
         self.cmd_tx.send(SessionCommand::Render(reply)).ok();
     }
 
@@ -584,6 +585,16 @@ pub struct Scrolled {
     pub history: u32,
 }
 
+/// How [`SessionHandle::render`] answered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RenderReply {
+    /// Rendered; take the result with [`SessionHandle::take_if_dirty`].
+    Done,
+    /// The program holds its screen with synchronized output (mode 2026), for
+    /// at most `left` longer. Nothing rendered; more output wakes the caller.
+    Held { left: Duration },
+}
+
 /// Metadata captured with the rendered cells under the same lock.
 pub struct Rendered {
     pub cursor: CursorState,
@@ -612,7 +623,7 @@ enum SessionCommand {
     Scroll(Scroll),
     ScrollbackBytes(usize),
     Read(Read, Box<dyn FnOnce(String) + Send>),
-    Render(Box<dyn FnOnce() + Send>),
+    Render(Box<dyn FnOnce(RenderReply) + Send>),
     Paste(Vec<u8>),
     Raw(Vec<u8>),
     Shutdown,
@@ -642,6 +653,9 @@ impl RenderSnapshot {
         }
     }
 }
+
+/// The longest a program may hold its screen with synchronized output, as in Ghostty.
+const SYNC_CAP: Duration = Duration::from_secs(1);
 
 /// Output the reader thread has read and the session thread hasn't written to
 /// the terminal yet. Reads append to one buffer, so a flood of small PTY reads
@@ -718,7 +732,7 @@ struct SessionState<'a> {
     events: Rc<RefCell<Vec<SessionEvent>>>,
     selecting: Selecting,
     /// Callers waiting on [`SessionHandle::render`], answered after the next render.
-    renders: Vec<Box<dyn FnOnce() + Send>>,
+    renders: Vec<Box<dyn FnOnce(RenderReply) + Send>>,
 }
 
 /// Left-button text selection through Ghostty's gesture state.
@@ -1283,6 +1297,11 @@ fn session_thread(
     let mut stale = false;
     let mut batch = Vec::new();
     let mut woke = None;
+    // When the program began holding its screen with synchronized output.
+    let mut synced: Option<Instant> = None;
+    // The last render answered `Held`, so output wakes the caller even
+    // though the terminal is already stale.
+    let mut held = false;
     loop {
         // Every pass writes the waiting output first, so a command sees all
         // output read before it, like the modes that change how keys encode.
@@ -1292,6 +1311,11 @@ fn session_thread(
             state.terminal.vt_write(&batch);
             batch.clear();
             needs_render = true;
+            synced = state
+                .terminal
+                .mode(Mode::SYNC_OUTPUT)
+                .unwrap_or(false)
+                .then(|| synced.unwrap_or_else(Instant::now));
         }
 
         let mut shutdown = false;
@@ -1330,11 +1354,16 @@ fn session_thread(
 
         // Events first, so a caller woken by the reply sees them.
         if !state.renders.is_empty() {
-            if stale {
+            let reply = match synced.and_then(|since| SYNC_CAP.checked_sub(since.elapsed())) {
+                Some(left) => RenderReply::Held { left },
+                None => RenderReply::Done,
+            };
+            if stale && reply == RenderReply::Done {
                 stale = false;
                 render_to_shared(&mut state, &mut render_state);
             }
-            state.renders.drain(..).for_each(|reply| reply());
+            held = reply != RenderReply::Done;
+            state.renders.drain(..).for_each(|answer| answer(reply));
         }
 
         if should_wake {
@@ -1363,8 +1392,9 @@ fn session_thread(
                     if !render_on_request || waiting >= PENDING_CAP {
                         break Woke::Output;
                     }
-                    if waiting > 0 && !stale {
+                    if waiting > 0 && (!stale || held) {
                         stale = true;
+                        held = false;
                         wake();
                     }
                 },

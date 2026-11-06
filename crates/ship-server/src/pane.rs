@@ -20,7 +20,9 @@ use ratatui::{
     layout::Rect,
 };
 use ratatui_ghostty::{
-    session::{Pointer, Read, Scroll, SessionConfig, SessionEvent, SessionHandle, SessionIo},
+    session::{
+        Pointer, Read, RenderReply, Scroll, SessionConfig, SessionEvent, SessionHandle, SessionIo,
+    },
     widget::CursorStyle,
 };
 use ship_core::{
@@ -464,6 +466,17 @@ struct PaneTask {
     pacing: Pacing,
 }
 
+/// Whether the pane has a screen waiting to publish.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Due {
+    Idle,
+    /// Publishes at `next`.
+    Pending,
+    /// The program holds its screen; retries at `next`, when the hold runs
+    /// out, or as soon as more output arrives.
+    Held,
+}
+
 /// When a change publishes: after `SETTLE` and at least `FRAME` after the
 /// last publish, or at once within `TYPED` of a keypress.
 #[derive(Default)]
@@ -507,26 +520,31 @@ impl PaneTask {
         // reaching the program meanwhile. `pacing` picks when a change
         // publishes; the check runs here rather than in the timer arm since
         // a timer, even one already due, waits for tokio's next 1 ms tick.
-        let mut pending = false;
+        let mut due = Due::Idle;
         let mut next = Instant::now();
         loop {
-            if pending && Instant::now() >= next {
-                pending = false;
-                self.publish(None).await;
-                next = Instant::now() + FRAME;
+            if due != Due::Idle && Instant::now() >= next {
+                (due, next) = match self.publish(None).await {
+                    RenderReply::Done => (Due::Idle, Instant::now() + FRAME),
+                    RenderReply::Held { left } => (Due::Held, Instant::now() + left),
+                };
                 continue;
             }
             tokio::select! {
                 () = cancel.cancelled() => break,
                 Some(command) = commands.recv() => self.command(command),
-                () = self.dirty.notified(), if !pending => {
-                    pending = true;
-                    next = self.pacing.due(next);
+                () = self.dirty.notified(), if due != Due::Pending => {
+                    // A held retry wasn't a publish, so `FRAME` doesn't apply.
+                    let after = if due == Due::Held { Instant::now() } else { next };
+                    next = self.pacing.due(after);
+                    due = Due::Pending;
                 }
-                () = sleep_until(next), if pending => {}
+                () = sleep_until(next), if due != Due::Idle => {}
                 status = &mut self.exit.status, if !self.exit.reaped => {
                     self.exit.reaped = true;
-                    self.publish(status.ok()).await;
+                    if let RenderReply::Held { left } = self.publish(status.ok()).await {
+                        (due, next) = (Due::Held, Instant::now() + left);
+                    }
                 }
             }
         }
@@ -617,14 +635,15 @@ impl PaneTask {
     /// if it changed, with `exited` once the program has. A shell that hasn't
     /// reported OSC 7, such as zsh under oh-my-zsh with SSH variables set, has
     /// its working directory read instead; its prompt after a `cd` is output,
-    /// so it lands here.
+    /// so it lands here. State and events publish even while the program
+    /// holds its screen, so a title or agent status isn't delayed by a redraw.
     #[traced(fields(screen = false))]
-    async fn publish(&mut self, exited: Option<ExitStatus>) {
+    async fn publish(&mut self, exited: Option<ExitStatus>) -> RenderReply {
         let (rendered, render) = oneshot::channel();
-        self.session.render(Box::new(move || {
-            rendered.send(()).ok();
+        self.session.render(Box::new(move |reply| {
+            rendered.send(reply).ok();
         }));
-        render.await.ok();
+        let reply = render.await.unwrap_or(RenderReply::Done);
         let mut state = self.sent.clone();
         let mut program_changed = false;
         let mut dir = None;
@@ -676,6 +695,7 @@ impl PaneTask {
             self.sent = state.clone();
             self.bus.tell(Publish(state)).await.ok();
         }
+        reply
     }
 
     #[traced]
