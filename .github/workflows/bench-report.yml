@@ -57,11 +57,13 @@ jobs:
         run: |
           set -- "$RUNNER_TEMP"/head/results-*.jsonl
           head=$1
-          base_args=()
+          args=()
           for f in "$RUNNER_TEMP"/base/results-*.jsonl; do
-            [ -e "$f" ] && base_args=(--base "$f")
+            [ -e "$f" ] && args=(--base "$f")
           done
-          python3 -I benchmarks/compare.py "$head" "${base_args[@]}" > "$RUNNER_TEMP/comment.md"
+          [ -e "$RUNNER_TEMP/head/size.json" ] && args+=(--size "$RUNNER_TEMP/head/size.json")
+          [ -e "$RUNNER_TEMP/base/size.json" ] && args+=(--base-size "$RUNNER_TEMP/base/size.json")
+          python3 -I benchmarks/compare.py "$head" "${args[@]}" > "$RUNNER_TEMP/comment.md"
           existing=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- ship-bench -->"))) | .id' \
             | head -n 1)

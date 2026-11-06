@@ -52,6 +52,21 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: tokei
+      # Code lines only, which bench-report.yml shows against main's.
+      - name: Line counts
+        run: |
+          count() { tokei "$@" --types Rust --output json | jq '.Rust.code // 0'; }
+          tests=$(find crates -type d \( -name tests -o -name benches \) -prune -print)
+          mkdir -p "$RUNNER_TEMP/bench"
+          # $tests is left unquoted on purpose: it can hold several directories
+          # shellcheck disable=SC2086
+          jq -n --argjson implementation "$(count crates --exclude tests --exclude benches)" \
+            --argjson tests "$( [ -n "$tests" ] && count $tests || echo 0)" \
+            --argjson vendored "$(count vendor)" \
+            '{$implementation, $tests, $vendored}' > "$RUNNER_TEMP/bench/size.json"
       - run: cargo build --release --locked
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       # About two and a half minutes: 3 reps of five workloads, with the idle and agent windows shortened. The
@@ -64,7 +79,9 @@ jobs:
           --idle-s 5 --agent-s 8 --wire --rss-sample-s 0 --max-load 1000 --no-keep-raw
           --out "$RUNNER_TEMP/bench"
       - name: Summary
-        run: python3 benchmarks/compare.py "$RUNNER_TEMP"/bench/results-*.jsonl >> "$GITHUB_STEP_SUMMARY"
+        run: >-
+          python3 benchmarks/compare.py "$RUNNER_TEMP"/bench/results-*.jsonl --size "$RUNNER_TEMP/bench/size.json"
+          >> "$GITHUB_STEP_SUMMARY"
       # bench-report.yml checks this number against the pull request's head commit before trusting it.
       - if: github.event_name == 'pull_request'
         run: echo "$PR_NUMBER" > "$RUNNER_TEMP/bench/pr-number"

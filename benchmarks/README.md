@@ -52,7 +52,7 @@ Results go to `results/results-<stamp>.jsonl`: a meta line, then one line per ru
 
 ## In CI
 
-`.github/workflows/bench.yml` runs a short Ship-only `--wire` benchmark on every pull request that touches code, and on main. `bench-report.yml` then posts `compare.py`'s table on the pull request against the latest main run, as one comment it keeps updating. It compares only the byte counts that stayed within about 1% from run to run. Timings on a shared runner follow whatever else the machine is doing, and a flood's total bytes depend on how many screens went out while it ran, so those are shown but never flagged. To see the table for two local results files:
+`.github/workflows/bench.yml` runs a short Ship-only `--wire` benchmark on every pull request that touches code, and on main. `bench-report.yml` then posts `compare.py`'s table on the pull request against the latest main run, as one comment it keeps updating. It compares only the byte counts that stayed within about 1% from run to run. Timings on a shared runner follow whatever else the machine is doing, and a flood's total bytes depend on how many screens went out while it ran, so those are shown but never flagged. Below the table, the comment shows the pull request's Rust line counts against main's, from tokei. To see the table for two local results files:
 
 ```sh
 python3 compare.py results/results-<new>.jsonl --base results/results-<old>.jsonl

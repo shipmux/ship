@@ -1,6 +1,6 @@
 """Compare Ship's numbers in two bench.py results files as a Markdown table.
 
-    python3 compare.py HEAD.jsonl [--base BASE.jsonl]
+    python3 compare.py HEAD.jsonl [--base BASE.jsonl] [--size SIZE.json] [--base-size SIZE.json]
 
 CI runs this on every pull request (.github/workflows/bench-report.yml), with
 the latest run on main as the base. Shared runners are noisy, so only
@@ -71,7 +71,29 @@ def change(base, head, compared):
     return f"{delta:+.1%}{flag}"
 
 
-def report(head_path, base_path):
+# (key, label) in bench.yml's size.json, which counts code lines with tokei.
+SIZES = [
+    ("implementation", "Implementation (`crates/`, budget about 20,000)"),
+    ("tests", "Tests (`crates/`)"),
+    ("vendored", "Vendored (`vendor/`)"),
+]
+
+
+def sizes(head_path, base_path):
+    """The Rust line counts, or nothing when the run didn't record them."""
+    if not head_path:
+        return []
+    head = json.load(open(head_path))
+    base = json.load(open(base_path)) if base_path else {}
+    lines = ["", "### Rust lines of code", "", "| | main | this PR | change |", "| --- | ---: | ---: | ---: |"]
+    for key, label in SIZES:
+        b, h = base.get(key), head.get(key)
+        delta = "" if b is None or h is None or b == h else f"{h - b:+,}"
+        lines.append(f"| {label} | {'-' if b is None else f'{b:,}'} | {h:,} | {delta} |")
+    return lines
+
+
+def report(head_path, base_path, size_path=None, base_size_path=None):
     head_meta, head = load(head_path)
     base_meta, base = load(base_path) if base_path else ({}, [])
     rev = lambda meta: (meta.get("ship_rev") or "?")[:7]
@@ -94,6 +116,7 @@ def report(head_path, base_path):
               "move with whatever else the machine is doing, and so does how many screens a flood sends, so those are never flagged. "
               "Bytes from the server go through `wiretap.py`, which adds a hop to every timing here. "
               "See `benchmarks/README.md`."]
+    lines += sizes(size_path, base_size_path)
     return "\n".join(lines)
 
 
@@ -101,8 +124,10 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("head")
     p.add_argument("--base")
+    p.add_argument("--size", help="this run's size.json")
+    p.add_argument("--base-size", help="the base run's size.json")
     args = p.parse_args()
-    print(report(args.head, args.base))
+    print(report(args.head, args.base, args.size, args.base_size))
 
 
 if __name__ == "__main__":
