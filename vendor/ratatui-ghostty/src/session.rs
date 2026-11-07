@@ -659,20 +659,21 @@ impl RenderSnapshot {
 /// The longest a program may hold its screen with synchronized output, as in Ghostty.
 const SYNC_CAP: Duration = Duration::from_secs(1);
 
-/// Output the reader thread has read and the session thread hasn't written to
-/// the terminal yet. Reads append to one buffer, so a flood of small PTY reads
-/// wakes the session thread once per batch rather than once per read.
+/// Bytes on their way between the session thread and a PTY thread: output
+/// the reader read and the terminal hasn't parsed, or input the session
+/// encoded and the writer hasn't written. Appending to one buffer wakes the
+/// other side once per batch rather than once per write.
 #[derive(Default)]
 struct Pending {
     queue: Mutex<Queue>,
-    /// Signaled when the session thread takes the bytes or stops.
-    taken: Condvar,
+    /// Signaled when either side takes or adds bytes, or the session stops.
+    changed: Condvar,
 }
 
 #[derive(Default)]
 struct Queue {
     bytes: Vec<u8>,
-    /// The session thread stopped; the reader exits.
+    /// The session thread stopped; the reader or writer exits.
     closed: bool,
 }
 
@@ -689,18 +690,24 @@ impl Pending {
     /// buffers trade places and neither reallocates.
     fn take(&self, batch: &mut Vec<u8>) {
         mem::swap(&mut self.lock().bytes, batch);
-        self.taken.notify_one();
+        self.changed.notify_one();
+    }
+
+    /// Queues input for the writer thread. Never waits on the program.
+    fn push(&self, bytes: &[u8]) {
+        self.lock().bytes.extend_from_slice(bytes);
+        self.changed.notify_one();
     }
 }
 
-/// Closes the reader's queue when the session thread ends, however it ends,
-/// so a reader waiting at the cap exits.
+/// Closes a reader's or writer's queue when the session thread ends, however
+/// it ends, so a reader waiting at the cap or a writer waiting for input exits.
 struct ClosePending(Arc<Pending>);
 
 impl Drop for ClosePending {
     fn drop(&mut self) {
         self.0.lock().closed = true;
-        self.0.taken.notify_one();
+        self.0.changed.notify_one();
     }
 }
 
@@ -724,7 +731,8 @@ struct SessionState<'a> {
     terminal: Box<Terminal<'static, 'static>>,
     key_encoder: key::Encoder<'static>,
     mouse_encoder: mouse::Encoder<'static>,
-    writer: Rc<RefCell<Box<dyn Write + Send>>>,
+    /// Input for the program, written by the session-writer thread.
+    to_pty: Arc<Pending>,
     resizer: &'a mut Resizer,
     shared: &'a SharedBuffer,
     /// Reported to the program when it enables focus events. Rendering
@@ -945,9 +953,7 @@ impl<'a> SessionState<'a> {
     }
 
     fn write_focus(&self) {
-        let mut w = self.writer.borrow_mut();
-        w.write_all(input::encode_focus(self.focused)).ok();
-        w.flush().ok();
+        self.to_pty.push(input::encode_focus(self.focused));
     }
 
     /// To the program when it tracks the mouse. Otherwise the vertical wheel
@@ -969,9 +975,7 @@ impl<'a> SessionState<'a> {
                 input::encode_mouse(&mut self.mouse_encoder, &input, &self.terminal, size)
                 && !data.is_empty()
             {
-                let mut w = self.writer.borrow_mut();
-                w.write_all(&data).ok();
-                w.flush().ok();
+                self.to_pty.push(&data);
             }
             return;
         }
@@ -986,11 +990,8 @@ impl<'a> SessionState<'a> {
         } else if self.terminal.mode(Mode::ALT_SCROLL).unwrap_or(false) {
             let key = KeyEvent::new(code, KeyModifiers::NONE).into_key_input();
             if let Ok(data) = input::encode_key(&mut self.key_encoder, &key, &self.terminal) {
-                let mut w = self.writer.borrow_mut();
-                for _ in 0..self.scroll_delta.unsigned_abs() {
-                    w.write_all(&data).ok();
-                }
-                w.flush().ok();
+                self.to_pty
+                    .push(&data.repeat(self.scroll_delta.unsigned_abs()));
             }
         }
     }
@@ -1003,9 +1004,7 @@ impl<'a> SessionState<'a> {
                     && !data.is_empty()
                 {
                     let _write = tracing::debug_span!("pty write", bytes = data.len()).entered();
-                    let mut w = self.writer.borrow_mut();
-                    w.write_all(&data).ok();
-                    w.flush().ok();
+                    self.to_pty.push(&data);
                 }
             }
             SessionCommand::Pointer(pointer) => {
@@ -1081,16 +1080,10 @@ impl<'a> SessionState<'a> {
                 self.input_bottom(needs_render);
                 let encoded = input::encode_paste(&data, &self.terminal);
                 if !encoded.is_empty() {
-                    let mut w = self.writer.borrow_mut();
-                    w.write_all(&encoded).ok();
-                    w.flush().ok();
+                    self.to_pty.push(&encoded);
                 }
             }
-            SessionCommand::Raw(data) => {
-                let mut w = self.writer.borrow_mut();
-                w.write_all(&data).ok();
-                w.flush().ok();
-            }
+            SessionCommand::Raw(data) => self.to_pty.push(&data),
             SessionCommand::Shutdown => return true,
         }
         false
@@ -1226,13 +1219,46 @@ fn session_thread(
     let key_encoder = key::Encoder::new()?;
     let mouse_encoder = mouse::Encoder::new()?;
 
-    let writer: Rc<RefCell<Box<dyn Write + Send>>> = Rc::new(RefCell::new(writer));
+    let to_pty = Arc::new(Pending::default());
+    let _close_input = ClosePending(Arc::clone(&to_pty));
+    thread::Builder::new()
+        .name("session-writer".into())
+        .spawn({
+            let to_pty = Arc::clone(&to_pty);
+            let mut writer = writer;
+            move || {
+                let mut batch = Vec::new();
+                loop {
+                    {
+                        let mut queue = to_pty.lock();
+                        while queue.bytes.is_empty() && !queue.closed {
+                            queue = to_pty
+                                .changed
+                                .wait(queue)
+                                .unwrap_or_else(|e| e.into_inner());
+                        }
+                        if queue.closed {
+                            break;
+                        }
+                        mem::swap(&mut queue.bytes, &mut batch);
+                    }
+                    // Blocks only this thread while the program isn't reading.
+                    if writer
+                        .write_all(&batch)
+                        .and_then(|()| writer.flush())
+                        .is_err()
+                    {
+                        break;
+                    }
+                    batch.clear();
+                }
+            }
+        })
+        .expect("failed to spawn session-writer thread");
 
     terminal.on_pty_write({
-        let writer = Rc::clone(&writer);
-        move |_, data| {
-            writer.borrow_mut().write_all(data).ok();
-        }
+        let to_pty = Arc::clone(&to_pty);
+        move |_, data| to_pty.push(data)
     })?;
 
     if let Some(ref colors) = colors {
@@ -1277,8 +1303,10 @@ fn session_thread(
                                 pty_tx.try_send(()).ok();
                             }
                             while queue.bytes.len() >= PENDING_CAP && !queue.closed {
-                                queue =
-                                    pending.taken.wait(queue).unwrap_or_else(|e| e.into_inner());
+                                queue = pending
+                                    .changed
+                                    .wait(queue)
+                                    .unwrap_or_else(|e| e.into_inner());
                             }
                         }
                     }
@@ -1291,7 +1319,7 @@ fn session_thread(
         terminal,
         key_encoder,
         mouse_encoder,
-        writer,
+        to_pty,
         resizer,
         shared,
         focused,
