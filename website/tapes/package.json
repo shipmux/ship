@@ -3,8 +3,8 @@
   "private": true,
   "description": "The agent versions the demo tapes are recorded with in CI, and Playwright for mouse.mjs",
   "dependencies": {
-    "@anthropic-ai/claude-code": "2.1.312",
-    "@earendil-works/pi-coding-agent": "1.4.0",
+    "@anthropic-ai/claude-code": "2.1.318",
+    "@earendil-works/pi-coding-agent": "1.5.0",
     "playwright": "1.64.1"
   }
 }
