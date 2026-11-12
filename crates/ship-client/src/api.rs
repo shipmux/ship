@@ -59,11 +59,11 @@ pub trait Resource: Identified<Id = Id<Self>> + Prefixed + DeserializeOwned {
 }
 
 impl Resource for Tab {
-    const COLLECTION: &'static str = "/api/v0/tabs";
+    const COLLECTION: &'static str = "/api/tabs";
 }
 
 impl Resource for Pane {
-    const COLLECTION: &'static str = "/api/v0/panes";
+    const COLLECTION: &'static str = "/api/panes";
 }
 
 impl Client {
@@ -127,7 +127,7 @@ impl Client {
         } else {
             Method::GET
         };
-        self.call(method, "/api/v0/server/log", change, StatusCode::OK)
+        self.call(method, "/api/server/log", change, StatusCode::OK)
             .await
     }
 
@@ -135,7 +135,7 @@ impl Client {
     pub async fn stop_server(&self) -> Result<()> {
         self.call(
             Method::POST,
-            "/api/v0/server/stop",
+            "/api/server/stop",
             NO_BODY,
             StatusCode::ACCEPTED,
         )
@@ -215,13 +215,8 @@ impl Client {
 
     /// Start a command on the server; output and exit go to its log only.
     pub async fn run(&self, body: &RunCommand) -> Result<()> {
-        self.call(
-            Method::POST,
-            "/api/v0/runs",
-            Some(body),
-            StatusCode::ACCEPTED,
-        )
-        .await
+        self.call(Method::POST, "/api/runs", Some(body), StatusCode::ACCEPTED)
+            .await
     }
 
     /// Scroll the shared viewport, including after program exit.
@@ -263,7 +258,7 @@ impl Client {
         &self,
         request: &AttachRequest,
     ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
-        let mut prepared = self.build(Method::POST, "/api/v0/attach", None, self.next_order());
+        let mut prepared = self.build(Method::POST, "/api/attach", None, self.next_order());
         prepared.request = prepared.request.json(request);
         let response = self
             .exchange(prepared, StatusCode::OK, async |response| Ok(response))
@@ -302,7 +297,7 @@ impl Client {
     ) -> Result<()> {
         let mut prepared = self.build(
             Method::POST,
-            "/api/v0/attach/input",
+            "/api/attach/input",
             attachment,
             order.or_else(|| self.next_order()),
         );
@@ -315,12 +310,12 @@ impl Client {
 
     /// Every attachment's view, in attach order.
     pub async fn views(&self) -> Result<IndexMap<IdOf<Attachment>, ViewingRecord>> {
-        self.call(Method::GET, "/api/v0/views", NO_BODY, StatusCode::OK)
+        self.call(Method::GET, "/api/views", NO_BODY, StatusCode::OK)
             .await
     }
 
     pub async fn view(&self, attachment: IdOf<Attachment>) -> Result<ViewingRecord> {
-        let path = format!("/api/v0/views/{attachment}");
+        let path = format!("/api/views/{attachment}");
         self.call(Method::GET, &path, NO_BODY, StatusCode::OK).await
     }
 
@@ -329,7 +324,7 @@ impl Client {
         attachment: IdOf<Attachment>,
         body: &SelectView,
     ) -> Result<ViewingRecord> {
-        let path = format!("/api/v0/views/{attachment}/selection");
+        let path = format!("/api/views/{attachment}/selection");
         self.call(Method::PUT, &path, Some(body), StatusCode::OK)
             .await
     }
@@ -342,7 +337,7 @@ impl Client {
     ) -> Result<ViewingRecord> {
         let mut prepared = self.build(
             Method::PUT,
-            "/api/v0/attach/view",
+            "/api/attach/view",
             Some(attachment),
             self.next_order(),
         );

@@ -15,7 +15,7 @@ use crate::{
 
 #[utoipa::path(
     get,
-    path = "/api/v0/views",
+    path = "/api/views",
     operation_id = "list_views",
     responses(
         (status = 200, description = "Every attachment's view keyed by ID, in attach order", body = IndexMap<String, ViewingRecord>),
@@ -28,7 +28,7 @@ pub(crate) async fn list_views(State(app): State<AppState>) -> Result<Json<Viewe
 
 #[utoipa::path(
     get,
-    path = "/api/v0/views/{attachment}",
+    path = "/api/views/{attachment}",
     operation_id = "get_view",
     params(("attachment" = String, Path, description = "Attachment ID from ship view list")),
     responses(
@@ -53,7 +53,7 @@ pub(crate) async fn get_view(
 
 #[utoipa::path(
     put,
-    path = "/api/v0/views/{attachment}/selection",
+    path = "/api/views/{attachment}/selection",
     operation_id = "select_view",
     params(("attachment" = String, Path, description = "Attachment ID from ship view list")),
     request_body = SelectView,

@@ -59,7 +59,9 @@ pub struct Pane {
     /// Bytes of history the pane keeps; set like `exit_behavior`.
     #[serde(default = "config::builtin_scrollback_bytes")]
     pub scrollback_bytes: usize,
-    pub status: PaneStatus,
+    /// `alias`: saved tabs written before 0.1.0 say `status` (D-2).
+    #[serde(alias = "status")]
+    pub process: ProcessState,
     /// OSC 7501 records keyed by id, oldest update first; ROOT is the root.
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub program: IndexMap<String, StatusRecord>,
@@ -167,7 +169,7 @@ impl Pane {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(tag = "state", rename_all = "snake_case")]
-pub enum PaneStatus {
+pub enum ProcessState {
     Running,
     Exited(ExitStatus),
 }

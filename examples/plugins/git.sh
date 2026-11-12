@@ -14,7 +14,7 @@
 # then.
 
 ship=${SHIP_BIN:-ship}
-protocol=22
+protocol=24
 every=30
 icons=${GIT_ICONS:-plain}
 us=$(printf '\037')

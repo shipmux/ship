@@ -15,7 +15,7 @@ use semver::Version;
 use ship_core::{
     HealthResponse,
     id::{Attachment, IdOf},
-    model::{ExitBehavior, ExitStatus, Pane, PaneStatus, Tab},
+    model::{ExitBehavior, ExitStatus, Pane, ProcessState, Tab},
     prelude::*,
     protocol::{CreatePane, CreateTab, MoveTab, NewPane, NewTab, PaneAt},
     tree::{self, Tabs},
@@ -216,9 +216,9 @@ impl<'a> Tracker<'a> {
         let pane = self
             .started
             .and_then(|started| tree::pane(tabs, started.pane).ok());
-        match pane.map(|pane| &pane.status) {
+        match pane.map(|pane| &pane.process) {
             None => Progress::Idle,
-            Some(PaneStatus::Exited(exit)) if !clean(exit) => Progress::Failed,
+            Some(ProcessState::Exited(exit)) if !clean(exit) => Progress::Failed,
             // Running, or exited 0 with the probe about to start.
             Some(_) => Progress::Updating,
         }
@@ -302,7 +302,7 @@ impl<'a> Tracker<'a> {
             return;
         };
         let exited_clean = tree::pane(tabs, started.pane)
-            .is_ok_and(|pane| matches!(&pane.status, PaneStatus::Exited(exit) if clean(exit)));
+            .is_ok_and(|pane| matches!(&pane.process, ProcessState::Exited(exit) if clean(exit)));
         if !exited_clean || self.sync.is_some() || self.pending.is_some() {
             return;
         }

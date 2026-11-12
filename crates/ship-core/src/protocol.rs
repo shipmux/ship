@@ -24,7 +24,7 @@ use crate::{
 pub const HEALTH_PATH: &str = "/health";
 /// What a Ship server reports as `service` from `/health`.
 pub const SERVICE: &str = "ship";
-pub const PROTOCOL_VERSION: u32 = 23;
+pub const PROTOCOL_VERSION: u32 = 24;
 /// Names the attachment a view or input request controls.
 pub const ATTACHMENT_HEADER: &str = "x-ship-attachment-id";
 /// On every response: the server's revision once the request was handled,
@@ -60,7 +60,7 @@ pub struct Problem {
     pub detail: String,
 }
 
-/// PUT /api/v0/server/log: {"set": "<filter>"} or "reset".
+/// PUT /api/server/log: {"set": "<filter>"} or "reset".
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -78,7 +78,7 @@ pub struct LogFilter {
     pub file: String,
 }
 
-/// `POST /api/v0/runs`: start argv in the selected pane's context.
+/// `POST /api/runs`: start argv in the selected pane's context.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]

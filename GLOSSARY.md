@@ -28,6 +28,10 @@ A client's most specific chosen tab or pane, or nothing, held by the server for 
 What a pane's program last reported about itself through OSC 7501, the Program Status Protocol: a state (`idle`, `working`, `done`, `blocked` or `error`) with an optional `kind`, `app`, `title`, `msg`, `progress` and `id`. The record under the empty id is the root record, the program's own state. The server keeps records with the pane but doesn't save them.
 _Avoid_: Agent state, Status (alone)
 
+**Process state**:
+Whether a pane's program is running, or its exit code and signal once it exited.
+_Avoid_: Status (alone)
+
 **Display state**:
 What a client shows for a pane with a root record: `blocked`, `error`, `working`, `unseen` or `idle`. Each client derives its own; `unseen` means that client saw the program finish while the pane wasn't in view in a focused window, and a reported `done` alone displays as `idle`.
 _Avoid_: Agent status, Done (as a display state)

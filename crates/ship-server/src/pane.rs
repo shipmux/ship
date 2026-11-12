@@ -29,7 +29,7 @@ use ship_core::{
     config::ServerSettings,
     endpoint::Endpoint,
     id::{Attachment, IdOf},
-    model::{ExitStatus, Pane, PaneStatus, StatusRecord},
+    model::{ExitStatus, Pane, ProcessState, StatusRecord},
     prelude::*,
     protocol::{MouseInput, ReadPane, RunCommand, ScrollDirection, ScrollPane},
     relay::{Publish, RelayBus},
@@ -250,8 +250,8 @@ pub(crate) struct PaneEvent {
     pub dir: Option<String>,
     /// Empty once exited.
     pub program: IndexMap<String, StatusRecord>,
-    /// `Pane::status`'s own type, not a second way to say "exited".
-    pub status: PaneStatus,
+    /// `Pane::process`'s own type, not a second way to say "exited".
+    pub process: ProcessState,
 }
 
 /// Text for clients' clipboards, on the bus apart from `PaneEvent`, since it
@@ -409,7 +409,7 @@ pub(crate) fn spawn(launch: Launch, env: &PaneEnv, bus: ActorRef<RelayBus>) -> R
             title: None,
             dir: None,
             program: IndexMap::new(),
-            status: PaneStatus::Running,
+            process: ProcessState::Running,
         },
         reported: false,
         pid,
@@ -692,7 +692,7 @@ impl PaneTask {
             state.program = self.records.snapshot();
         }
         if let Some(status) = exited {
-            state.status = PaneStatus::Exited(status);
+            state.process = ProcessState::Exited(status);
             state.program.clear();
         }
         if state != self.sent {

@@ -13,7 +13,7 @@ use std::{
 
 use backon::{ExponentialBuilder, Retryable};
 use serde::{Deserialize, Serialize};
-use ship_core::{model::PaneStatus, prelude::*, protocol::Replica, tree::Tabs};
+use ship_core::{model::ProcessState, prelude::*, protocol::Replica, tree::Tabs};
 use ship_macros::traced;
 use tokio::{
     sync::watch,
@@ -88,7 +88,7 @@ fn blank(tabs: &mut Tabs) {
             pane.command.clear();
             pane.program.clear();
             pane.tags.clear();
-            pane.status = PaneStatus::Running;
+            pane.process = ProcessState::Running;
         }
     }
 }
