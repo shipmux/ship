@@ -1,16 +1,17 @@
 use std::{
     fmt,
     future::ready,
+    str::FromStr,
     sync::{
         Mutex,
         atomic::{AtomicU64, Ordering},
     },
 };
 
-use futures_util::{Stream, StreamExt, TryStreamExt};
+use futures_util::{Stream, TryStreamExt};
 use indexmap::IndexMap;
 use reqwest::{Method, StatusCode};
-use serde::de::DeserializeOwned;
+use serde::{Deserialize, de::DeserializeOwned};
 use ship_core::{
     HEALTH_PATH, HealthResponse, LogChange, LogFilter,
     endpoint::Endpoint,
@@ -19,8 +20,8 @@ use ship_core::{
     prelude::*,
     protocol::{
         AttachRequest, CreatePane, CreateTab, CyclePane, InputBody, InputFrame, MovePane,
-        MoveTabBody, ReadPane, ResizePane, RunCommand, ScrollPane, SelectView, SseEvent, SwapPane,
-        ViewInput, ViewingRecord,
+        MoveTabBody, ReadPane, ResizePane, RunCommand, ScrollPane, SelectView, SseEvent, SseKind,
+        SwapPane, ViewInput, ViewingRecord,
     },
     tree::Tabs,
 };
@@ -59,11 +60,11 @@ pub trait Resource: Identified<Id = Id<Self>> + Prefixed + DeserializeOwned {
 }
 
 impl Resource for Tab {
-    const COLLECTION: &'static str = "/api/v0/tabs";
+    const COLLECTION: &'static str = "/api/tabs";
 }
 
 impl Resource for Pane {
-    const COLLECTION: &'static str = "/api/v0/panes";
+    const COLLECTION: &'static str = "/api/panes";
 }
 
 impl Client {
@@ -127,7 +128,7 @@ impl Client {
         } else {
             Method::GET
         };
-        self.call(method, "/api/v0/server/log", change, StatusCode::OK)
+        self.call(method, "/api/server/log", change, StatusCode::OK)
             .await
     }
 
@@ -135,7 +136,7 @@ impl Client {
     pub async fn stop_server(&self) -> Result<()> {
         self.call(
             Method::POST,
-            "/api/v0/server/stop",
+            "/api/server/stop",
             NO_BODY,
             StatusCode::ACCEPTED,
         )
@@ -215,13 +216,8 @@ impl Client {
 
     /// Start a command on the server; output and exit go to its log only.
     pub async fn run(&self, body: &RunCommand) -> Result<()> {
-        self.call(
-            Method::POST,
-            "/api/v0/runs",
-            Some(body),
-            StatusCode::ACCEPTED,
-        )
-        .await
+        self.call(Method::POST, "/api/runs", Some(body), StatusCode::ACCEPTED)
+            .await
     }
 
     /// Scroll the shared viewport, including after program exit.
@@ -253,17 +249,17 @@ impl Client {
             .await
     }
 
-    /// Open the attach stream. The two-second timeout covers only the
-    /// response head. The returned stream yields decoded events and ends on EOF.
+    /// The attach stream's data lines as sent; SSE framing removed. The
+    /// two-second timeout covers only the response head. The stream ends on EOF.
     ///
     /// `sse-stream` scans each received chunk once; `eventsource-stream`
     /// rescanned a partial line on every chunk, which was quadratic in the size
     /// of a screen event. Blocks without data are skipped.
-    pub async fn attach(
+    pub async fn attach_lines(
         &self,
         request: &AttachRequest,
-    ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
-        let mut prepared = self.build(Method::POST, "/api/v0/attach", None, self.next_order());
+    ) -> Result<impl Stream<Item = Result<String>> + use<>> {
+        let mut prepared = self.build(Method::POST, "/api/attach", None, self.next_order());
         prepared.request = prepared.request.json(request);
         let response = self
             .exchange(prepared, StatusCode::OK, async |response| Ok(response))
@@ -273,21 +269,25 @@ impl Client {
             .inspect_ok(|chunk| tracing::debug!(bytes = chunk.len(), "attach chunk"));
         Ok(SseByteStream::new(body)
             .try_filter_map(|block| ready(Ok(block.data)))
-            .map(|data| match data {
-                Ok(data) => {
-                    let _decode = tracing::debug_span!("decode", bytes = data.len()).entered();
-                    serde_json::from_str(&data).map_err(
-                        |error| err!(Serialization, "cannot decode attach event", @external: error),
-                    )
-                }
-                Err(sse_stream::Error::Body(error)) => match error.downcast::<reqwest::Error>() {
-                    Ok(error) => Err(http_error(*error)),
-                    Err(error) => {
-                        Err(err!(Serialization, "malformed attach stream", @external: error))
-                    }
+            .map_err(|error| match error {
+                sse_stream::Error::Body(error) => match error.downcast::<reqwest::Error>() {
+                    Ok(error) => http_error(*error),
+                    Err(error) => err!(Serialization, "malformed attach stream", @external: error),
                 },
-                Err(error) => Err(err!(Serialization, "malformed attach stream", @external: error)),
+                error => err!(Serialization, "malformed attach stream", @external: error),
             }))
+    }
+
+    /// Open the attach stream. The returned stream yields decoded events and
+    /// ends on EOF. Events whose type this client doesn't know are skipped.
+    pub async fn attach(
+        &self,
+        request: &AttachRequest,
+    ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
+        Ok(self
+            .attach_lines(request)
+            .await?
+            .try_filter_map(|data| ready(decode(&data))))
     }
 
     /// Send `frames` to their panes in one request; nothing is routed if the
@@ -302,7 +302,7 @@ impl Client {
     ) -> Result<()> {
         let mut prepared = self.build(
             Method::POST,
-            "/api/v0/attach/input",
+            "/api/attach/input",
             attachment,
             order.or_else(|| self.next_order()),
         );
@@ -315,12 +315,12 @@ impl Client {
 
     /// Every attachment's view, in attach order.
     pub async fn views(&self) -> Result<IndexMap<IdOf<Attachment>, ViewingRecord>> {
-        self.call(Method::GET, "/api/v0/views", NO_BODY, StatusCode::OK)
+        self.call(Method::GET, "/api/views", NO_BODY, StatusCode::OK)
             .await
     }
 
     pub async fn view(&self, attachment: IdOf<Attachment>) -> Result<ViewingRecord> {
-        let path = format!("/api/v0/views/{attachment}");
+        let path = format!("/api/views/{attachment}");
         self.call(Method::GET, &path, NO_BODY, StatusCode::OK).await
     }
 
@@ -329,7 +329,7 @@ impl Client {
         attachment: IdOf<Attachment>,
         body: &SelectView,
     ) -> Result<ViewingRecord> {
-        let path = format!("/api/v0/views/{attachment}/selection");
+        let path = format!("/api/views/{attachment}/selection");
         self.call(Method::PUT, &path, Some(body), StatusCode::OK)
             .await
     }
@@ -342,11 +342,30 @@ impl Client {
     ) -> Result<ViewingRecord> {
         let mut prepared = self.build(
             Method::PUT,
-            "/api/v0/attach/view",
+            "/api/attach/view",
             Some(attachment),
             self.next_order(),
         );
         prepared.request = prepared.request.json(view);
         self.exchange(prepared, StatusCode::OK, crate::json).await
+    }
+}
+
+/// One event, or `None` when its `type` names no `SseKind`. A known type that
+/// fails to decode stays an error, which ends the full client.
+fn decode(data: &str) -> Result<Option<SseEvent>> {
+    let _decode = tracing::debug_span!("decode", bytes = data.len()).entered();
+    let error = match serde_json::from_str(data) {
+        Ok(event) => return Ok(Some(event)),
+        Err(error) => error,
+    };
+    #[derive(Deserialize)]
+    struct Kind<'a> {
+        #[serde(rename = "type")]
+        kind: &'a str,
+    }
+    match serde_json::from_str::<Kind>(data) {
+        Ok(Kind { kind }) if SseKind::from_str(kind).is_err() => Ok(None),
+        _ => Err(err!(Serialization, "cannot decode attach event", @external: error)),
     }
 }

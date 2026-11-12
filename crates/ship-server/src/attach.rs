@@ -57,7 +57,7 @@ impl Drop for AttachmentGuard {
 
 #[utoipa::path(
     post,
-    path = "/api/v0/attach",
+    path = "/api/attach",
     operation_id = "attach",
     request_body = AttachRequest,
     responses(
@@ -272,7 +272,7 @@ impl<S: Send + Sync> OptionalFromRequestParts<S> for AttachmentHeader {
 
 #[utoipa::path(
     put,
-    path = "/api/v0/attach/view",
+    path = "/api/attach/view",
     operation_id = "view",
     params(("x-ship-attachment-id" = String, Header,
         description = "Attachment ID from the stream's `attached` event, e.g. attachment:3f2a...")),

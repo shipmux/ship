@@ -8,7 +8,7 @@ Not here: the recipes themselves.
 Use `ship` commands to open panes, send work and read the results. Commands take explicit IDs, so changing your selection doesn't redirect a script.
 
 ```sh
-ship pane get --pane "$PANE" | jq .status   # inspect a pane as JSON
+ship pane get --pane "$PANE" | jq .process  # inspect a pane as JSON
 ship pane read --pane "$PANE" --lines 40   # read its output as text
 ```
 

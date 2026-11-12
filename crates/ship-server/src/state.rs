@@ -372,7 +372,7 @@ impl ServerState {
             cwd: cwd.display().to_string(),
             dir: None,
             title: None,
-            status: PaneStatus::Running,
+            process: ProcessState::Running,
             program: Default::default(),
             tags: Default::default(),
         })
@@ -978,7 +978,7 @@ impl Message<PaneEvent> for ServerState {
             title,
             dir,
             program,
-            status,
+            process,
         }: PaneEvent,
         _: &mut Context<Self, Self::Reply>,
     ) -> Self::Reply {
@@ -986,14 +986,14 @@ impl Message<PaneEvent> for ServerState {
             return Ok(());
         };
         let closes = matches!(
-            (&before.status, &status),
-            (PaneStatus::Running, PaneStatus::Exited(exit)) if before.exit_behavior.closes(exit)
+            (&before.process, &process),
+            (ProcessState::Running, ProcessState::Exited(exit)) if before.exit_behavior.closes(exit)
         );
         let pane = Pane {
             title,
             dir,
             program,
-            status,
+            process,
             ..before.clone()
         };
         if &pane != before {

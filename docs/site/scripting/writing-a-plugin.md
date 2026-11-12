@@ -85,4 +85,5 @@ For each state from `ship watch`, it asks git for the branch of every pane's `di
 
 - Name tags `plugin.key`, such as `git.branch`. Ship gives the `.` no meaning; it keeps plugins from colliding. Names starting with `ship.` are reserved for Ship.
 - Ignore JSON fields and `watch` line types you don't recognize, so a newer Ship doesn't break your script.
-- Before 1.0, the JSON shapes may change between versions. `ship server status` reports the `protocol_version` a script can check.
+- New fields and line types can appear in any release; ignore what you don't recognize. A change that breaks existing shapes bumps `protocol_version`, which `ship server status` reports, and the release notes say why.
+- Object key order carries meaning: tabs, panes and status records are listed in order. Read them with `keys_unsorted` or `to_entries`, not `keys`.

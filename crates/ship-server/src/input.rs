@@ -23,7 +23,7 @@ use crate::{
 
 #[utoipa::path(
     post,
-    path = "/api/v0/attach/input",
+    path = "/api/attach/input",
     operation_id = "input",
     params(("x-ship-attachment-id" = Option<String>, Header,
         description = "Attachment ID from the stream's `attached` event, e.g. attachment:3f2a.... \

@@ -11,7 +11,7 @@ use ship_core::{
     geometry::{PaneGeometry, TabGeometry},
     id::{Id, IdOf},
     layout::{Axis, Layout, Ratio, Slot},
-    model::{Pane, PaneStatus, Tab},
+    model::{Pane, ProcessState, Tab},
     prelude::*,
     protocol::Place,
     screen::Size,
@@ -195,7 +195,7 @@ fn placeholder(id: IdOf<Pane>) -> Pane {
         right_click_passthrough: false,
         exit_behavior: Default::default(),
         scrollback_bytes: 0,
-        status: PaneStatus::Running,
+        process: ProcessState::Running,
         program: Default::default(),
         tags: Default::default(),
     }

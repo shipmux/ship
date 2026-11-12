@@ -8,7 +8,7 @@ use ratatui::{
 use std::{env, path::Path};
 
 use ship_core::{
-    model::{NodeId, Pane, PaneStatus, Tab},
+    model::{NodeId, Pane, ProcessState, Tab},
     screen::{Cursor, CursorShape, Size},
     tree,
 };
@@ -188,9 +188,9 @@ fn status_line<'a>(
     if let Some(mode) = status.mode {
         spans.push(pill(format!(" {} ", mode.0.to_uppercase()), Color::Cyan));
     }
-    if let Some(PaneStatus::Exited(status)) = selected
+    if let Some(ProcessState::Exited(status)) = selected
         .and_then(|selected| selected.pane)
-        .map(|pane| &pane.status)
+        .map(|pane| &pane.process)
     {
         let code = status.signal.clone().unwrap_or(status.code.to_string());
         spans.push(Span::from(format!(" exited ({code})")).yellow());

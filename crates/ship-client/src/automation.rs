@@ -19,7 +19,7 @@ use futures_util::{Stream, StreamExt};
 use ship_core::{
     command::pane::WaitState,
     id::IdOf,
-    model::{ExitStatus, Pane, PaneStatus, ReportedState, StatusRecord},
+    model::{ExitStatus, Pane, ProcessState, ReportedState, StatusRecord},
     prelude::*,
     protocol::{
         AttachRequest, EndReason, Ended, FeedMode, InputFrame, KeyInput, PasteInput, ReadPane,
@@ -222,13 +222,25 @@ impl Client {
         &self,
         feed: FeedMode,
     ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
-        self.attach(&AttachRequest {
-            selection: None,
-            area: None,
-            focused: false,
-            feed,
-        })
-        .await
+        self.attach(&observer(feed)).await
+    }
+
+    /// `observe`, undecoded, for `ship watch`.
+    pub async fn observe_lines(
+        &self,
+        feed: FeedMode,
+    ) -> Result<impl Stream<Item = Result<String>> + use<>> {
+        self.attach_lines(&observer(feed)).await
+    }
+}
+
+/// The attach request of an observer: no selection or area.
+fn observer(feed: FeedMode) -> AttachRequest {
+    AttachRequest {
+        selection: None,
+        area: None,
+        focused: false,
+        feed,
     }
 }
 
@@ -297,7 +309,7 @@ async fn next(
             Some(Ok(SseEvent::State(replica))) => return Ok(replica),
             Some(Ok(SseEvent::Screen(_) | SseEvent::Clipboard(_))) => {}
             Some(Ok(SseEvent::Ended(Ended {
-                reason: EndReason::Lost,
+                reason: EndReason::Lost | EndReason::Unknown,
             }))) => {
                 return Err(err!(
                     Unavailable,
@@ -371,7 +383,7 @@ fn check(pane: &Pane, ready: &Condition) -> Result<()> {
 /// The program left `before`: it exited or reports another state or blocked
 /// kind. A new title or message alone doesn't count.
 fn moved_from(pane: &Pane, before: Option<&StatusRecord>) -> bool {
-    matches!(pane.status, PaneStatus::Exited(_))
+    matches!(pane.process, ProcessState::Exited(_))
         || pane.root_status().map(|record| (record.state, record.kind))
             != before.map(|record| (record.state, record.kind))
 }
@@ -404,7 +416,7 @@ impl Condition {
     /// Exit matches only when asked for and otherwise fails with its status.
     /// A missing root record matches nothing.
     fn matches(&self, pane: &Pane) -> Result<bool> {
-        if let PaneStatus::Exited(status) = &pane.status {
+        if let ProcessState::Exited(status) = &pane.process {
             return if self.takes_exit() {
                 Ok(true)
             } else {

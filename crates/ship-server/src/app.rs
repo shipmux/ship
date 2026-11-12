@@ -23,7 +23,7 @@ pub struct AppState {
     pub replicas: Replicas,
     /// Every running pane's handle. SSE streams find screens through it.
     pub(crate) live: watch::Receiver<LivePanes>,
-    /// Cancelled by `POST /api/v0/server/stop`; shuts down like SIGTERM.
+    /// Cancelled by `POST /api/server/stop`; shuts down like SIGTERM.
     pub(crate) stop: CancellationToken,
     pub(crate) log: crate::ServerLog,
     pub(crate) socket: Arc<str>,

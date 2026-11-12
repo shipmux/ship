@@ -20,6 +20,8 @@ Implementation Rust has a budget of roughly 20,000 lines. It is a conservative c
 
 Keep the boundary crossable by a network later. The client reaches the server only through explicit commands, responses and events, never through server internals. Live resources (PTYs, child processes, Ghostty objects, tasks, connections) stay private to the server; serialize descriptions and screen contents, never handles.
 
+Across releases, aim for the cheap 80% of compatibility: keep an older client working against a newer server where that's easy, and break when it isn't worth it. A protocol bump forces a server restart that ends running programs, so bump `PROTOCOL_VERSION` when an older client would misbehave or draw wrong, or when unsure; additions an older client can safely ignore don't need one. Keep code that exists only for compatibility (old formats, old routes, old versions) to tens of lines; past that, break and say so in the release notes. Saved tabs carry no format guarantee: a file that no longer parses is dropped.
+
 Shared state is server-authoritative. Each attachment's tab/pane selection is also held by the server, independently per client; navigation and clicks, a caller naming the attachment, selecting creates and server repair may change it. Navigation logic, selection memory, modes, sidebar folds and visibility stay client-local. A pane's scroll position and text selection are shared. Clients render the state the server publishes rather than predicting the result of their own commands.
 
 ## Performance

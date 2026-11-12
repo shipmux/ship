@@ -24,7 +24,7 @@ use crate::{
 pub const HEALTH_PATH: &str = "/health";
 /// What a Ship server reports as `service` from `/health`.
 pub const SERVICE: &str = "ship";
-pub const PROTOCOL_VERSION: u32 = 23;
+pub const PROTOCOL_VERSION: u32 = 24;
 /// Names the attachment a view or input request controls.
 pub const ATTACHMENT_HEADER: &str = "x-ship-attachment-id";
 /// On every response: the server's revision once the request was handled,
@@ -60,7 +60,7 @@ pub struct Problem {
     pub detail: String,
 }
 
-/// PUT /api/v0/server/log: {"set": "<filter>"} or "reset".
+/// PUT /api/server/log: {"set": "<filter>"} or "reset".
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -78,7 +78,7 @@ pub struct LogFilter {
     pub file: String,
 }
 
-/// `POST /api/v0/runs`: start argv in the selected pane's context.
+/// `POST /api/runs`: start argv in the selected pane's context.
 #[serde_with::skip_serializing_none]
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -444,7 +444,12 @@ fn attachment_schema() -> RefOr<Schema> {
 /// `{"type": "screen", "data": {"pane": "pane:...", "screen": {...}}}`.
 // Adjacently tagged: serde reads `type` first and deserializes `data` directly.
 // Internally tagged, it buffered every screen cell to find the tag.
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
+#[strum_discriminants(
+    name(SseKind),
+    derive(strum::EnumString),
+    strum(serialize_all = "snake_case")
+)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum SseEvent {
     /// Always first: the new attachment's ID and the state it starts from.
@@ -489,6 +494,9 @@ pub enum EndReason {
     ServerShutdown,
     /// An every-revision stream fell behind the server's ring.
     Lost,
+    /// A reason from a newer server; clients reconnect (FR-003).
+    #[serde(other, skip_serializing)]
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]

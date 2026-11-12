@@ -19,7 +19,7 @@ type App = State<AppState>;
 
 #[utoipa::path(
     get,
-    path = "/api/v0/server/log",
+    path = "/api/server/log",
     operation_id = "get_server_log",
     responses((status = 200, body = LogFilter), (status = 500, body = AppError)),
 )]
@@ -29,7 +29,7 @@ pub(crate) async fn get_server_log(State(app): App) -> Result<Json<LogFilter>> {
 
 #[utoipa::path(
     put,
-    path = "/api/v0/server/log",
+    path = "/api/server/log",
     operation_id = "set_server_log",
     request_body = LogChange,
     responses(
@@ -53,7 +53,7 @@ pub(crate) async fn set_server_log(State(app): App, Body(change): Body<LogChange
 
 #[utoipa::path(
     post,
-    path = "/api/v0/runs",
+    path = "/api/runs",
     operation_id = "run",
     request_body = RunCommand,
     responses(
@@ -71,7 +71,7 @@ pub(crate) async fn run(State(app): App, Body(body): Body<RunCommand>) -> Result
 
 #[utoipa::path(
     get,
-    path = "/api/v0/tabs",
+    path = "/api/tabs",
     operation_id = "list_tabs",
     responses(
         (status = 200, description = "Top-level tabs keyed by ID, in order, with their descendants", body = IndexMap<String, Tab>),
@@ -84,7 +84,7 @@ pub(crate) async fn list_tabs(State(app): App) -> Result<Json<Tabs>> {
 
 #[utoipa::path(
     post,
-    path = "/api/v0/tabs",
+    path = "/api/tabs",
     operation_id = "create_tab",
     request_body = CreateTab,
     responses(
@@ -104,7 +104,7 @@ pub(crate) async fn create_tab(
 
 #[utoipa::path(
     get,
-    path = "/api/v0/tabs/{id}",
+    path = "/api/tabs/{id}",
     operation_id = "get_tab",
     params(("id" = String, Path, description = "Tab ID, e.g. tab:3f2a...")),
     responses(
@@ -122,7 +122,7 @@ pub(crate) async fn get_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Resul
 
 #[utoipa::path(
     patch,
-    path = "/api/v0/tabs/{id}",
+    path = "/api/tabs/{id}",
     operation_id = "set_tab",
     params(("id" = String, Path, description = "Tab ID, e.g. tab:3f2a...")),
     request_body = SetTab,
@@ -145,7 +145,7 @@ pub(crate) async fn set_tab(
 
 #[utoipa::path(
     delete,
-    path = "/api/v0/tabs/{id}",
+    path = "/api/tabs/{id}",
     operation_id = "remove_tab",
     params(("id" = String, Path, description = "Tab ID, e.g. tab:3f2a...")),
     responses(
@@ -162,7 +162,7 @@ pub(crate) async fn remove_tab(State(app): App, Path(id): Path<IdOf<Tab>>) -> Re
 
 #[utoipa::path(
     post,
-    path = "/api/v0/tabs/{id}/move",
+    path = "/api/tabs/{id}/move",
     operation_id = "move_tab",
     params(("id" = String, Path, description = "Tab ID, e.g. tab:3f2a...")),
     request_body = MoveTabBody,
@@ -185,7 +185,7 @@ pub(crate) async fn move_tab(
 
 #[utoipa::path(
     post,
-    path = "/api/v0/panes",
+    path = "/api/panes",
     operation_id = "create_pane",
     request_body = CreatePane,
     responses(
@@ -205,7 +205,7 @@ pub(crate) async fn create_pane(
 
 #[utoipa::path(
     post,
-    path = "/api/v0/panes/{id}/cycle",
+    path = "/api/panes/{id}/cycle",
     operation_id = "cycle_pane",
     params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
     request_body = CyclePane,
@@ -227,7 +227,7 @@ pub(crate) async fn cycle_pane(
 
 #[utoipa::path(
     post,
-    path = "/api/v0/panes/{id}/move",
+    path = "/api/panes/{id}/move",
     operation_id = "move_pane",
     params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
     request_body = MovePane,
@@ -250,7 +250,7 @@ pub(crate) async fn move_pane(
 
 #[utoipa::path(
     get,
-    path = "/api/v0/panes/{id}",
+    path = "/api/panes/{id}",
     operation_id = "get_pane",
     params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
     responses(
@@ -268,7 +268,7 @@ pub(crate) async fn get_pane(State(app): App, Path(id): Path<IdOf<Pane>>) -> Res
 
 #[utoipa::path(
     patch,
-    path = "/api/v0/panes/{id}",
+    path = "/api/panes/{id}",
     operation_id = "set_pane",
     params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
     request_body = SetPane,
@@ -290,7 +290,7 @@ pub(crate) async fn set_pane(
 
 #[utoipa::path(
     delete,
-    path = "/api/v0/panes/{id}",
+    path = "/api/panes/{id}",
     operation_id = "remove_pane",
     params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
     responses(
@@ -307,7 +307,7 @@ pub(crate) async fn remove_pane(State(app): App, Path(id): Path<IdOf<Pane>>) -> 
 
 #[utoipa::path(
     post,
-    path = "/api/v0/panes/{id}/swap",
+    path = "/api/panes/{id}/swap",
     operation_id = "swap_pane",
     params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
     request_body = SwapPane,
@@ -330,7 +330,7 @@ pub(crate) async fn swap_pane(
 
 #[utoipa::path(
     post,
-    path = "/api/v0/panes/{id}/resize",
+    path = "/api/panes/{id}/resize",
     operation_id = "resize_pane",
     params(("id" = String, Path, description = "Pane ID, e.g. pane:3f2a...")),
     request_body = ResizePane,
@@ -352,7 +352,7 @@ pub(crate) async fn resize_pane(
 
 #[utoipa::path(
     post,
-    path = "/api/v0/panes/{id}/scroll",
+    path = "/api/panes/{id}/scroll",
     operation_id = "scroll_pane",
     params(("id" = String, Path, description = "Pane ID")),
     request_body = ScrollPane,
@@ -377,7 +377,7 @@ pub(crate) async fn scroll_pane(
 
 #[utoipa::path(
     get,
-    path = "/api/v0/panes/{id}/text",
+    path = "/api/panes/{id}/text",
     operation_id = "read_pane",
     params(
         ("id" = String, Path, description = "Pane ID"),
@@ -417,7 +417,7 @@ fn live_pane(app: &AppState, id: IdOf<Pane>) -> Result<PaneHandle> {
 
 #[utoipa::path(
     post,
-    path = "/api/v0/server/stop",
+    path = "/api/server/stop",
     operation_id = "stop_server",
     responses(
         (status = 202, description = "Shutdown started, as on SIGTERM. The server keeps \
