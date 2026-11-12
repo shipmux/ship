@@ -36,7 +36,7 @@
           <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh">copy</button>
 <pre role="region" aria-label="install command at the top of the page"><span class="t-prompt">$ </span>curl -fsSL https://<wbr>raw.githubusercontent.com/<wbr>shipmux/<wbr>ship/<wbr>main/<wbr><span class="nb">install.sh | sh</span></pre>
         </div>
-        <p>used every day on linux and macos.</p>
+        <p><!-- latest release -->used every day on linux and macos.</p>
         <div class="links"><a href="#install">install and try ship</a><a href="#waterline" class="watch">watch a real session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
       </div>
     </div>
@@ -73,12 +73,12 @@
   <div class="climber" aria-hidden="true"><span class="act a-point"></span></div>
   <div class="deck-in">
     <h2 id="deck-title" class="pixel p33"><span class="place">deck</span> what works today</h2>
-    <p class="intro">keep a project together while several things are happening at once. these all work today, with successful use on linux and macos. windows is best effort.</p>
+    <p class="intro">for running a few agents at once while you still read what they write. if you leave agents running nonstop overnight, you're likely shipping slop, and ship isn't really built for that. all of this works today on linux and macos, and windows is best effort.</p>
     <div class="works-groups">
       <div class="wgroup" role="group" aria-labelledby="wg-running">
         <div class="wg-head">
           <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-captain"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-1s"></i></span>
-          <h3 id="wg-running" class="pixel p33">it keeps running</h3>
+          <h3 id="wg-running" class="pixel p33">close the window and it all keeps going</h3>
         </div>
         <ul class="works">
           <li><h4 class="pixel p22"><a href="/docs/windows-and-the-server/">leave and come back</a></h4><p>close the window or press <code>alt-q</code>, and your programs keep running on the background server. run <code>ship</code> again to carry on.</p></li>
@@ -89,7 +89,7 @@
       <div class="wgroup" role="group" aria-labelledby="wg-loop">
         <div class="wg-head">
           <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-lookout"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-3s"></i></span>
-          <h3 id="wg-loop" class="pixel p33">it keeps you in the loop</h3>
+          <h3 id="wg-loop" class="pixel p33">keep track of a bunch of things at once</h3>
         </div>
         <ul class="works">
           <li><h4 class="pixel p22"><a href="/docs/agents/">know who needs you</a></h4><p>see who's working, waiting for an answer or finished unseen. a sound lets you know when something needs attention, and <code>alt-a</code> takes you there.</p></li>
@@ -101,19 +101,19 @@
       <div class="wgroup" role="group" aria-labelledby="wg-script">
         <div class="wg-head">
           <span class="wg-crew" data-react aria-hidden="true"><span class="act1 b-deckhand"></span><i class="eyes" style="--x:13;--y:14;animation-delay:-5s"></i></span>
-          <h3 id="wg-script" class="pixel p33">it's yours to script</h3>
+          <h3 id="wg-script" class="pixel p33">your agents get the same commands you do</h3>
         </div>
         <ul class="works">
           <li><h4 class="pixel p22"><a href="/docs/scripting/">a cli for scripts and agents</a></h4><p>open panes, send text or keys and read output with <code>ship</code> commands. use explicit pane ids so changing your selection doesn't redirect a script.</p></li>
           <li><h4 class="pixel p22"><a href="/docs/scripting/handing-work-to-another-agent/">hand work to another agent</a></h4><p>an agent can open a second pane, give another agent a task, wait for its status report and read the reply. no sdk or plugin needed.</p></li>
-          <li><h4 class="pixel p22"><a href="/docs/scripting/writing-a-plugin/">put your own text on tabs</a></h4><p>a script can follow ship with <code>ship watch</code> and put short text, called tags, on tabs and panes. the git example shows each tab's branch and pull request in the sidebar.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/scripting/writing-a-plugin/">show your git branch on a tab</a></h4><p>a script can follow ship with <code>ship watch</code> and put short text, called tags, on tabs and panes. the git example shows each tab's branch and pull request in the sidebar.</p></li>
           <li><h4 class="pixel p22"><a href="/docs/configuration/">keep your habits</a></h4><p>change keys and menus, add a tmux-style prefix, or run your own scripts from a key. save the config and open windows pick up the changes.</p></li>
         </ul>
       </div>
     </div>
 
     <div class="notyet" role="group" aria-labelledby="notyet-title">
-      <h3 id="notyet-title" class="pixel p22">not built yet</h3>
+      <h3 id="notyet-title" class="pixel p22">not built yet, and some of it on purpose</h3>
       <ul>
         <li>packages, and prebuilt releases for platforms other than linux and macos. elsewhere, <a href="/docs/building-from-source/">build from source</a>.</li>
         <li>built-in history search and keyboard copy mode. <a href="/docs/panes/#edit-scrollback">use your editor</a> instead.</li>
@@ -302,7 +302,7 @@ Apply changes?
         <i class="eyes" style="--x:15;--y:40;animation-delay:-5s"></i>
       </div>
       <div class="floor-text">
-        <h3 class="pixel p22">use the terminal to drive it</h3>
+        <h3 class="pixel p22">drive it from a shell script</h3>
         <p>create a pane, run a command, read its output and close it, all from a shell script. commands that return tabs or panes print json, <code>pane read</code> prints text, and commands with no result stay quiet on success.</p>
         <p>try this with <code>ship</code> and <code>jq</code> installed. a demo tab appears, a command counts to 100, and the last three lines come back to your terminal.</p>
       </div>

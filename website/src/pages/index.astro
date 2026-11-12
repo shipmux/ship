@@ -8,6 +8,7 @@ import { modeScript } from "../mode";
 import body from "../landing/body.html?raw";
 import SiteHeader from "../components/SiteHeader.astro";
 import { siteLinks } from "../site-links";
+import { version } from "../version";
 
 const cut = (html: string, mark: string) => {
   const at = html.indexOf(mark);
@@ -17,6 +18,11 @@ const cut = (html: string, mark: string) => {
 const [top, afterHeader] = cut(rebase(body), "<!-- site header -->");
 const [places, afterPlaces] = cut(afterHeader, "<!-- site header end -->");
 const [middle, end] = cut(afterPlaces, "<!-- footer links -->");
+// the hero line names the newest release, or nothing before the first one
+const [beforeRelease, afterRelease] = cut(middle, "<!-- latest release -->");
+const release = version.latest
+  ? `<a href="https://github.com/shipmux/ship/releases/tag/${version.latest}">${version.latest}</a>, `
+  : "";
 // link previews: the page's own URL and one picture, both absolute
 const url = new URL(withBase("/"), Astro.site).href;
 const og = new URL(withBase("/og.png"), Astro.site).href;
@@ -66,7 +72,7 @@ const footerLinks = siteLinks()
     <SiteHeader top>
       <Fragment set:html={places} />
     </SiteHeader>
-    <Fragment set:html={middle + footerLinks + end} />
+    <Fragment set:html={beforeRelease + release + afterRelease + footerLinks + end} />
     <script is:inline src={withBase("/js/site.js")} defer></script>
     <script is:inline src={withBase("/js/crew.js")} defer></script>
   </body>
