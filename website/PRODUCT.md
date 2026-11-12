@@ -52,7 +52,7 @@ Open decisions that stay with Cyan; do not settle them in the site:
 
 - an interactive "play with it" demo that replays real server snapshots needs a recording hook in the server
 - `ship skill` (a subcommand, tracked in shipmux/ship#61) and printing default keys from the binary are public CLI changes
-- the real domain (use `shipmux.dev` as a placeholder)
+- a custom domain: none until Ship is big enough to want one; link to `https://shipmux.github.io/ship`, which GitHub would redirect to a domain added later
 
 ## Brand Commitments
 

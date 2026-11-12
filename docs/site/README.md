@@ -73,10 +73,10 @@ Inside a Ship pane you can leave out `--tab` and `--pane`, since commands defaul
 A coding agent can walk you through installing and configuring Ship. Paste this into one:
 
 ```text
-Help me understand and set up Ship. Read https://shipmux.dev/agent-guide.md first, then ask me how I like to work before you change anything.
+Help me understand and set up Ship. Read https://shipmux.github.io/ship/agent-guide.md first, then ask me how I like to work before you change anything.
 ```
 
-Agents that want the whole map can start from [llms.txt](https://shipmux.dev/llms.txt), which links a plain markdown copy of every page.
+Agents that want the whole map can start from [llms.txt](https://shipmux.github.io/ship/llms.txt), which links a plain markdown copy of every page.
 
 ## Guides
 

@@ -35,8 +35,9 @@ const ref = process.env.DOCS_REF ?? "main";
 const channel = process.env.DOCS_CHANNEL ?? "main";
 const latest = process.env.DOCS_LATEST ?? "";
 const { site: SITE } = siteEnv();
-// the sources name the placeholder domain (docs/site is not ours to edit), so every write swaps it for SITE
-const PLACEHOLDER_SITE = "https://shipmux.dev";
+// the sources name the deployed site (docs/site is not ours to edit), so every write swaps it for SITE
+// (a no-op in the Pages deploy, the local URL in dev)
+const PLACEHOLDER_SITE = "https://shipmux.github.io/ship";
 const AGENT_GUIDE = "agent-guide.md";
 // the build at /docs/ also owns the root copies, which is where the overview's agent prompt points
 const llmsPath = prefix === "/docs" ? "/llms.txt" : `${prefix}/llms.txt`;
