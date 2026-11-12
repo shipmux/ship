@@ -8,6 +8,8 @@ edition = "2024"
 authors = ["Cyanism <github@cyan.slmail.me>"]
 readme = "README.md"
 license = "GPL-3.0-or-later"
+repository = "https://github.com/shipmux/ship"
+homepage = "https://shipmux.github.io/ship"
 
 [workspace.dependencies]
 ship-client = { path = "crates/ship-client" }

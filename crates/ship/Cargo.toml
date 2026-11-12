@@ -5,7 +5,9 @@ edition.workspace = true
 authors.workspace = true
 readme.workspace = true
 license.workspace = true
-description = "Local command-line application foundation"
+repository.workspace = true
+homepage.workspace = true
+description = "Terminal workspace for coding agents: tabs and panes that keep running after the window closes"
 
 [features]
 self-update = ["dep:self_update"]

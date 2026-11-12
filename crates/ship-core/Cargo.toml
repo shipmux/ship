@@ -5,6 +5,8 @@ edition.workspace = true
 authors.workspace = true
 readme.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "Shared data and contextual errors for Ship"
 
 [features]
