@@ -16,9 +16,6 @@ Not here: keys, configuration and CLI walkthroughs (docs/site/).
 
 </div>
 
-> [!NOTE]
-> **Ship is a work in progress.** It's early, but you can install it and try it today.
-
 [![Claude Code and Pi working side by side in nested tabs, with the sidebar marking each agent's state](https://shipmux.github.io/ship/demo/waterline.gif)](https://shipmux.github.io/ship/)
 
 ## Overview
@@ -59,7 +56,7 @@ The name started as a joke about shipping software faster, and the ship and crew
 
 Agents report through the [Program Status Protocol](https://www.superlogical.com/rex/docs/build/program-status). Anything that reports its own status can work with Ship; there's no per-agent plugin list to maintain.
 
-Linux and macOS are the priority platforms, and both have been used successfully. Windows is best effort.
+Linux and macOS are the priority platforms, and both have been used successfully. Windows is best effort: Ship builds there and small fixes are welcome, but for daily use, WSL is the better bet.
 
 ### Not built yet
 

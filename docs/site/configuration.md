@@ -49,24 +49,32 @@ mouse = true         # false leaves the mouse to your terminal
 
 ### Tab rows
 
-Each tab in the sidebar shows its name. To show its git branch on a second line, with how far ahead it is:
+With the [git example plugin](scripting/writing-a-plugin.md#the-git-example) running, this puts each tab's branch and pull request under its name:
 
 ```toml
 [client.tabs]
-rows = [["name"], [{ tag = "git.branch" }, { tag = "git.ahead" }]]  # default: [["name"]]
+rows = [["name"], [{ tag = "git.branch" }, { tag = "git.pr" }]]  # default: [["name"]]
 ```
 
-`rows` lists the lines of each tab's entry, and the pieces on a line are joined with ` · `. A piece is `name` or a [tag](scripting/writing-a-plugin.md#tags) like `{ tag = "git.branch" }`. A tag shows the tab's own value, or else its first pane's, the way a tab without a name takes its first pane's folder. Pieces without a value are left out, and lines with nothing on them disappear, so a tab without tags stays one line. Long pieces are cut with `…` as in [agent rows](#agent-settings).
+```text
+ ▲ ▾ ship
+     main · ○ #112 ✓
+ ▲     api
+       fix-login · ◆ #118
+ ●   site
+     main
+     notes
+```
+
+`rows` has one list for each line of a tab's entry. A piece on a line is `name` or a [tag](scripting/writing-a-plugin.md#tags) such as `{ tag = "git.branch" }`, and the pieces on a line are joined with ` · `.
+
+- A tag shows the tab's own value, or else its first pane's, the way a tab without a name takes its first pane's folder.
+- A piece without a value is left out, and a line with nothing on it disappears. That's why `notes` above stays on one line.
+- A long piece is cut with `…`, as in [agent rows](#agent-settings).
 
 ### Updates
 
-Check for a release without installing anything:
-
-```sh
-ship update --check
-```
-
-It prints `installed → latest`, `up to date` or `no releases yet`. It always asks for a fresh result, even with automatic checks off, and never starts a server.
+Ship checks for new releases at startup and about once an hour, and shows what it finds in the sidebar and in the [updates panel](building-from-source.md#update). These settings change that:
 
 ```toml
 [client.updates]
@@ -75,9 +83,24 @@ check = true                         # default; false turns automatic checks off
 # latest_command = "echo 9.9.9"       # override where the latest version comes from
 ```
 
-Both commands are unset by default. `command` chooses what `ship update` runs, ahead of the build-time `SHIP_UPDATE_COMMAND`. `latest_command` prints a version instead of asking GitHub for it, ahead of the build-time `SHIP_LATEST_COMMAND`. Without either latest-version override, Ship uses the newest stable GitHub release. Release notes still come from GitHub when a command supplies the version.
+With `check = false` Ship stops looking, but you can still ask:
 
-These are shell lines, not argument arrays: `sh -c` on Unix, `cmd /C` elsewhere. Ship accepts versions such as `0.2.0`, `v0.2.0` and `0.2.0-1`; a packager suffix is ignored when comparing versions.
+```sh
+ship update --check
+```
+
+```text
+0.1.0 → 0.2.0
+```
+
+It prints `up to date` when there's nothing newer, and `no releases yet` when there are none. It always asks for a fresh result, even with automatic checks off, and never starts a server.
+
+`command` and `latest_command` are both unset by default, and each is a shell line: `sh -c` on Unix, `cmd /C` elsewhere.
+
+- `command` is what `ship update` runs. It comes ahead of the build-time `SHIP_UPDATE_COMMAND`.
+- `latest_command` prints a version, instead of Ship asking GitHub for one. It comes ahead of the build-time `SHIP_LATEST_COMMAND`. Without either, Ship uses the newest stable GitHub release, and release notes still come from GitHub when a command supplies the version.
+
+Ship accepts versions such as `0.2.0`, `v0.2.0` and `0.2.0-1`, and ignores a packager suffix when comparing them.
 
 ## Agent settings
 

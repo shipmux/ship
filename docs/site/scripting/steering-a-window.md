@@ -8,7 +8,7 @@ Not here: creating tabs and panes beyond the `--select` flag.
 `ship view list` shows every attached window, and `ship view select` moves one of them to a tab or pane. Adding `--select` to a create command shows the new tab or pane in a window right away:
 
 ```sh
-WINDOW=$(ship view list | jq -r 'keys_unsorted[0]')
+WINDOW=$(ship view list | jq -r 'keys_unsorted[0]')   # the first window listed
 ship tab create --name demo --starter --select --attachment "$WINDOW"
 ```
 

@@ -13,4 +13,4 @@ ship pane send --pane "$PANE" --key ctrl-c
 git diff | ship pane send --pane "$PANE" -        # text from stdin
 ```
 
-Text goes in first, then each `--key` in order. Key names are the same as in the [config](../configuration.md#keys-and-modes).
+Text goes in first and then each `--key` in order, and key names are the same as in the [config](../configuration.md#keys-and-modes).

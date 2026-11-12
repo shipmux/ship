@@ -65,6 +65,45 @@ This leaves your installed `ship` alone. The command uses a separate [named serv
 
 ## Update
 
+An update installs the new version but leaves a running server on the old one. [Restarting the server](windows-and-the-server.md#after-updating-ship) ends its programs, so do it when it suits you.
+
+### Installed from a release
+
+Run `ship update`. It downloads the latest release for your platform, checks it against the release's published checksum and replaces the `ship` you ran. `ship update --check` only says whether there's a newer release.
+
+Ship also looks for new releases on its own, at startup and about once an hour. When there's one, the bottom row of the sidebar changes from a dim `v0.1.0` to this, in cyan:
+
+```text
+ v0.1.0 → v0.2.0
+```
+
+The first time a release is found on a machine, the status line also says `ship v0.2.0 is available · ≡ updates`. Click the version row, or choose **updates** from the `≡` menu beside `tabs`, to open the updates panel:
+
+```text
+┌ updates ───────────────────────────────────────────────── esc ─┐
+│ client   v0.1.0                                                │
+│ server   v0.1.0                                                │
+│ latest   v0.2.0                         checked 2h ago [check] │
+│          v0.2.0 is available                                   │
+│          the server restarts afterwards to stay in sync        │
+│                                                       [update] │
+│────────────────────────────────────────────────────────────────│
+│ v0.2.0 · 2026-11-20                                            │
+│ https://github.com/shipmux/ship/releases/tag/v0.2.0            │
+│ (release notes, which scroll)                                  │
+└────────────────────────────────────────────────────────────────┘
+```
+
+The panel lists your client's version, the running server's and the latest release, with when it was last checked. Below them are the notes for every release newer than yours, newest first.
+
+- `[check]`, or `c`, asks again right away.
+- `[update]`, or `u`, runs `ship update` in a tab named `update`, so you can watch it. When it finishes, the panel says `installed v0.2.0` and whether the server needs a restart. If it fails, the panel says `update failed` and points to that tab.
+- The arrow keys, `PageUp` and `PageDown` scroll the notes, and `esc` or a click outside closes the panel.
+
+A build that can't update itself, such as one from source, shows `[update]` dimmed and says to update with your package manager. To turn the automatic checks off, or change how updates run, see [Updates in the configuration](configuration.md#updates).
+
+### Built from source
+
 From your existing checkout:
 
 ```sh
@@ -72,7 +111,7 @@ git pull --ff-only
 cargo install --path crates/ship
 ```
 
-A build from source can't replace itself, so `ship update` just tells you to update it the way you installed it, which here means the two commands above. `ship update --check` still tells you whether there's a newer release. Reinstalling doesn't replace a running server. When you're ready to end its programs, [stop the server](windows-and-the-server.md) and run `ship` again to use the new version.
+A build from source can't replace itself, so `ship update` just tells you to update it the way you installed it, which here means the two commands above. `ship update --check` and the updates panel still tell you whether there's a newer release.
 
 If you're packaging Ship, set `SHIP_UPDATE_COMMAND` and `SHIP_LATEST_COMMAND` when you build it, and `ship update` runs your package manager's upgrade instead and asks it for the latest version. [Updates](configuration.md#updates) covers both.
 

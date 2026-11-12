@@ -7,7 +7,7 @@ Not here: the full key list (keys.md), settings (configuration.md), anything a f
 
 Run a shell, an editor and a few coding agents side by side. Ship is a terminal multiplexer, like tmux or Zellij, that keeps them running after you close the window. The sidebar shows which [agents](agents.md) are working, waiting on you or done, and the [CLI](scripting/README.md) lets scripts and agents open panes and hand work to each other.
 
-Ship is a work in progress. The [README](../../README.md#what-works-today) lists what works today and what isn't built yet.
+The [README](../../README.md#what-works-today) lists what works today and what isn't built yet.
 
 ## Install
 

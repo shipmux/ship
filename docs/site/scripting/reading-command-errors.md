@@ -5,7 +5,7 @@ Scope: The JSON error a failing command prints, and how a script reads and branc
 Not here: the HTTP API's errors (openspec/specs/).
 -->
 
-When a command fails, its last stderr line is a JSON error and it exits 1, with nothing on stdout. Logs can come before that line. Capture stderr and read the error with `jq`:
+When a command fails, its last stderr line is a JSON error and it exits 1, with nothing on stdout. Logs can come before that line, so capture stderr and read the error with `jq`:
 
 ```sh
 if ship pane send --pane "$PANE" "Continue" --key enter --wait 2>ship-error.log; then
@@ -24,10 +24,10 @@ pane pane:0371d3719292450397e5cd5c40295d25 is blocked on permission
 
 For `send --wait`, the outer `message` tells you whether the input went out:
 
-- `nothing was sent`: the command refused before writing.
-- `the input was sent`: don't send it again; read the pane or use `pane wait`.
-- `the input may have been sent`: inspect the pane before deciding whether to retry.
+- `nothing was sent` means the command refused before writing.
+- `the input was sent` means you shouldn't send it again, so read the pane or use `pane wait`.
+- `the input may have been sent` means you should check the pane before you decide whether to retry.
 
-The specific failure is under `caused_by`. Other command errors also have a category, such as `.type.kind` equal to `not_found` for a missing pane.
+The specific failure is under `caused_by`. Other command errors also have a category, such as `.type.kind` being `not_found` for a missing pane.
 
-A mistyped flag or invalid argument keeps the argument parser's text and exits 2, not JSON. `ship config check` is another exception: it prints findings as text and exits 1, without an extra error line; a valid config prints nothing and exits 0. `--help` and `--version` still exit 0.
+A mistyped flag or invalid argument keeps the argument parser's text and exits 2, with no JSON. `ship config check` is another exception. It prints its findings as text and exits 1 with no extra error line, and a valid config prints nothing and exits 0. `--help` and `--version` still exit 0.

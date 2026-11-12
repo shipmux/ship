@@ -5,7 +5,7 @@ Scope: Splitting, moving between, renaming, zooming and closing panes, what happ
 Not here: scrolling and copying (scrolling-copying-and-the-mouse.md), scripting recipes (scripting/).
 -->
 
-Every pane runs a program in its own terminal, your shell unless you say otherwise. By default, the pane closes when its program exits. You can also close it with `alt-shift-x`.
+Every pane runs a program in its own terminal, your shell unless you say otherwise. By default a pane closes when its program exits, and you can also close it with `alt-shift-x`.
 
 | Key | Does |
 | --- | --- |
@@ -24,9 +24,9 @@ A new split or stacked shell opens in the directory you were working in, so afte
 
 ## Stacks
 
-Press `alt-s` when you want a temporary shell without making your splits smaller. It opens in front of the current pane, and the panes behind it keep running. Their titles appear in the border, front first and bold, separated by ` · `. A stack without a border gets a title row instead. Click a title to bring that pane forward, or use `alt-,` and `alt-.` to cycle. Everyone viewing the tab sees the same front pane.
+Press `alt-s` when you want a temporary shell without making your splits smaller. It opens in front of the current pane, and the panes behind it keep running. Their titles appear in the border, front first and bold, separated by ` · `, and a stack without a border gets a title row instead. Click a title to bring that pane forward, or use `alt-,` and `alt-.` to cycle. Everyone viewing the tab sees the same front pane.
 
-Press `alt-f` to fill the tab with the front pane, then press it again to restore your splits. You can cycle the stack while zoomed. Everyone viewing the tab sees the same zoom, marked `Z` in the sidebar. Moving to another split or changing the split layout leaves zoom.
+Press `alt-f` to fill the tab with the front pane, and press it again to restore your splits. You can cycle the stack while zoomed. Everyone viewing the tab sees the same zoom, marked `Z` in the sidebar, and moving to another split or changing the split layout unzooms the tab.
 
 ## From the CLI
 
@@ -53,19 +53,19 @@ ship pane move --pane "$PANE" --onto "$OTHER"
 ship pane move --pane "$PANE" --beside "$OTHER" --direction right
 ```
 
-`OTHER` can be in another tab, or in the same stack when taking a pane out into its own split. Use `--direction down` to put it below instead. The pane keeps its ID, output and running program. Clients with it selected follow it; the destination unzooms if needed to keep it visible. An emptied old slot disappears, but its tab stays.
+`OTHER` can be in another tab, or in the same stack when you're taking a pane out into its own split. Use `--direction down` to put it below instead. The pane keeps its ID, output and running program, and any window that has it selected follows it. The destination unzooms if it needs to, so the pane stays visible. An emptied old slot disappears, but its tab stays.
 
 ## Renaming
 
-Press `alt-p` then `r`, or right-click the pane and choose **rename**. Editing, saving and clearing work [the same way as tab renaming](tabs.md#renaming); clearing a pane's name restores its program's title, or its command if it has no title. Press `esc` after renaming to leave panes mode.
+Press `alt-p` then `r`, or right-click the pane and choose **rename**. Editing, saving and clearing work [the same way as tab renaming](tabs.md#renaming), and clearing a pane's name brings back its program's title, or its command if it has no title. Press `esc` after renaming to leave panes mode.
 
 While renaming, keys edit the name rather than navigate, and any click cancels. If another window changes your selected pane, the edit also cancels without saving.
 
 ## Edit scrollback
 
-Press `alt-e`, or choose **edit scrollback** from the pane's right-click menu, to open its full history and screen in your editor. The editor opens in front of the pane without splitting it. Quit the editor to return; any edits are discarded, and a zoomed stack stays zoomed.
+Press `alt-e`, or choose **edit scrollback** from the pane's right-click menu, to open its full history and screen in your editor. The editor opens in front of the pane without splitting it. Quit the editor to return, and any edits you made are thrown away. A zoomed stack stays zoomed.
 
-On Unix, Ship uses `VISUAL`, then `EDITOR`, then `vi`. Values with arguments, such as `code --wait`, work. For the shortcut, set these in the environment that starts the server. The temporary file is readable only by you and deleted when the editor exits; a later run cleans up files left by a crashed run. If the editor fails, its pane stays open showing the error until you close it.
+On Unix, Ship uses `VISUAL`, then `EDITOR`, then `vi`, and values with arguments, such as `code --wait`, work. For the shortcut, set these in the environment that starts the server. The temporary file is readable only by you and is deleted when the editor exits, and a later run cleans up any file a crashed run left behind. If the editor fails, its pane stays open showing the error until you close it.
 
 To open a specific pane's scrollback from another terminal:
 
@@ -73,7 +73,7 @@ To open a specific pane's scrollback from another terminal:
 ship pane edit-scrollback --pane "$PANE"
 ```
 
-Without `--pane`, the command reads the pane directly behind its own pane, as the shortcut does. With no pane behind it, it reports an error instead.
+Without `--pane`, the command reads the pane directly behind its own pane, as the shortcut does, and reports an error if there's no pane behind it.
 
 ## When a program exits
 
@@ -92,4 +92,4 @@ ship pane create --tab "$TAB" --exit-behavior keep -- cargo test
 ship pane set --pane "$PANE" --exit-behavior keep_failed
 ```
 
-Changing the behavior of an already exited pane only stores the value; it doesn't close the pane. Kept panes can still be read, scrolled and copied, but no longer accept typing or resizing. [Reading output](scripting/reading-output.md) shows the create, wait, read and close workflow for scripts. To change the default for new panes, use [the config file](configuration.md#server-settings).
+Changing the behavior of a pane that has already exited only stores the value and doesn't close it. Kept panes can still be read, scrolled and copied, but they no longer accept typing or resizing. [Reading output](scripting/reading-output.md) shows the create, wait, read and close workflow for scripts. To change the default for new panes, use [the config file](configuration.md#server-settings).

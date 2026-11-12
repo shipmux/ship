@@ -13,7 +13,7 @@ Keep related work under one tab, with smaller tasks nested below it. For example
   ▸ docs
 ```
 
-Each tab can hold panes, other tabs, or both. In the sidebar, `▾` means unfolded and `▸` means folded. A tab without a name is labeled with its first pane's directory.
+Each tab can hold panes, other tabs, or both, and in the sidebar `▾` means unfolded and `▸` means folded. A tab without a name shows its first pane's directory as its label.
 
 | Key | Does |
 | --- | --- |
@@ -28,9 +28,9 @@ Coming back to a tab puts you on the pane you last used there. You can also clic
 
 ## Renaming
 
-Press `alt-t` then `r`, or right-click the tab's sidebar row and choose **rename**. The field starts with the saved name, or shows the automatic label dimmed when the tab is unnamed. Type a name and press Enter to save, or Esc to cancel. `ctrl-u` clears the field; pressing Enter with it empty restores the automatic label.
+Press `alt-t` then `r`, or right-click the tab's sidebar row and choose **rename**. The field starts with the saved name, or shows the automatic label dimmed when the tab is unnamed. Type a name and press Enter to save, or Esc to cancel. `ctrl-u` clears the field, and pressing Enter with it empty brings back the automatic label.
 
-While the field is open, keys edit the name rather than navigate. Esc or any click cancels without saving; click again to select somewhere else. When the field closes, you're still in the mode you opened it from, so press `esc` to leave tabs mode.
+While the field is open, keys edit the name rather than navigate. Esc or any click cancels without saving, so click again to select somewhere else. When the field closes, you're still in the mode you opened it from, so press `esc` to leave tabs mode.
 
 ## From the CLI
 
@@ -46,4 +46,4 @@ ship tab set --tab "$REVIEW" --name   # bring back the automatic label
 ship tab close --tab "$PROJECT"   # closes review and its pane too
 ```
 
-`ship tab move` reorders or reparents a tab. A bare `--name`, as in `ship tab set --tab "$REVIEW" --name`, clears the name and brings back the automatic label. `--name ""` sets an empty label.
+`ship tab move` reorders a tab or gives it a new parent. A bare `--name`, as in `ship tab set --tab "$REVIEW" --name`, clears the name and brings back the automatic label, while `--name ""` sets an empty label.
