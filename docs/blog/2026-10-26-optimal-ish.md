@@ -40,7 +40,7 @@ A smarter diff can notice that the lines just moved, and then it only sends the 
 | JSON Patch, one scroll   | 46 KB            | 15 to 27 ms     |
 | diff that tracks moves   | tiny             | about 520 ms    |
 
-The whole screen with compression on top was smaller than one diff and faster than the other. The diffs never bought enough to be worth it, so I went with the whole screen because it was the simplest thing and I just wanted a prototype out. The lazy option and the right option happened to be the same one, which almost never happens.
+The whole screen with compression on top was smaller than one diff and faster than the other. The diffs never saved enough to be worth it, so I went with the whole screen because it was the simplest thing and I just wanted a prototype out, and the lazy option and the right option happened to be the same one, which almost never happens.
 
 ## 3. The compressor that remembers
 
@@ -114,7 +114,7 @@ Compression already did most of the work even on the clunky format, since 1,920 
 | git log, cells     | 0.134 ms         | 0.218 ms                  | 1,695 B     |
 | git log, rows      | 0.014 ms         | 0.021 ms                  | 75 B        |
 
-The bytes on the wire follow how much changed, but the time to write and read a screen follows how big it is before compression, and rows made that about 9 times smaller. Compression makes a verbose format almost free on the wire, but it does nothing about the work on either end.
+The bytes on the wire depend on how much changed, but the time to write and read a screen depends on how big it is before compression, and rows made that about 9 times smaller. Compression makes a verbose format almost free on the wire, but it does nothing about the work on either end.
 
 I also tried rows written as plain terminal escape codes, the same thing a program prints, since that's even smaller. It broke wide characters like CJK text and some emoji, which take up two cells, and 1,498 out of 1,499 screens in that test came out wrong. Rows with named fields won, partly because they're easy to add to later without breaking older windows.
 
@@ -171,13 +171,13 @@ Once it was measuring the right thing, the first numbers came back, medians of t
 
 > not surprised that we win on flood, although i'm a bit confused... on the typing one... are we winning or losing?
 
-Losing, by a lot. Floods were great, and while an agent was printing Zellij wrote 5.2 MB to the terminal against 64 KB for Ship, about 80 times more, because Zellij forwards a lot more of every change. But typing in a quiet pane took 3.93 ms in Ship and 0.74 ms in Herdr, more than five times slower, and that's the number you feel every time you press a key.
+We were losing, and by a lot. Floods were great, and while an agent was printing Zellij wrote 5.2 MB to the terminal against 64 KB for Ship, about 80 times more, because Zellij forwards a lot more of every change, but typing in a quiet pane took 3.93 ms in Ship and 0.74 ms in Herdr, more than five times slower, and that's the number you feel every time you press a key.
 
 > interesting... that's very strange. i remember leading on latency in pretty much every test i did. what are you thinking the culprit is?
 
 ## 6. A millisecond that wasn't
 
-Ship had a small wait before sending a screen, 1 ms, so a program that draws twice in a row (Neovim does this when it scrolls) lands as one screen instead of showing you the half-finished one. One millisecond shouldn't add up to three, so my agent dug into where the time went.
+Ship had a small wait before sending a screen, 1 ms, so a program that draws twice in a row (Neovim does this when it scrolls) comes out as one screen instead of showing you the half-finished one. One millisecond shouldn't add up to three, so my agent dug into where the time went.
 
 Ship runs on tokio, and tokio's timers don't wake you at the exact time you ask. They tick in 1 ms slots and round up to the next one, so asking for 1 ms can easily mean 2.
 
@@ -213,11 +213,11 @@ That 4 ms came from an earlier wait that bit me. The first day Ship's window act
 | sending inline, no timer at all  | 1.93 ms       |
 | Herdr                            | 0.79 ms       |
 
-Sending inline worked, but in that first version it was a publish dropped into the middle of the pane's loop, and when it came time to land it I didn't love it.
+Sending inline worked, but in that first version it was a publish dropped into the middle of the pane's loop, and when it came time to merge it I didn't really like it.
 
 > i'm mostly happy with that, i just think it reads a bit dirty to just publish straight in there. am i the only one who's bothered/annoyed by that?
 
-So the version that landed keeps all of it in a small `Pacing` struct, and the pane asks it whether a screen is due before it waits on anything else.
+So the version I merged keeps all of it in a small `Pacing` struct, and the pane asks it whether a screen is due before it waits on anything else.
 
 That got a lot closer, but there was still a millisecond missing, so my agent timed each hop of the trip.
 
@@ -339,7 +339,7 @@ My agent's guess was that a quiet machine lets its cores go to sleep, and waking
 | Ship  | 1.80 ms       | 0.41 ms            |
 | Herdr | 0.67 ms       | 0.13 ms            |
 
-Both got four or five times faster just by having the CPU awake. So technically the way to make typing in Ship faster is to run `yes > /dev/null` in another tab, which is the kind of fix I'd reject in code review. Part of the idle number isn't Ship, it's the hardware napping between keystrokes, and my agent figured Ship pays it more often because a keystroke hops between more threads than in Herdr. That was wrong, but we didn't find out until the scheduler trace in section 9.
+Both got four or five times faster just by having the CPU awake. So technically the way to make typing in Ship faster is to run `yes > /dev/null` in another tab, which is the kind of fix I'd reject in code review. Part of the idle number isn't Ship, it's the hardware napping between keystrokes, and my agent figured Ship pays it more often because a keystroke hops between more threads than in Herdr.
 
 ### The wake-up that came too early
 
@@ -376,7 +376,7 @@ Typing beside a flood went from 0.49 ms to 0.38 ms at p50, and the slowest 1% we
 
 > holy crap... crazy good free optimization
 
-Not everything panned out like that. Each key was also publishing two screens instead of one, and fixing that made no difference to latency. After that I didn't expect much from the window's drawing either.
+Each key was also publishing two screens instead of one, but fixing that made no difference to latency, so I didn't expect much from the window's drawing either.
 
 > as for the client draw. you can take a look at it, but i'd be surprised if there's anything we can realistically shave off there without introducing a mountain of complexity
 
@@ -470,7 +470,7 @@ And Herdr's issue tracker shows what that costs. A lot of its bugs come down to 
 
 > it's like a messy spider web that would rather shave off 1ms by handling every possible edge case manually?
 
-And all that work buys Herdr a few hundred microseconds per keystroke.
+And all that work gets Herdr a few hundred microseconds per keystroke.
 
 > even after all of that effort, all we really save is 200 microseconds... honestly, i'm more impressed that herdr was willing to spend the effort to squeeze out all of those extra microseconds on latency. only to be beaten on cpu anyways.
 
@@ -494,7 +494,7 @@ It was the feeling of every test passing before you've looked at the diff. Then 
 
 > i'm not gonna lie... that client code looks absolutely abysmal to read. like pure slop... especially with all of the layering logic...
 
-And for what it bought, I couldn't justify it.
+And for what it actually got us, I couldn't justify it.
 
 > it does seem to be better, but it's way too much effort and weirdness for like... shaving off 200us at best, no?
 
@@ -502,7 +502,7 @@ A frame on a 120 Hz screen is 8.3 ms, and nobody feels 1.3 ms versus 0.6 ms on a
 
 > you can't even notice the 1ms overhead. but you can definitely notice the bugs as a user and the maintenance burden as a dev.
 
-It lives on as the `experiment/retained-render` branch.
+It's still on the `experiment/retained-render` branch.
 
 ## 10. The memory nobody asked for
 
@@ -523,7 +523,7 @@ Its second guess was that Herdr uses an older Ghostty, which turned out to be ba
 | Herdr                           | 584 B  |
 | Ship                            | 263 KB |
 
-The version of Ghostty that Ship used pulled in a piece of Zig's standard library that sets aside a 256 KiB stack per thread for handling signals, and every one of Ship's threads paid for it, Ghostty's or not. Upstream Ghostty had already dropped that piece of Zig back in August, so the fix was just a version bump, and the window shrank the most, which confused me.
+The version of Ghostty that Ship used pulled in a piece of Zig's standard library that sets aside a 256 KiB stack per thread for handling signals, and every one of Ship's threads got one, Ghostty's or not. Upstream Ghostty had already dropped that piece of Zig back in August, so the fix was just a version bump, and the window shrank the most, which confused me.
 
 > why the heck did the client go down so much? wtf? that's nuts?
 >
@@ -558,7 +558,7 @@ Checking that meant following one keystroke all the way through, and Ship doesn'
 
 > how the hell are we going to be able to trace a key through the input and back out the output in a way that keeps the correct dumb pipe architecture where ship works no matter what program is running in the tty?
 
-So my agent built a trace that watches from the outside. The program in the pane stamps each read and write, the window and the server mark the edges they own, and a script stitches all three into one timeline. That took its own detours. The idea of tagging each key with an ID died right away because back then all input went over one long request, and the trace tool writes every process as process 1, so the files had to be renumbered before they'd line up. Ship stays a dumb pipe with timing only at the edges it owns, so the tracing added three lines to the code.
+So my agent built a trace that watches from the outside. The program in the pane timestamps each read and write, the window and the server mark the edges they own, and a script combines all three into one timeline. That had its own problems. The idea of tagging each key with an ID died right away because back then all input went over one long request, and the trace tool writes every process as process 1, so the files had to be renumbered before they'd line up. Ship stays a dumb pipe with timing only at the edges it owns, so the tracing added three lines to the code.
 
 | step                        | µs after keypress |
 | --------------------------- | ----------------- |
@@ -608,7 +608,7 @@ Five rounds, 180 runs in shuffled order, on an M4 Max.
 | agent screen CPU          | 1.7%         | 1.2%       | 1.3%    | **0.25%**   |
 | memory (idle)             | 35 MB        | 48 MB      | 108 MB  | **10 MB**   |
 
-The one I'd installed that same day won idle typing and memory by a mile, which is a lot like spending two weeks optimizing something and having `brew install` beat it.
+tmux, which I'd only installed that day, won idle typing and memory by a mile. It's a lot like spending two weeks optimizing something and having `brew install` beat it.
 
 When there's a lot going on, Ship gets through it faster and with less CPU than the rest. The animation is a full-screen truecolor gradient, which is about as hard on compression as a normal screen gets.
 
@@ -630,7 +630,7 @@ The slowest 1% while typing beside a flood is the one loss I can't explain yet.
 
 ### A screen that never repeats
 
-All of the above leans on screens repeating themselves, so I added a workload that doesn't, every cell a random color 60 times a second.
+All of the above depends on screens repeating themselves, so I added a workload that doesn't, every cell a random color 60 times a second.
 
 | over the wire or to the terminal | Ship over the wire | tmux to the terminal |
 | -------------------------------- | ------------------ | -------------------- |
@@ -661,7 +661,7 @@ With the first release close, I wanted one more profiling run, and this time acr
 
 > do you think we could investigate all of the major workloads? not JUST p99? that way we don't miss other potential improvements that only show up on other paths?
 
-This time there was real waste to find. Every time the server published a screen, it copied all 10,000 cells of the pane and converted all 50 rows, even when a keystroke had changed one of them. Ghostty already renders only the rows that changed, so now the widget remembers which rows it wrote and the server copies and converts just those. What gets published is still the whole screen, compressed the same way as before, so everything in section 3 still holds.
+Every time the server published a screen, it copied all 10,000 cells of the pane and converted all 50 rows, even when a keystroke had changed one of them. Ghostty already renders only the rows that changed, so now the widget remembers which rows it wrote and the server copies and converts just those. What gets published is still the whole screen, compressed the same way as before, so everything in section 3 still holds.
 
 > how do you know which rows are dirty though? doesn't that have the risk of desync?
 
@@ -673,11 +673,11 @@ The input side was mostly threads waking each other up, and my agent's idea for 
 
 > i already DID try the long lived input stream thing. it was just really awkward and didn't really play very well with actions. it's literally the reason i built the whole order thing
 
-The output side had one more surprise. ratatui's diff, which works out what the window actually has to send to your terminal, checked how wide every one of the 10,000 cells was before checking whether it had changed at all. Swapping those two checks made typing on a busy screen about 0.1 ms faster.
+On the output side, ratatui's diff, which works out what the window actually has to send to your terminal, checked how wide every one of the 10,000 cells was before checking whether it had changed at all, and swapping those two checks made typing on a busy screen about 0.1 ms faster.
 
 > that actually so funny... really? we get that much of a boost from moving one line a branch down and getting rid of another?
 
-It was faster because it was wrong. When a border overwrote the second half of a wide character, the swapped version stopped noticing, and the version that got that right gained nothing.
+The swapped version was only faster because it was wrong, since when a border overwrote the second half of a wide character it stopped noticing, and the version that got that right gained nothing.
 
 > i'm guessing that means that we can't actually make it faster?
 
@@ -716,7 +716,7 @@ Over the wire, the noise screen still costs Ship 2.9 MB/s, but at a real 60 fps 
 
 ## What it came down to
 
-The part I was most worried about, sending the whole screen every time, held up the whole way and never needed fixing. Every win came from waste around it, a timer that rounded up, copies nobody looked at, a thread woken 91,000 times a second, a redraw that landed right as your letter did and 256 KiB of stack per thread that nobody used, and most of those fixes were a few lines. Ship is still about 0.8 ms behind Herdr on a quiet keystroke, and closing that would take something like Herdr's fast path, which I'd rather not have.
+The part I was most worried about, sending the whole screen every time, worked fine the whole way and never needed fixing. Every win came from waste around it, like a timer that rounded up, screen copies nobody looked at, a thread woken 91,000 times a second, a redraw that came in right as your letter did and 256 KiB of stack per thread that nobody used, and most of those fixes were a few lines. Ship is still about 0.8 ms behind Herdr on a quiet keystroke, and closing that would take something like Herdr's fast path, which I'd rather not have.
 
 These numbers are from my laptop, and the benchmark is in [`benchmarks/`](https://github.com/shipmux/ship/tree/main/benchmarks) if you want to run it on yours.
 
