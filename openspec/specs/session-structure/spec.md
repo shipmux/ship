@@ -166,22 +166,26 @@ Invalid operations SHALL fail with an understandable error on stderr and leave t
 - **WHEN** a user moves a tab with `--after` naming a tab ID that does not exist
 - **THEN** the command fails with a not-found error and nothing moves
 
-### Requirement: Versioned HTTP API
-The tab, pane and attachment HTTP routes SHALL be served under `/api/v0` and SHALL address entities by ID only. The existing `/health` route SHALL remain at `/health`.
+### Requirement: HTTP API prefix
+The tab, pane and attachment HTTP routes SHALL be served under `/api` and SHALL address entities by ID only. The path SHALL carry no version: `protocol_version` in `/health` is the one version a client checks. The existing `/health` route SHALL remain at `/health`.
 
 #### Scenario: Prefixed route
-- **WHEN** a client sends `GET /api/v0/tabs` to a running server
+- **WHEN** a client sends `GET /api/tabs` to a running server
 - **THEN** it receives the ordered top-level tabs with their descendants, while `GET /health` still returns the health response
+
+#### Scenario: Old prefix
+- **WHEN** a client sends `GET /api/v0/tabs`
+- **THEN** it receives 404
 
 ### Requirement: HTTP error statuses
 Errors SHALL use HTTP 400 for malformed input, 404 for a missing target, 422 for an invalid structural relationship, and 503 when server machinery is unavailable. Malformed input means a malformed path ID, or a request body or query string that doesn't decode, as Request body validation and Query string validation describe. A well-formed request that would break the structure, such as moving a tab into its own descendant, SHALL be rejected with 422.
 
 #### Scenario: Empty move body
-- **WHEN** a client sends `POST /api/v0/tabs/{id}/move` with `{}`
+- **WHEN** a client sends `POST /api/tabs/{id}/move` with `{}`
 - **THEN** it receives 400 `validation` naming the missing `at` and nothing moves, while `{"at": {"parent": null}}` moves the tab to the top level
 
 #### Scenario: Wrong kind of ID in a body
-- **WHEN** a client sends `POST /api/v0/tabs/{id}/move` with `{"at": {"after": "pane:…"}}`
+- **WHEN** a client sends `POST /api/tabs/{id}/move` with `{"at": {"after": "pane:…"}}`
 - **THEN** it receives 400 `validation` pointing at `/at/after` and nothing moves
 
 ### Requirement: Targets from the current pane
@@ -411,7 +415,7 @@ From keys and menus, `set` SHALL act on the selected tab or pane. From the CLI i
 - **THEN** the key or menu acts on the selected tab or pane, and the CLI acts on `--tab`, `--pane` or the caller's pane, as other tab and pane commands do
 
 ### Requirement: HTTP set fields
-Over HTTP, `PATCH /api/v0/tabs/{id}` SHALL take `{ "name"?, "zoomed"?, "tags"? }` and `PATCH /api/v0/panes/{id}` SHALL take `{ "name"?, "right_click_passthrough"?, "exit_behavior"?, "scrollback_bytes"?, "tags"? }`, as JSON Merge Patch (RFC 7396). An absent field SHALL leave its attribute unchanged, and JSON `null` SHALL clear it. `null` SHALL be accepted only on `name`, `zoomed` and `tags`; on any other field it SHALL get 400 `validation`. `tags` follows the `tags` capability's merge rules.
+Over HTTP, `PATCH /api/tabs/{id}` SHALL take `{ "name"?, "zoomed"?, "tags"? }` and `PATCH /api/panes/{id}` SHALL take `{ "name"?, "right_click_passthrough"?, "exit_behavior"?, "scrollback_bytes"?, "tags"? }`, as JSON Merge Patch (RFC 7396). An absent field SHALL leave its attribute unchanged, and JSON `null` SHALL clear it. `null` SHALL be accepted only on `name`, `zoomed` and `tags`; on any other field it SHALL get 400 `validation`. `tags` follows the `tags` capability's merge rules.
 
 #### Scenario: Omitted and blank HTTP fields
 - **WHEN** a caller patches a pane with `{}`, then `{"name": "  x "}`, then `{"name": ""}`, then `{"name": null}`
@@ -466,7 +470,7 @@ Every JSON object key and string value Ship reads or writes SHALL be snake case:
 - **THEN** the pane JSON has `right_click_passthrough: true`, and the matching flag is `--right-click-passthrough`
 
 #### Scenario: Camel case key over HTTP
-- **WHEN** a caller sends `PATCH /api/v0/panes/{id}` with `{ "exitBehavior": "keep" }`
+- **WHEN** a caller sends `PATCH /api/panes/{id}` with `{ "exitBehavior": "keep" }`
 - **THEN** the key is ignored, the pane keeps its exit behavior and the revision stays the same
 
 #### Scenario: Multi-word values
@@ -477,58 +481,58 @@ Every JSON object key and string value Ship reads or writes SHALL be snake case:
 Every field of a tab or pane SHALL have one name, one path and one type in `get` output, set bodies, create bodies and `[server.defaults.*]` config. A request field that reuses an entity field's name SHALL have that field's type. PATCH bodies and set actions MAY also take `"toggle"` on a bool field. Config's `shell`, a path that defaults `command`, SHALL be the one exception.
 
 #### Scenario: Send a field back
-- **WHEN** a script reads `exit_behavior` from `GET /api/v0/panes/{id}` and sends it in `PATCH /api/v0/panes/{id}`, in `POST /api/v0/panes`'s `pane` object, and in `[server.defaults.pane]`
+- **WHEN** a script reads `exit_behavior` from `GET /api/panes/{id}` and sends it in `PATCH /api/panes/{id}`, in `POST /api/panes`'s `pane` object, and in `[server.defaults.pane]`
 - **THEN** each accepts it under the same name with the same value
 
 ### Requirement: Create request bodies
-`POST /api/v0/panes` SHALL take `{ "at", "place"?, "select"?, "pane"? }` and `POST /api/v0/tabs` SHALL take `{ "at"?, "starter"?, "select"?, "tab"? }`. The request's own fields SHALL sit at the top level, and the new entity's fields SHALL sit under `pane` or `tab`, using the entity's names. An absent `at` on `POST /api/v0/tabs` SHALL mean the end of the top level.
+`POST /api/panes` SHALL take `{ "at", "place"?, "select"?, "pane"? }` and `POST /api/tabs` SHALL take `{ "at"?, "starter"?, "select"?, "tab"? }`. The request's own fields SHALL sit at the top level, and the new entity's fields SHALL sit under `pane` or `tab`, using the entity's names. An absent `at` on `POST /api/tabs` SHALL mean the end of the top level.
 
 #### Scenario: Create a pane with settings
-- **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"tab": "<t>"}, "pane": {"cwd": "/tmp", "exit_behavior": "keep"}}`
+- **WHEN** a caller sends `POST /api/panes` with `{"at": {"tab": "<t>"}, "pane": {"cwd": "/tmp", "exit_behavior": "keep"}}`
 - **THEN** a pane is created in `<t>` starting in `/tmp` with `exit_behavior: keep`
 
 #### Scenario: Entity field at the top level
-- **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"tab": "<t>"}, "cwd": "/tmp"}`
+- **WHEN** a caller sends `POST /api/panes` with `{"at": {"tab": "<t>"}, "cwd": "/tmp"}`
 - **THEN** the top-level `cwd` is ignored and the pane is created using the normal directory default; only `pane.cwd` sets its starting directory
 
 #### Scenario: Create a named tab
-- **WHEN** a caller sends `POST /api/v0/tabs` with `{"tab": {"name": "notes"}}`
+- **WHEN** a caller sends `POST /api/tabs` with `{"tab": {"name": "notes"}}`
 - **THEN** a top-level tab named `notes` is appended
 
 ### Requirement: HTTP pane creation placement
 `place` SHALL be `{"split": "right"}`, `{"split": "down"}` or `"stack"`, defaulting to `{"split": "right"}`; the body SHALL NOT take `direction`.
 
 #### Scenario: Stack a pane over HTTP
-- **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"pane": "<p>"}, "place": "stack"}`
+- **WHEN** a caller sends `POST /api/panes` with `{"at": {"pane": "<p>"}, "place": "stack"}`
 - **THEN** the new pane is in front of `<p>`'s slot
 
 ### Requirement: Plain values on create
 Create bodies and config defaults SHALL take plain values only. A create body SHALL reject `"toggle"` on every field, and `null` on every field but `name`, with 400 `validation`.
 
 #### Scenario: Toggle on create
-- **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"tab": "<t>"}, "pane": {"right_click_passthrough": "toggle"}}`
+- **WHEN** a caller sends `POST /api/panes` with `{"at": {"tab": "<t>"}, "pane": {"right_click_passthrough": "toggle"}}`
 - **THEN** it receives 400 `validation` pointing at `/pane/right_click_passthrough`, and no pane is created
 
 #### Scenario: Null on create
-- **WHEN** a caller sends `POST /api/v0/panes` with `{"at": {"tab": "<t>"}, "pane": {"cwd": null}}`
+- **WHEN** a caller sends `POST /api/panes` with `{"at": {"tab": "<t>"}, "pane": {"cwd": null}}`
 - **THEN** it receives 400 `validation` pointing at `/pane/cwd`, and no pane is created
 
 ### Requirement: Tab move body
-`POST /api/v0/tabs/{id}/move` SHALL take its destination as `{ "at" }`, with the same type as `POST /api/v0/tabs`'s `at`: `{"parent": <tab or null>}`, `{"before": <tab>}` or `{"after": <tab>}`.
+`POST /api/tabs/{id}/move` SHALL take its destination as `{ "at" }`, with the same type as `POST /api/tabs`'s `at`: `{"parent": <tab or null>}`, `{"before": <tab>}` or `{"after": <tab>}`.
 
 #### Scenario: Move after a sibling
-- **WHEN** a caller sends `POST /api/v0/tabs/{id}/move` with `{"at": {"after": "<sibling>"}}`
+- **WHEN** a caller sends `POST /api/tabs/{id}/move` with `{"at": {"after": "<sibling>"}}`
 - **THEN** the tab sits right after `<sibling>`, under the same parent
 
 #### Scenario: Old move body
-- **WHEN** a caller sends `POST /api/v0/tabs/{id}/move` with `{"after": "<sibling>"}`
+- **WHEN** a caller sends `POST /api/tabs/{id}/move` with `{"after": "<sibling>"}`
 - **THEN** it receives 400 `validation` and nothing moves
 
 ### Requirement: Tab zoom
-A tab's `zoomed` attribute SHALL be the front pane of the slot filling it, or `null`. Setting it to a pane in that tab SHALL bring that pane to its slot's front and zoom the slot, and `null` SHALL unzoom. A pane in another tab SHALL get 422 `invalid_structure`, and a pane that doesn't exist SHALL get 404 `not_found`, changing nothing. `POST /api/v0/panes/{id}/zoom` and `ship pane zoom` SHALL NOT exist.
+A tab's `zoomed` attribute SHALL be the front pane of the slot filling it, or `null`. Setting it to a pane in that tab SHALL bring that pane to its slot's front and zoom the slot, and `null` SHALL unzoom. A pane in another tab SHALL get 422 `invalid_structure`, and a pane that doesn't exist SHALL get 404 `not_found`, changing nothing. `POST /api/panes/{id}/zoom` and `ship pane zoom` SHALL NOT exist.
 
 #### Scenario: Zoom and unzoom over HTTP
-- **WHEN** a caller sends `PATCH /api/v0/tabs/{t}` with `{"zoomed": "<p>"}` for a pane `<p>` in `<t>`, then `{"zoomed": null}`
+- **WHEN** a caller sends `PATCH /api/tabs/{t}` with `{"zoomed": "<p>"}` for a pane `<p>` in `<t>`, then `{"zoomed": null}`
 - **THEN** `<p>` fills the tab, then the tab shows every slot again
 
 #### Scenario: Zoom a pane behind
@@ -562,18 +566,18 @@ Every CLI flag for an attribute that can be empty SHALL distinguish three cases:
 JSON request structs SHALL ignore unknown fields. Tagged enums SHALL retain serde's tag structure. Known fields SHALL still use their declared types, required values and nullability.
 
 #### Scenario: Extra field in a request struct
-- **WHEN** a caller sends `PATCH /api/v0/panes/{id}` with only an extra `colour` field
+- **WHEN** a caller sends `PATCH /api/panes/{id}` with only an extra `colour` field
 - **THEN** the field is ignored, the pane is unchanged and the revision stays the same
 
 #### Scenario: Externally tagged enum structure
-- **WHEN** a caller sends `PUT /api/v0/server/log` with `{"set": "info", "extra": true}`
+- **WHEN** a caller sends `PUT /api/server/log` with `{"set": "info", "extra": true}`
 - **THEN** it receives 400 `validation`, because an externally tagged enum's object must have exactly one entry
 
 ### Requirement: Request body validation
 A body that doesn't decode SHALL get 400 `validation`, with `data.errors` listing every problem found, each with `detail` and, where it has a location, a JSON Pointer `pointer`. A request that fails validation SHALL change nothing. A body sent without `Content-Type: application/json` SHALL get 400 `validation` with one entry.
 
 #### Scenario: Four mistakes at once
-- **WHEN** a caller sends `POST /api/v0/panes` with `{"place": "up", "pane": {"exit_behavior": "linger", "scrollback_bytes": "lots", "exitBehavior": "keep"}}`
+- **WHEN** a caller sends `POST /api/panes` with `{"place": "up", "pane": {"exit_behavior": "linger", "scrollback_bytes": "lots", "exitBehavior": "keep"}}`
 - **THEN** one 400 `validation` response lists the missing `at`, the bad `place`, `linger` and `lots`, each with its pointer, ignoring `exitBehavior`, and no pane is created
 
 #### Scenario: Not JSON
@@ -581,27 +585,27 @@ A body that doesn't decode SHALL get 400 `validation`, with `data.errors` listin
 - **THEN** it receives 400 `validation` with one entry carrying the syntax message
 
 #### Scenario: No content type
-- **WHEN** a caller sends `PATCH /api/v0/panes/{id}` with a JSON body and no `Content-Type` header
+- **WHEN** a caller sends `PATCH /api/panes/{id}` with a JSON body and no `Content-Type` header
 - **THEN** it receives 400 `validation` with one entry, not 415, and the pane is unchanged
 
 ### Requirement: Query string validation
 A query string SHALL ignore unknown parameters. One that doesn't decode SHALL get 400 `validation` in the same error shape as a body, and MAY list only the first problem. A malformed path ID SHALL get 400 `validation` in the same shape, with one entry. A request that fails validation SHALL return nothing else.
 
 #### Scenario: Unknown parameter
-- **WHEN** a caller sends `GET /api/v0/panes/{id}/text?line=50`
+- **WHEN** a caller sends `GET /api/panes/{id}/text?line=50`
 - **THEN** `line` is ignored and the normal default text result is returned
 
 #### Scenario: Invalid known parameter
-- **WHEN** a caller sends `GET /api/v0/panes/{id}/text?lines=nope`
+- **WHEN** a caller sends `GET /api/panes/{id}/text?lines=nope`
 - **THEN** it receives 400 `validation` with one entry naming `lines`
 
 #### Scenario: Malformed path ID
-- **WHEN** a caller sends `GET /api/v0/tabs/notes`
+- **WHEN** a caller sends `GET /api/tabs/notes`
 - **THEN** it receives 400 `validation` with one entry, as JSON rather than plain text
 
 ### Requirement: Described request bodies
 The API description SHALL describe each request body as the server accepts it, including which fields accept `null`. Field descriptions SHALL state the real defaults, such as an absent `cwd` on a split taking the split pane's current directory.
 
 #### Scenario: Nullable fields in the description
-- **WHEN** a developer constructs and serializes the API description and reads the bodies of `PATCH /api/v0/tabs/{id}` and `PATCH /api/v0/panes/{id}`
+- **WHEN** a developer constructs and serializes the API description and reads the bodies of `PATCH /api/tabs/{id}` and `PATCH /api/panes/{id}`
 - **THEN** `name` and `zoomed` are marked as accepting `null`, and `right_click_passthrough`, `exit_behavior` and `scrollback_bytes` are not

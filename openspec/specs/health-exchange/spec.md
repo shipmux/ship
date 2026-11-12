@@ -174,7 +174,7 @@ The server SHALL answer a request only when its host, from the HTTP/2 authority 
 - **THEN** the server responds 403 with `.type.kind` equal to `forbidden` and the route doesn't run
 
 #### Scenario: Browser request to the loopback address
-- **WHEN** a request to `/api/v0/server/stop` carries `Host: localhost` and `Origin: https://attacker.example`
+- **WHEN** a request to `/api/server/stop` carries `Host: localhost` and `Origin: https://attacker.example`
 - **THEN** the server responds 403 and keeps running
 
 #### Scenario: SSH tunnel
@@ -304,14 +304,14 @@ Health requests SHALL refuse redirects. Diagnostics SHALL identify a target by i
 - **THEN** the client reports request failure without following the redirect
 
 ### Requirement: Restart across protocols
-`ship server status` and `ship server stop` SHALL check the service and accept a Ship server of any protocol version, so the restart the mismatch error gives always works. In every protocol version, GET `/health` SHALL keep `service`, `protocol_version`, `version`, `log` and `socket` with their types, and MAY add fields, and POST `/api/v0/server/stop` SHALL take no body and answer 202.
+`ship server status` and `ship server stop` SHALL check the service and accept a Ship server of any protocol version, so the restart the mismatch error gives always works. GET `/health` and POST `/api/server/stop` SHALL be kept as stable as the rest of the API: a change to either SHALL have a stated reason, given in the release notes.
 
 #### Scenario: Status of an older server
-- **WHEN** a client speaking protocol 23 runs `ship server status` against a Ship server speaking protocol 22
-- **THEN** it prints that server's health with `"protocol_version":22` and exits 0
+- **WHEN** a client speaking protocol 25 runs `ship server status` against a Ship server speaking protocol 24
+- **THEN** it prints that server's health with `"protocol_version":24` and exits 0
 
 #### Scenario: Stop an older server
-- **WHEN** a client speaking protocol 23 runs `ship server stop` against a Ship server speaking protocol 22
+- **WHEN** a client speaking protocol 25 runs `ship server stop` against a Ship server speaking protocol 24
 - **THEN** the server shuts down and the command exits 0
 
 ### Requirement: Current-client health preflight

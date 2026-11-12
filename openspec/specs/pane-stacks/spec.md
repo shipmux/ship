@@ -21,7 +21,7 @@ A slot's size SHALL come from the layout alone. The front pane's terminal SHALL 
 - **THEN** `A` is shown at the slot's new size
 
 ### Requirement: Slot layout shape
-`ship tab get`, `GET /api/v0/tabs` and every other layout output SHALL show each leaf as `{"kind": "slot", "panes": [...]}`, front first.
+`ship tab get`, `GET /api/tabs` and every other layout output SHALL show each leaf as `{"kind": "slot", "panes": [...]}`, front first.
 
 #### Scenario: Read a stack back
 - **WHEN** a slot holds `[X, A, B]` and a user runs `ship tab get`
@@ -39,7 +39,7 @@ A slot's size SHALL come from the layout alone. The front pane's terminal SHALL 
 - **THEN** the new pane is stacked in front of the largest pane's slot
 
 ### Requirement: Cycling a stack
-`ship pane cycle --pane X --direction next|prev`, `server.pane.cycle = { direction = "next" | "prev" }` and `POST /api/v0/panes/{id}/cycle` with `{"direction": "next" | "prev"}` SHALL rotate `X`'s slot one step and answer with the tab. `direction` SHALL be required. `next` SHALL turn `[X, A, B]` into `[A, B, X]` and `prev` SHALL turn it into `[B, X, A]`. Cycling a slot with one pane SHALL change nothing and succeed. The pane SHALL default like other pane commands.
+`ship pane cycle --pane X --direction next|prev`, `server.pane.cycle = { direction = "next" | "prev" }` and `POST /api/panes/{id}/cycle` with `{"direction": "next" | "prev"}` SHALL rotate `X`'s slot one step and answer with the tab. `direction` SHALL be required. `next` SHALL turn `[X, A, B]` into `[A, B, X]` and `prev` SHALL turn it into `[B, X, A]`. Cycling a slot with one pane SHALL change nothing and succeed. The pane SHALL default like other pane commands.
 
 #### Scenario: Next and previous
 - **WHEN** a slot holds `[X, A, B]` and a user runs `ship pane cycle --pane X --direction next`, then `ship pane cycle --pane A --direction prev`
@@ -106,10 +106,10 @@ If any client has the moved pane selected and the destination tab's zoom would h
 - **THEN** Z remains zoomed and X is in front of Y's slot
 
 ### Requirement: Move requests
-`POST /api/v0/panes/{id}/move` SHALL take `{"at": <pane>, "place": "stack" | {"split": "right" | "down"}}`, with no default for `place`, and answer with the destination tab. The CLI SHALL require exactly one of `--onto` and `--beside`, and `--direction` only with `--beside`.
+`POST /api/panes/{id}/move` SHALL take `{"at": <pane>, "place": "stack" | {"split": "right" | "down"}}`, with no default for `place`, and answer with the destination tab. The CLI SHALL require exactly one of `--onto` and `--beside`, and `--direction` only with `--beside`.
 
 #### Scenario: Move over HTTP
-- **WHEN** a caller sends `POST /api/v0/panes/<x>/move` with `{"at": "<y>", "place": {"split": "down"}}`
+- **WHEN** a caller sends `POST /api/panes/<x>/move` with `{"at": "<y>", "place": {"split": "down"}}`
 - **THEN** `<x>` sits alone in a new slot below `<y>`'s slot, and the response is `<y>`'s tab
 
 #### Scenario: Both destinations

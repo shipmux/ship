@@ -36,7 +36,7 @@ The saved file SHALL be readable and writable only by the server's user, mode `0
 - **THEN** the file is mode `0600` and its `tabs` directory mode `0700`
 
 ### Requirement: Saved file format
-The saved file SHALL hold pretty-printed JSON in the shape `ship tab list` prints, with each pane's `cwd` set to its saved directory, `command` empty, `status` running, and `dir`, `title`, `tags` and tab `geometry` absent. Loading SHALL ignore `command`, `status`, `dir`, `title`, `tags` and `geometry`, so `ship tab list` output is a valid saved file.
+The saved file SHALL hold pretty-printed JSON in the shape `ship tab list` prints, with each pane's `cwd` set to its saved directory, `command` empty, `process` running, and `dir`, `title`, `tags` and tab `geometry` absent. Loading SHALL ignore `command`, `process`, `dir`, `title`, `tags` and `geometry`, so `ship tab list` output is a valid saved file. A file that names the process state `status`, as files saved before protocol 24 do, SHALL load the same way.
 
 #### Scenario: Hand-written file
 - **WHEN** a user saves `ship tab list` output as the server name's saved file and starts the server

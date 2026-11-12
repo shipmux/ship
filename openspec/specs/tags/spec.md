@@ -103,7 +103,7 @@ Tags SHALL NOT be settable from `server.pane.set` or `server.tab.set` in the con
 - **THEN** it reports the unknown field with its line and column and exits 1
 
 ### Requirement: Setting tags over HTTP
-`PATCH /api/v0/tabs/{id}` and `PATCH /api/v0/panes/{id}` SHALL accept `tags` as a JSON Merge Patch (RFC 7396): a name left out SHALL stay as it is, a tag object SHALL set that name, `null` SHALL remove it, and `"tags": null` SHALL remove every tag.
+`PATCH /api/tabs/{id}` and `PATCH /api/panes/{id}` SHALL accept `tags` as a JSON Merge Patch (RFC 7396): a name left out SHALL stay as it is, a tag object SHALL set that name, `null` SHALL remove it, and `"tags": null` SHALL remove every tag.
 
 #### Scenario: Patch one tag among several
 - **WHEN** a pane has `a` and `b`, and a caller patches it with `{"tags": {"b": null, "c": {"value": "3"}}}`

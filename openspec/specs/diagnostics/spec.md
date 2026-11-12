@@ -94,7 +94,7 @@ By default Ship's crates SHALL log at info and dependencies at warn. `SHIP_LOG=<
 - **THEN** it exits 1 with an error listing the accepted levels and serves nothing
 
 ### Requirement: Show the server's filter
-`ship server log` SHALL print the running server's log filter as one JSON line with `active`, `startup` and `file`, the path of the part being written. `GET /api/v0/server/log` SHALL return the same JSON. Like `ship server status`, it SHALL never start a server.
+`ship server log` SHALL print the running server's log filter as one JSON line with `active`, `startup` and `file`, the path of the part being written. `GET /api/server/log` SHALL return the same JSON. Like `ship server status`, it SHALL never start a server.
 
 #### Scenario: Show
 - **WHEN** a user runs `ship server log` against a server started with default settings
@@ -112,7 +112,7 @@ By default Ship's crates SHALL log at info and dependencies at warn. `SHIP_LOG=<
 - **THEN** the command is rejected before contacting the server
 
 ### Requirement: Invalid filter changes nothing
-An invalid level or filter SHALL fail and leave the active filter unchanged. `PUT /api/v0/server/log` SHALL take `{"set": "<filter>"}` or `"reset"`, return the resulting filter, and answer 422 with the filter's error when the filter is invalid.
+An invalid level or filter SHALL fail and leave the active filter unchanged. `PUT /api/server/log` SHALL take `{"set": "<filter>"}` or `"reset"`, return the resulting filter, and answer 422 with the filter's error when the filter is invalid.
 
 #### Scenario: Bad filter
 - **WHEN** a user runs `ship server log --filter 'ship=['`

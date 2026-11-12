@@ -221,7 +221,7 @@ On `send --wait`, the outermost error's `message` SHALL be exactly `nothing was 
 - **THEN** the last line on stderr has `.message` equal to `nothing was sent` and the exit status is 1
 
 ### Requirement: Input without an attachment
-`POST /api/v0/attach/input` SHALL accept a request without the `x-ship-attachment-id` header and route its key and paste frames as it does with one. A body holding a mouse frame SHALL get 422, and none of its frames SHALL be routed.
+`POST /api/attach/input` SHALL accept a request without the `x-ship-attachment-id` header and route its key and paste frames as it does with one. A body holding a mouse frame SHALL get 422, and none of its frames SHALL be routed.
 
 #### Scenario: Headerless keys and paste
 - **WHEN** a caller posts a paste frame and a key frame for a pane without the attachment header
@@ -243,7 +243,7 @@ With the `x-ship-attachment-id` header, an unknown attachment SHALL get 404 with
 - **THEN** the response is 400 and nothing is routed
 
 ### Requirement: Input body
-`POST /api/v0/attach/input` SHALL take an `application/json` body `{"frames": [...]}`, holding input frames in the order they should reach their panes. It SHALL answer 204 once every frame is routed. Unknown fields SHALL be ignored. A frame for a removed pane SHALL be dropped, and the frames around it SHALL still be routed.
+`POST /api/attach/input` SHALL take an `application/json` body `{"frames": [...]}`, holding input frames in the order they should reach their panes. It SHALL answer 204 once every frame is routed. Unknown fields SHALL be ignored. A frame for a removed pane SHALL be dropped, and the frames around it SHALL still be routed.
 
 #### Scenario: Several frames in one body
 - **WHEN** a caller posts a paste frame and two key frames for a pane in one body

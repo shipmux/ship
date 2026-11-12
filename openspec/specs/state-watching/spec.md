@@ -7,7 +7,7 @@ Let a script or plugin follow a server's state without polling, by printing the 
 ## Requirements
 
 ### Requirement: Watch output
-`ship watch` SHALL print a first JSON line holding the server's `protocol_version`, then every event of its attach stream as one JSON line, unchanged from what attached clients receive: `attached` with the first state at `data.replica`, then `state` with each later state at `data`, then `ended`. Each line SHALL be written as soon as its event arrives, so a reader on a pipe sees it without waiting for more output.
+`ship watch` SHALL print a first JSON line holding the server's `protocol_version`, then every event of its attach stream as one JSON line, exactly as the server sent it, including event types `watch` doesn't know: `attached` with the first state at `data.replica`, then `state` with each later state at `data`, then `ended`. Each line SHALL be written as soon as its event arrives, so a reader on a pipe sees it without waiting for more output.
 
 #### Scenario: Follow a rename
 - **WHEN** a user runs `ship watch | jq -c .` and renames a tab from another terminal
@@ -16,6 +16,10 @@ Let a script or plugin follow a server's state without polling, by printing the 
 #### Scenario: Tags in the stream
 - **WHEN** a script sets a tag on a pane while `ship watch` runs
 - **THEN** the next `state` line shows the pane with that tag
+
+#### Scenario: Event type from a newer server
+- **WHEN** a server sends an event whose type this `ship watch` doesn't know
+- **THEN** `watch` prints that line byte for byte and keeps running
 
 ### Requirement: Watch feeds
 `ship watch` SHALL accept `--feed latest` and `--feed every`, defaulting to `latest`. With `latest`, each line SHALL hold the newest state at the time it is sent, and states in between may be skipped. With `every`, it SHALL print every state after the first in revision order.
@@ -36,7 +40,7 @@ Let a script or plugin follow a server's state without polling, by printing the 
 - **THEN** no line holds screen rows or clipboard text, and every client's view and pane sizes stay as they were
 
 ### Requirement: Watch ending
-When its stream ends, because the server shuts down or an `every` feed falls too far behind, `ship watch` SHALL print the stream's `ended` line, which holds the reason, and exit with a non-zero status. A stream that stops without `ended` SHALL fail as a network error. A reader closing `watch`'s output SHALL end it with a zero status.
+When its stream ends, `ship watch` SHALL exit with a non-zero status. The server sends `ended`, which holds the reason, as the last line before it closes the stream, and `watch` prints it like any other line. A stream that stops without `ended` SHALL also exit non-zero. A reader closing `watch`'s output SHALL end it with a zero status.
 
 #### Scenario: Server stops
 - **WHEN** `ship watch` runs and the user runs `ship server stop`
@@ -48,7 +52,7 @@ When its stream ends, because the server shuts down or an `every` feed falls too
 
 #### Scenario: Cut stream
 - **WHEN** the server is killed while `ship watch` runs
-- **THEN** it fails with a `network` error and exits non-zero
+- **THEN** it exits non-zero
 
 #### Scenario: Reader stops early
 - **WHEN** a user runs `ship watch | head -1`
