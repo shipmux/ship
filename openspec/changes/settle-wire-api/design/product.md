@@ -1,6 +1,6 @@
 # Settle the wire API: product
 
-Status: Locked on 2026-11-11 (Plannotator, "LGTM").
+Status: Locked on 2026-11-11 (Plannotator, "LGTM"), amended through A-1.
 
 ## Summary
 
@@ -58,16 +58,18 @@ Given a client attached to a server, when an event fails to decode and the serve
 
 Tested by swapping the server for one on another protocol while a client is attached.
 
-### P4: A mistyped request field fails loudly
+### ~~P4: A mistyped request field fails loudly~~ (A-1)
+
+Dropped in A-1: request bodies keep ignoring unknown fields, as today. See Non-goals.
 
 ```console
 $ curl --unix-socket "$SOCK" -X PATCH http://localhost/api/panes/$P -d '{"nmae":"x"}'
 400 {"type":{"kind":"validation"},…,"data":{"errors":[{"pointer":"/nmae","detail":"unknown field `nmae`, …"}]}}
 ```
 
-Given any request body, when it has a field the server doesn't know, then the server answers 400 `validation` with the field's pointer and changes nothing. Today `PATCH /api/v0/panes/{id}` with `{"nmae":"x"}` answers 200 and does nothing (`crates/ship-core/src/protocol.rs:251-266`). A newer client sending a new field to an older server gets the same 400 rather than a silent no-op.
+~~Given any request body, when it has a field the server doesn't know, then the server answers 400 `validation` with the field's pointer and changes nothing. Today `PATCH /api/v0/panes/{id}` with `{"nmae":"x"}` answers 200 and does nothing (`crates/ship-core/src/protocol.rs:251-266`). A newer client sending a new field to an older server gets the same 400 rather than a silent no-op.~~ (A-1)
 
-Tested per body type with one unknown field.
+~~Tested per body type with one unknown field.~~ (A-1)
 
 ### P5: Scripts read one meaning of "status"
 
@@ -120,6 +122,7 @@ Tested by reading a running pane, an exited pane and the CLI wait flags.
 - Serving more than one protocol from one server, or keeping old paths as aliases.
 - Any guarantee for the saved-tabs file. A file that doesn't parse leaves the server starting empty, as today (`crates/ship-server/src/saver.rs:44-68`).
 - A special freeze on `/health` or the stop route. They are as stable as the rest of the API: kept unless there's a good reason, and a break is called out.
+- Rejecting unknown request fields (A-1). Bodies keep ignoring them, as `session-structure`'s Unknown request fields already says. Strict bodies break the dumb pipe: a script that reads a pane, edits it with `jq` and sends it back, or copies a pane's settings into `{"pane": …}`, would have to pick out the fields first. Ignoring unknown fields is also the common default (GitHub, Docker and most servers built on Go's `encoding/json` or serde), where Stripe and Kubernetes' opt-in strict field validation are the deliberate exceptions. The surfaces people type into, the CLI's flags and the config files, already reject unknown names, so typos left silent are those in hand-written JSON. The cost: a new field in an existing request body is silently dropped by an older server, so it needs a protocol bump when that would misbehave, per the AGENTS.md rule. A schema check in `ship api` (#113) can catch typos on the client later, without the server taking a side.
 - Tolerating unknown values in enums whose meaning changes what the client draws (`Layout`, the process state, `Attr`, `CursorShape`, `BlockedKind`). A new value there is a bump.
 
 ## Functional requirements
@@ -129,7 +132,7 @@ Tested by reading a running pane, an exited pane and the CLI wait flags.
 - **FR-003** A client SHALL treat an `ended` reason it doesn't know as a stream to reconnect, not as a shutdown.
 - **FR-004** A client SHALL show a `program` record whose `state` it doesn't know like a pane without that record.
 - **FR-005** When an attach event still fails to decode, the full client SHALL check `/health`. If the server's protocol differs, it SHALL exit with the existing mismatch message. Otherwise it SHALL reconnect with growing backoff.
-- **FR-006** Every request body SHALL be rejected with 400 `validation` when it contains a field the server doesn't know, naming the field's JSON pointer, and SHALL change nothing.
+- ~~**FR-006** Every request body SHALL be rejected with 400 `validation` when it contains a field the server doesn't know, naming the field's JSON pointer, and SHALL change nothing.~~ (A-1) Dropped: request bodies keep ignoring unknown fields.
 - **FR-007** Pane JSON SHALL carry the program's lifecycle as `process`, with the shape `status` has today, and SHALL NOT carry `status`.
 - **FR-008** Every HTTP route under `/api/v0/` SHALL move to `/api/` with the same method, body and answer. `/health` SHALL stay where it is.
 - **FR-009** `ship server status` and `ship server stop` SHALL keep accepting a server of any protocol, as today. The spec's requirement that `/health` and the stop route never change SHALL become "kept stable like the rest of the API".
@@ -142,7 +145,7 @@ Tested by reading a running pane, an exited pane and the CLI wait flags.
 - **SC-001** A client fed an attach stream with an unknown event type, an unknown `ended` reason and an unknown reported state keeps its screen, reconnects once on the `ended`, and draws the pane like one without a report.
 - **SC-002** `ship watch` against that stream prints every line byte for byte.
 - **SC-003** With a client attached, replacing the server by one on another protocol makes the client exit with the mismatch message within one reconnect, with no repeated attaches in the server log.
-- **SC-004** `PATCH /api/panes/{id}` with `{"nmae":"x"}` answers 400 with pointer `/nmae`, and the pane is unchanged. Every other request body type behaves the same with one unknown field.
+- ~~**SC-004** `PATCH /api/panes/{id}` with `{"nmae":"x"}` answers 400 with pointer `/nmae`, and the pane is unchanged. Every other request body type behaves the same with one unknown field.~~ (A-1) Dropped with FR-006.
 - **SC-005** `ship pane get` prints `process` and no `status`. `ship pane wait --status exited` still ends when the program exits.
 - **SC-006** No path in `crates/`, `docs/site/`, `openspec/specs/` or `examples/` still contains `/api/v0`.
 - **SC-007** Code that exists only for compatibility (FR-001 to FR-005) adds at most tens of implementation lines.
@@ -152,3 +155,7 @@ Tested by reading a running pane, an exited pane and the CLI wait flags.
 None.
 
 ## Amendments
+
+### A-1 (2026-11-11): request bodies stay lenient
+
+Dropped P4, FR-006 and SC-004 and added the reasoning under Non-goals. Strict bodies would force get, edit, send-back scripts to pick fields, and ignoring unknown fields is what most HTTP APIs do. Approved in chat: "i feel like keeping it dumb is what most http endpoints do for the most part too, right? … it's friendlier?", then "fair enough". Touches P4, FR-006, SC-004, Non-goals.

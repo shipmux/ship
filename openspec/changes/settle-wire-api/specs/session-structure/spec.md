@@ -14,22 +14,18 @@ The tab, pane and attachment HTTP routes SHALL be served under `/api` and SHALL 
 - **THEN** it receives 404
 
 ### Requirement: Unknown request fields
-A JSON request body with a field the server doesn't know, at any depth, SHALL get 400 `validation` with an entry whose `pointer` names that field, and SHALL change nothing. Tagged enums SHALL retain serde's tag structure. Known fields SHALL still use their declared types, required values and nullability. Query strings follow Query string validation instead.
+JSON request structs SHALL ignore unknown fields. Tagged enums SHALL retain serde's tag structure. Known fields SHALL still use their declared types, required values and nullability.
 
 #### Scenario: Extra field in a request struct
 - **WHEN** a caller sends `PATCH /api/panes/{id}` with only an extra `colour` field
-- **THEN** it receives 400 `validation` with an entry whose pointer is `/colour`, the pane is unchanged and the revision stays the same
-
-#### Scenario: Extra field in a nested object
-- **WHEN** a caller sends `POST /api/panes` with `{"at": {"tab": "<t>"}, "pane": {"cwd": "/tmp", "colour": "red"}}`
-- **THEN** it receives 400 `validation` with an entry whose pointer is `/pane/colour`, and no pane is created
+- **THEN** the field is ignored, the pane is unchanged and the revision stays the same
 
 #### Scenario: Externally tagged enum structure
 - **WHEN** a caller sends `PUT /api/server/log` with `{"set": "info", "extra": true}`
 - **THEN** it receives 400 `validation`, because an externally tagged enum's object must have exactly one entry
 
 ### Requirement: JSON names
-Every JSON object key and string value Ship reads or writes SHALL be snake case: HTTP request and response bodies, attach stream messages, CLI stdout, error lines and the saved tabs file. A name that the config file or a key-binding action shares with JSON SHALL be spelled the same in both. CLI flags SHALL spell the same words in kebab case. Ship SHALL NOT read camel case keys: one is an unknown field, rejected as Unknown request fields describes.
+Every JSON object key and string value Ship reads or writes SHALL be snake case: HTTP request and response bodies, attach stream messages, CLI stdout, error lines and the saved tabs file. A name that the config file or a key-binding action shares with JSON SHALL be spelled the same in both. CLI flags SHALL spell the same words in kebab case. Ship SHALL NOT read camel case keys: one is an unknown field, ignored as Unknown request fields describes.
 
 #### Scenario: One spelling for a setting
 - **WHEN** the config sets `[server.defaults.pane] right_click_passthrough = true` and a script runs `ship pane create` and then `ship pane get`
@@ -37,18 +33,11 @@ Every JSON object key and string value Ship reads or writes SHALL be snake case:
 
 #### Scenario: Camel case key over HTTP
 - **WHEN** a caller sends `PATCH /api/panes/{id}` with `{ "exitBehavior": "keep" }`
-- **THEN** it receives 400 `validation` with an entry whose pointer is `/exitBehavior`, the pane keeps its exit behavior and the revision stays the same
+- **THEN** the key is ignored, the pane keeps its exit behavior and the revision stays the same
 
 #### Scenario: Multi-word values
 - **WHEN** a server shuts down while a client is attached, and a pane shows struck-through text
 - **THEN** the stream ends with `"reason": "server_shutdown"`, and the text's run lists `crossed_out` in `attrs`
-
-### Requirement: HTTP set results
-Both HTTP set routes SHALL return the entity. A body with an unknown field SHALL be rejected as Unknown request fields describes, and SHALL change nothing.
-
-#### Scenario: HTTP set response
-- **WHEN** a caller patches a tab or pane with known fields
-- **THEN** the route applies them and returns the entity
 
 ### Requirement: Create request bodies
 `POST /api/panes` SHALL take `{ "at", "place"?, "select"?, "pane"? }` and `POST /api/tabs` SHALL take `{ "at"?, "starter"?, "select"?, "tab"? }`. The request's own fields SHALL sit at the top level, and the new entity's fields SHALL sit under `pane` or `tab`, using the entity's names. An absent `at` on `POST /api/tabs` SHALL mean the end of the top level.
@@ -59,7 +48,7 @@ Both HTTP set routes SHALL return the entity. A body with an unknown field SHALL
 
 #### Scenario: Entity field at the top level
 - **WHEN** a caller sends `POST /api/panes` with `{"at": {"tab": "<t>"}, "cwd": "/tmp"}`
-- **THEN** it receives 400 `validation` with an entry whose pointer is `/cwd`, and no pane is created; only `pane.cwd` sets a starting directory
+- **THEN** the top-level `cwd` is ignored and the pane is created using the normal directory default; only `pane.cwd` sets its starting directory
 
 #### Scenario: Create a named tab
 - **WHEN** a caller sends `POST /api/tabs` with `{"tab": {"name": "notes"}}`
@@ -69,8 +58,8 @@ Both HTTP set routes SHALL return the entity. A body with an unknown field SHALL
 A body that doesn't decode SHALL get 400 `validation`, with `data.errors` listing every problem found, each with `detail` and, where it has a location, a JSON Pointer `pointer`. A request that fails validation SHALL change nothing. A body sent without `Content-Type: application/json` SHALL get 400 `validation` with one entry.
 
 #### Scenario: Four mistakes at once
-- **WHEN** a caller sends `POST /api/panes` with `{"place": "up", "pane": {"exit_behavior": "linger", "scrollback_bytes": "lots"}}`
-- **THEN** one 400 `validation` response lists the missing `at`, the bad `place`, `linger` and `lots`, each with its pointer, and no pane is created
+- **WHEN** a caller sends `POST /api/panes` with `{"place": "up", "pane": {"exit_behavior": "linger", "scrollback_bytes": "lots", "exitBehavior": "keep"}}`
+- **THEN** one 400 `validation` response lists the missing `at`, the bad `place`, `linger` and `lots`, each with its pointer, ignoring `exitBehavior`, and no pane is created
 
 #### Scenario: Not JSON
 - **WHEN** a caller sends a body that isn't valid JSON

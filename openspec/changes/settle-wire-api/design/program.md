@@ -1,6 +1,6 @@
 # Settle the wire API: program
 
-Status: Locked on 2026-11-11 (Plannotator, "LGTM", with the four slices merged into two as asked in review).
+Status: Locked on 2026-11-11 (Plannotator, "LGTM", with the four slices merged into two as asked in review), amended through A-1.
 
 ## Summary
 
@@ -13,7 +13,7 @@ pub async fn attach(&self, request: &AttachRequest)       -> Result<impl Stream<
 while let Some(line) = lines.next().await { writeln!(out, "{}", line?)?; }
 ```
 
-There are two slices. The first settles the shapes: renames, the protocol bump and strict bodies. The second makes the client tolerant: one decoder that skips unknown types, watch as a pipe, and a `/health` check on reattach. This paper is a document-only plan: nothing below exists as source yet, and none of it has been compiled.
+There are two slices. The first settles the shapes: renames and the protocol bump~~, and strict bodies~~ (A-1). The second makes the client tolerant: one decoder that skips unknown types, watch as a pipe, and a `/health` check on reattach. This paper is a document-only plan: nothing below exists as source yet, and none of it has been compiled.
 
 ## Rationale
 
@@ -23,7 +23,7 @@ Architecture shape A (`architecture.md`, Decision) maps onto the code like this:
 - **`Client::attach`** keeps its signature, so the UI (`ui/connection.rs`) and automation (`automation.rs:291-330`) callers don't change. It maps each line through one `decode` function, which skips a line only when its `type` names no `SseEvent` variant.
 - **`SseKind`** is derived from `SseEvent` with strum's `EnumDiscriminants`, so the list of known names can't drift from the enum. strum is already used in ship-core for `IntoStaticStr` (`model.rs:131`).
 - **watch** reads `attach_lines` through a new `Client::observe_lines`, the raw sibling of `observe` (`automation.rs:221`). Both build the same observer request through one private function.
-- **Strict bodies** use `#[serde(deny_unknown_fields)]`, the attribute `RunCommand` already carries (`protocol.rs:84`). `body::decode` doesn't change.
+- ~~**Strict bodies** use `#[serde(deny_unknown_fields)]`, the attribute `RunCommand` already carries (`protocol.rs:84`). `body::decode` doesn't change.~~ (A-1) Request bodies stay lenient.
 - **Reattach** checks `/health` inside the reattach future. On a mismatch, the client exits through the error path main already uses for this, `err!(Validation, "{}", updates::mismatch(..))` (`crates/ship/src/main.rs:106`).
 
 Patterns reused: `err!` and `.context` for errors, `serde_with` attributes on model fields (`tag.rs:251` uses `serde_as` the same way), `#[serde(default, ...)]` field style, and `Link` variants for anything the connection reports to the loop.
@@ -71,11 +71,7 @@ None. Every change lands in an existing file.
 -/// `POST /api/v0/runs`: …      (and the other path in a doc comment)
 +/// `POST /api/runs`: …
 
-+// strict: each request-only struct gains the attribute RunCommand has
-+#[serde(deny_unknown_fields)]
- pub struct AttachRequest | ViewInput | SelectView | InputBody | KeyInput | PasteInput
-          | MouseInput | CreateTab | NewTab | CreatePane | NewPane | CyclePane | MovePane
-          | MoveTabBody | SetTab | SetPane | SwapPane | ResizePane | ScrollPane
+// (A-1) dropped: #[serde(deny_unknown_fields)] on the 19 request-only structs
 
 +#[derive(strum::EnumDiscriminants)]
 +#[strum_discriminants(name(SseKind), derive(strum::EnumString), strum(serialize_all = "snake_case"))]
@@ -91,17 +87,9 @@ None. Every change lands in an existing file.
  }
 ```
 
-`LogChange`, `PaneAt`, `Place` and `MoveTab` are externally tagged enums and already reject extra keys. `InputFrame` is internally tagged, so its strictness comes from the three input structs.
+~~`LogChange`, `PaneAt`, `Place` and `MoveTab` are externally tagged enums and already reject extra keys. `InputFrame` is internally tagged, so its strictness comes from the three input structs.~~ (A-1)
 
-**`crates/ship-core/src/screen.rs`** (slice 1)
-
-```diff
- /// Terminal size in cells. Also the viewer size and tab size.
-+/// Lenient on purpose: clients also read it from screens, so an added
-+/// field must not break an older client. A typo still fails: both fields
-+/// are required.
- pub struct Size { pub cols: u16, pub rows: u16 }
-```
+~~**`crates/ship-core/src/screen.rs`** (slice 1): a comment on `Size` saying why it stays lenient.~~ (A-1) Untouched: with every body lenient, `Size` is no exception.
 
 **`crates/ship-client/src/api.rs`** (slices 1 and 2)
 
@@ -215,7 +203,7 @@ None.
 
 ### Untouched
 
-- `body::decode` (`crates/ship-server/src/body.rs:76-99`). Strictness lives on the types.
+- ~~`body::decode` (`crates/ship-server/src/body.rs:76-99`). Strictness lives on the types.~~ (A-1) `crates/ship-server/src/body.rs`, and every request body type.
 - `ReportedState`, `BlockedKind`, `Layout`, `Attr`, `CursorShape`: no new variants.
 - `ship pane wait --status` and `send --if`: `WaitState` and its `From<ReportedState>` stay as they are (D-3).
 - Server-side status records (`records.rs`). The server never produces a record it can't read.
@@ -227,16 +215,16 @@ None.
 - **D-1: rename the type `PaneStatus` → `ProcessState`.** The field becomes `process`, and the glossary term is Process state. The type name also shows up as the OpenAPI component name. It touches about 20 lines, all mechanical. Recommend yes, so the code, the schema and the glossary use one name.
 - **D-2: `#[serde(alias = "status")]` on `process`.** Without it, every saved tabs file written before this release fails to parse (`process` is missing), and the server starts empty after the upgrade. The saver ignores the value anyway (`saver.rs:91`). It's one line of compatibility code, the cheap 80%. Recommend yes; it can go once nobody has an old file.
 - **D-3: FR-004 through `MapSkipError` on `program`, not `ReportedState::Unknown`.** This changes the locked architecture (Structure; Key decision 4). Every client read of a record goes through `Pane::root_status` (`automation.rs:185,358,375,414`, `agents.rs:66,100`, `attention.rs:214`). An `Unknown` variant would need an arm at each exhaustive match, and `WaitState::from` (`command.rs:586`) would have to become fallible. On top of that, `NotWorking` would match an unknown state (`automation.rs:419`), which contradicts "like no record". Skipping the record when decoding is exactly "like no record", costs one attribute, and serde_with 3.24 (already a dependency) supports it for `IndexMap`. As a side effect, a record with an unknown `kind` is also dropped rather than failing the whole event. Recommend yes, as amendment A-1 to the architecture paper.
-- **D-4: verify strict bodies with a temporary probe, not a permanent test.** The architecture paper says "A test sends an unknown field to every route", but Ship has no authored tests, and `docs/agents/code.md` says to verify with probes and propose a permanent test only after something turns out flaky. Recommend a throwaway script (curl over the socket, one unknown field per route) run in slice 1, with its output kept as evidence. That makes the same A-1 amendment cover decision 3's wording.
+- ~~**D-4: verify strict bodies with a temporary probe, not a permanent test.** The architecture paper says "A test sends an unknown field to every route", but Ship has no authored tests, and `docs/agents/code.md` says to verify with probes and propose a permanent test only after something turns out flaky. Recommend a throwaway script (curl over the socket, one unknown field per route) run in slice 1, with its output kept as evidence. That makes the same A-1 amendment cover decision 3's wording.~~ (A-1) Moot: no strict bodies.
 - **D-5: `#[serde(other, skip_serializing)]` on `EndReason::Unknown`.** utoipa-gen 6.0.1 drops `skip_serializing` variants from the schema (`component/serde.rs:49-50`), so the published schema doesn't list `unknown`. The cost: serializing `Unknown` is an error, and only a client ever holds it. Recommend yes.
 
 ## Build order
 
-1. **Settle the shapes: renames, protocol bump, strict bodies.**
-   Files: `ship-core` `model.rs` (`process`, `ProcessState`, alias), `protocol.rs` (`PROTOCOL_VERSION`, doc paths, 19 `deny_unknown_fields`), `screen.rs` (the `Size` comment); all `/api/v0` and `PaneStatus` sites listed above; docs and examples.
-   Delivers: `ship pane get` prints `process` and no `status`; every route answers under `/api/`; `ship --version` says protocol 24; a saved tabs file from main still restores; an unknown field in any body gets a 400 `validation` with its pointer and changes nothing (FR-006 to FR-011).
+1. **Settle the shapes: renames and protocol bump.** ~~strict bodies~~ (A-1)
+   Files: `ship-core` `model.rs` (`process`, `ProcessState`, alias), `protocol.rs` (`PROTOCOL_VERSION`, doc paths); ~~19 `deny_unknown_fields`; `screen.rs` (the `Size` comment)~~ (A-1); all `/api/v0` and `PaneStatus` sites listed above; docs and examples.
+   Delivers: `ship pane get` prints `process` and no `status`; every route answers under `/api/`; `ship --version` says protocol 24; a saved tabs file from main still restores ~~; an unknown field in any body gets a 400 `validation` with its pointer and changes nothing~~ (A-1) (FR-007 to FR-011).
    Needs: nothing.
-   Checks: `cargo build`, `cargo clippy --all-targets`, `cargo fmt --check`; `rg -n 'api/v0' crates docs/site examples` is empty (SC-006, apart from specs); `ship pane get … | jq -c '{status, process}'` shows `{"status":null,"process":{"state":"running"}}`; `ship pane wait --status exited` still ends on exit (SC-005); restore a saved file written by the main-branch build; the D-4 probe: `PATCH /api/panes/$P` with `{"nmae":"x"}` gets a 400 with pointer `/nmae` and `ship pane get` shows the pane unchanged (SC-004), plus one request per remaining body type; a normal session in the full client (attach, split, type, resize, select), since the client sends most of these bodies.
+   Checks: `cargo build`, `cargo clippy --all-targets`, `cargo fmt --check`; `rg -n 'api/v0' crates docs/site examples` is empty (SC-006, apart from specs); `ship pane get … | jq -c '{status, process}'` shows `{"status":null,"process":{"state":"running"}}`; `ship pane wait --status exited` still ends on exit (SC-005); restore a saved file written by the main-branch build; ~~the D-4 probe: `PATCH /api/panes/$P` with `{"nmae":"x"}` gets a 400 with pointer `/nmae` and `ship pane get` shows the pane unchanged (SC-004), plus one request per remaining body type;~~ (A-1) a normal session in the full client (attach, split, type, resize, select), since the client sends most of these bodies.
 
 2. **Tolerant client: skipping decoder, watch pipe, health on reattach.**
    Files: `protocol.rs` (`SseKind`, `EndReason::Unknown`), `model.rs` (`MapSkipError`), `api.rs`, `automation.rs`, `ui/connection.rs`, `ui/mod.rs`, `ship/src/commands.rs`.
@@ -246,4 +234,10 @@ None.
 
 ## Deviation log
 
-- **2026-11-11, while writing the delta specs (slice 1).** For an unknown field, schema validation reports the error on the parent object, so `explain` would answer pointer `""` rather than `/nmae` (FR-006). `flatten` in `crates/ship-server/src/body.rs:209` gets an `ErrorKind::AdditionalProperties` arm that gives each field its own pointer, mirroring its `Required` arm. `body::decode` itself is unchanged. This fills a gap with an existing pattern and changes no decision.
+- ~~**2026-11-11, while writing the delta specs (slice 1).** For an unknown field, schema validation reports the error on the parent object, so `explain` would answer pointer `""` rather than `/nmae` (FR-006). `flatten` in `crates/ship-server/src/body.rs:209` gets an `ErrorKind::AdditionalProperties` arm that gives each field its own pointer, mirroring its `Required` arm. `body::decode` itself is unchanged. This fills a gap with an existing pattern and changes no decision.~~ (A-1) Moot: unknown fields are ignored, so `body.rs` is untouched.
+
+## Amendments
+
+### A-1 (2026-11-11): request bodies stay lenient
+
+Follows product A-1 and architecture A-2: no `deny_unknown_fields` on request types, no `Size` comment, no `flatten` arm in `body.rs`, and D-4's probe is moot. Slice 1 shrinks to the renames and the protocol bump. Approved in chat: "fair enough". Touches Summary, Rationale, the `protocol.rs` and `screen.rs` entries, Untouched, D-4, slice 1, the deviation log.

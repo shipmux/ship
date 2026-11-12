@@ -1,6 +1,6 @@
 # Settle the wire API: architecture
 
-Status: Locked on 2026-11-11 (Plannotator, "LGTM"), amended through A-1.
+Status: Locked on 2026-11-11 (Plannotator, "LGTM"), amended through A-2.
 
 ## Summary
 
@@ -13,7 +13,7 @@ SSE body ──▶ attach_lines ──▶ ship watch          prints each line a
                   └──▶ pane wait, send --wait
 ```
 
-There's one read path. `ship watch` is a dumb pipe on its raw end and never parses events. Every other consumer gets typed events from a decoder that skips unknown types. Request bodies become strict per type with `deny_unknown_fields`, which `body::decode` already honors. The rest is mechanical: `status` → `process`, and `/api/v0` → `/api`.
+There's one read path. `ship watch` is a dumb pipe on its raw end and never parses events. Every other consumer gets typed events from a decoder that skips unknown types. ~~Request bodies become strict per type with `deny_unknown_fields`, which `body::decode` already honors.~~ (A-2) Request bodies keep ignoring unknown fields. The rest is mechanical: `status` → `process`, and `/api/v0` → `/api`.
 
 ## Context and constraints
 
@@ -70,7 +70,8 @@ ship-core
   EndReason { ServerShutdown, Lost, Unknown }        unknown → reconnect
   ~~ReportedState { …, Unknown }                     unknown → drawn like no record~~ (A-1)
   Pane.program: a record that doesn't decode is left out → drawn like no record
-  request bodies: deny_unknown_fields                Size stays lenient, with a comment
+  ~~request bodies: deny_unknown_fields                Size stays lenient, with a comment~~ (A-2)
+  request bodies: unchanged, unknown fields ignored
   Pane.process (was status)
 
 ship-client
@@ -87,23 +88,40 @@ ship-server
 
 - **`attach_lines`** owns the SSE framing and transport errors. It doesn't know what an event is.
 - **`attach`** owns the meaning of events and the one compatibility rule for them: an unknown type is skipped.
-- **The body types** own their own strictness. The decoder stays generic.
+- ~~**The body types** own their own strictness. The decoder stays generic.~~ (A-2) Request bodies and `body::decode` are unchanged.
 
 ## Key decisions
 
 1. **Unknown event types.** Shape A. Rejected: B (a hand-written `Deserialize` plus an arm at every match) and C (a second parse just for `ended`).
 2. **`/health` on every reattach, not only after a decode error.** A reattach is rare and the check is one small request, and it also catches a server swapped between two reconnects. A differing protocol ends the client with `updates::probe::mismatch`. The backoff now resets on the first event after `Attached`, so a server that attaches and then sends something undecodable doesn't pin reconnects at 250 ms. Rejected: checking only after a decode error, which ties the check to one kind of failure for no saving. Approved in chat: "i agree with 2".
-3. **Strict bodies through `#[serde(deny_unknown_fields)]` on each request-only type**: the 15 lenient bodies plus `NewTab`, `NewPane` and `InputFrame`. utoipa then writes `additionalProperties: false` for them, so the schema matches the server. `Size` stays lenient because the client also reads it from screens: making it strict would turn any new `Size` field into a protocol bump, and a typo inside it already fails as a missing required field. ~~A test sends an unknown field to every route.~~ (A-1) A temporary probe sends an unknown field to every route; no permanent test. Rejected: `serde_ignored` in `body::decode`, which puts the policy in the decoder and leaves the schema looser than the server; and flipping `additionalProperties` in the generated schema, which would also close response schemas through shared components and misbehave under `allOf`. Settled in chat: "A is better just because it's more consistent", and for `Size`, "just leave it lenient then with a comment explaining why".
+3. ~~**Strict bodies through `#[serde(deny_unknown_fields)]` on each request-only type**: the 15 lenient bodies plus `NewTab`, `NewPane` and `InputFrame`. utoipa then writes `additionalProperties: false` for them, so the schema matches the server. `Size` stays lenient because the client also reads it from screens: making it strict would turn any new `Size` field into a protocol bump, and a typo inside it already fails as a missing required field. A temporary probe sends an unknown field to every route; no permanent test. Rejected: `serde_ignored` in `body::decode`, which puts the policy in the decoder and leaves the schema looser than the server; and flipping `additionalProperties` in the generated schema, which would also close response schemas through shared components and misbehave under `allOf`. Settled in chat: "A is better just because it's more consistent", and for `Size`, "just leave it lenient then with a comment explaining why".~~ (A-2)
+
+   **Request bodies stay lenient.** No `deny_unknown_fields` on request types, no change to `body::decode`, `Size` needs no comment. Three shapes were weighed:
+
+   | | strict per type (was chosen) | strict against the entity | lenient (chosen) |
+   | --- | --- | --- | --- |
+   | get, edit, send back | breaks | works | works |
+   | schema matches the server | yes | no, looser | yes |
+   | code | 19 attributes, a `flatten` arm | about 25 lines plus `serde_ignored` | none |
+   | typo in a raw body | 400 | 400 | ignored |
+   | new field sent to an older server | 400 | 400 | dropped |
+
+   "Strict against the entity" ignored keys the entity's `get` output has and refused the rest, which keeps pipes working but puts the policy in the decoder and leaves the schema looser than the server. Lenient keeps the dumb pipe and the matching schema for no code, and matches what most HTTP APIs do. The CLI and config files already catch typos where people type them. Approved in chat: "keeping it dumb is what most http endpoints do … it's friendlier?", then "fair enough".
 4. ~~**Unknown `EndReason` and `ReportedState` values** become an `Unknown` variant via `#[serde(other)]`, which works on these plain enums. `Connection::read` already sends every non-shutdown `ended` to reconnect. `ReportedState::Unknown` is handled at the matches listed in Context.~~ (A-1) **An unknown `EndReason`** becomes `EndReason::Unknown` via `#[serde(other)]`; `Connection::read` already sends every non-shutdown `ended` to reconnect. **An unknown status record** is skipped when `Pane.program` is decoded (`serde_with::MapSkipError`), so every client read through `Pane::root_status` sees no record. Rejected: `ReportedState::Unknown`, which needs an arm at every match, a fallible `WaitState::from`, and would let the default `pane wait` (`automation.rs:419`) end on an unknown state.
 5. **No-choice renames.** `Pane.status` → `Pane.process`, with the type and shape unchanged. `/api/v0/…` → `/api/…` everywhere listed in Context. `PROTOCOL_VERSION` 23 → 24.
 
 ## Risks and unknowns
 
 - ~~**`WaitState::from` is infallible** (`command.rs:586`). An `Unknown` reported state has no `WaitState`, so that conversion has to become fallible or skip. That gets settled in program.md and doesn't change the shape.~~ (A-1) Gone: no `Unknown` state reaches `WaitState`.
-- **A field added to a type the client reads** (`Size`, `Replica`, records) is ignored by serde's default. That's the intended behavior, but only as long as nobody adds `deny_unknown_fields` to a response type. The `Size` comment carries the rule.
+- **A field added to a type the client reads** (`Size`, `Replica`, records) is ignored by serde's default. That's the intended behavior, but only as long as nobody adds `deny_unknown_fields` to a response type. ~~The `Size` comment carries the rule.~~ (A-2)
+- **A new field in an existing request body** is silently dropped by an older server on the same protocol (A-2). When dropping it would misbehave, the change that adds it bumps the protocol, per the AGENTS.md rule. New routes fail loudly with 404 and need nothing.
 - **Anything that changes how the client draws** (`Layout`, `Attr`, `CursorShape`, `BlockedKind`, the process state) still fails to decode on an unknown value. It goes through FR-005 and needs a protocol bump, as the product paper intends.
 
 ## Amendments
+
+### A-2 (2026-11-11): request bodies stay lenient
+
+Product A-1 dropped FR-006, so key decision 3 flips: request bodies keep ignoring unknown fields, and the comparison that led there is recorded in the decision. Approved in chat: "fair enough". Touches Summary, Structure, Key decision 3, Risks.
 
 ### A-1 (2026-11-11): skip unreadable records; probe instead of a test
 

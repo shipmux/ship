@@ -4,14 +4,13 @@ Two groups, one per slice in `design/program.md`. The change ships as one pull r
 
 Verification uses servers on their own names, not any server already running. Each group ends with `cargo fmt --all -- --check` and `cargo clippy --workspace --all-targets -- -D warnings`; the last also runs `openspec validate --all --strict`. Probes are temporary and aren't committed. Record the platform each check ran on; others are unverified.
 
-## 1. Settle the shapes: renames, protocol bump, strict bodies
+## 1. Settle the shapes: renames and protocol bump
 
 - [ ] 1.1 Bump `PROTOCOL_VERSION` to 24, rename `Pane.status` to `process` with `#[serde(alias = "status")]`, and rename `PaneStatus` to `ProcessState` at every use.
 - [ ] 1.2 Move every route and client path from `/api/v0` to `/api`, including doc comments.
-- [ ] 1.3 Add `#[serde(deny_unknown_fields)]` to the 19 request-only types listed in `design/program.md`, add the comment on `Size` explaining why it stays lenient, and give each unknown field its own pointer in `body.rs`'s `flatten`.
-- [ ] 1.4 Update `docs/site/scripting/README.md`, the promise and key-order rule in `docs/site/scripting/writing-a-plugin.md`, the Process state entry in `GLOSSARY.md`, and `protocol=24` in `examples/plugins/git.sh`.
-- [ ] 1.5 Verify `rg -n 'api/v0' crates docs/site examples` is empty, `ship pane get` shows `process` and no `status`, `ship pane wait --status exited` still ends on exit, and a saved file written by the main-branch build restores.
-- [ ] 1.6 Run the unknown-field probe: `PATCH /api/panes/{id}` with `{"nmae":"x"}` answers 400 with pointer `/nmae` and the pane is unchanged, and every other body type refuses one unknown field the same way. Then drive a normal session in the full client: attach, split, type, resize, select.
+- [ ] 1.3 Update `docs/site/scripting/README.md`, the promise and key-order rule in `docs/site/scripting/writing-a-plugin.md`, the Process state entry in `GLOSSARY.md`, and `protocol=24` in `examples/plugins/git.sh`.
+- [ ] 1.4 Verify `rg -n 'api/v0' crates docs/site examples` is empty, `ship pane get` shows `process` and no `status`, `ship pane wait --status exited` still ends on exit, and a saved file written by the main-branch build restores.
+- [ ] 1.5 Drive a normal session in the full client: attach, split, type, resize, select.
 
 ## 2. Tolerant client: skipping decoder, watch pipe, health on reattach
 

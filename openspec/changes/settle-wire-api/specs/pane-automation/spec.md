@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Input body
-`POST /api/attach/input` SHALL take an `application/json` body `{"frames": [...]}`, holding input frames in the order they should reach their panes. It SHALL answer 204 once every frame is routed. A body with an unknown field, in any frame, SHALL be rejected as session-structure's Unknown request fields describes, and no frame SHALL be routed. A frame for a removed pane SHALL be dropped, and the frames around it SHALL still be routed.
+`POST /api/attach/input` SHALL take an `application/json` body `{"frames": [...]}`, holding input frames in the order they should reach their panes. It SHALL answer 204 once every frame is routed. Unknown fields SHALL be ignored. A frame for a removed pane SHALL be dropped, and the frames around it SHALL still be routed.
 
 #### Scenario: Several frames in one body
 - **WHEN** a caller posts a paste frame and two key frames for a pane in one body
@@ -11,7 +11,7 @@
 
 #### Scenario: Unknown field in a frame
 - **WHEN** a caller posts a key frame for a pane and a key frame with an extra `colour` field
-- **THEN** it receives 400 `validation` with an entry whose pointer is `/frames/1/colour`, and the pane receives neither key
+- **THEN** the pane receives both keys, ignores `colour`, and the response is 204
 
 #### Scenario: Large paste
 - **WHEN** `ship pane send -` reads 1 MB of text from stdin
