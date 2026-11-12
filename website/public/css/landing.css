@@ -174,9 +174,6 @@ section[id] {
   font-size: var(--t-lg);
   max-width: 44ch;
 }
-.install-quick {
-  max-width: 620px;
-}
 .install-quick p {
   margin: 12px 0 0;
   font-size: var(--t-md);
@@ -828,6 +825,44 @@ section[id] {
   left: 86%;
   animation-delay: -0.8s !important;
 }
+/* more things adrift (tools/waterline.py): a crate for a pull request nobody read, and the title of one on a plank */
+.f5 {
+  left: 30%;
+  animation-delay: -2.4s !important;
+}
+.f6 {
+  left: 3%;
+  animation-delay: -4.1s !important;
+}
+@media (min-width: 1250px) {
+  .f3 {
+    left: 74%;
+  } /* the dinghy takes the gap at 47%, and its net reaches the buoy's old place at 1250px */
+}
+/* the cook's dinghy: a one-shot beat like the rooms' (a press plays it once, and so does scrolling it into view),
+   with the page's own bob moving the boat. At the surface from 1250px, where the flotsam row has a gap for it. Narrower,
+   the same boat floats under the words, between them and the recording, because the row is full */
+.dinghy {
+  position: absolute;
+  left: 47%;
+  top: calc(14px - 22 * var(--px));
+  width: calc(78 * var(--px));
+  height: calc(38 * var(--px));
+  line-height: 0;
+  pointer-events: auto;
+  animation: bob 5s steps(2) infinite;
+  animation-delay: -2.2s;
+}
+.b-dinghy {
+  --w: 78;
+  --h: 38;
+  --n: 13;
+  --bdt: 0.11s;
+  background-image: url("../art/beat-dinghy.svg");
+}
+.dinghy-flow {
+  display: none;
+}
 @keyframes bob {
   0% {
     transform: translateY(0);
@@ -1023,6 +1058,7 @@ section[id] {
   color: var(--c7);
 }
 .floor {
+  position: relative; /* the background crew stand on the floor's bottom edge (the beam) or hang on its wall */
   display: grid; /* the columns are set below: two from 1100px, then the stacked layouts */
   gap: 48px;
   align-items: start;
@@ -1069,6 +1105,54 @@ section[id] {
   --n: 20;
   --bdt: 0.1s;
   background-image: url("../art/room-hold.svg");
+}
+/* the hold's card scenes (tools/holdscenes.py): the same stage and the same one-shot beat as the rooms above, one at the head
+   of each card. The lantern is a separate loop, so it swings whether or not the beat is playing */
+.r-keys,
+.r-config,
+.r-agents,
+.r-mouse,
+.r-saved {
+  --w: 84;
+  --h: 56;
+}
+.r-keys {
+  --n: 12;
+  --bdt: 0.1s;
+  background-image: url("../art/room-keys.svg");
+}
+.r-config {
+  --n: 14;
+  --bdt: 0.1s;
+  background-image: url("../art/room-config.svg");
+}
+.r-agents {
+  --n: 12;
+  --bdt: 0.11s;
+  background-image: url("../art/room-agents.svg");
+}
+.r-mouse {
+  --n: 16;
+  --bdt: 0.1s;
+  background-image: url("../art/room-mouse.svg");
+}
+.r-saved {
+  --n: 14;
+  --bdt: 0.1s;
+  background-image: url("../art/room-saved-tabs.svg");
+}
+.a-lamp {
+  --w: 13;
+  --h: 15;
+  --n: 10;
+  --dt: 0.5s;
+  position: absolute;
+  left: calc(6 * var(--px));
+  top: calc(1 * var(--px));
+  background-image: url("../art/lantern-sway.svg");
+}
+.a-lamp.r {
+  left: calc(66 * var(--px));
 }
 .floor-text h3 {
   margin: 0 0 12px;
@@ -1364,7 +1448,7 @@ section[id] {
 }
 .hold-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 48px;
   align-items: end;
 }
@@ -1390,6 +1474,25 @@ section[id] {
 .crate-col h3 {
   margin: 0 0 12px;
   color: var(--c11);
+}
+/* a scene at the head of a card. The keys card (its column is the widest) sets its words beside the scene from 1280px */
+.card-room {
+  margin: 0 0 24px;
+}
+@media (min-width: 1280px) {
+  .card-head {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0 36px;
+    align-items: end;
+    margin-bottom: 24px;
+  }
+  .card-head .card-room {
+    margin: 0;
+  }
+  .card-head p:last-child {
+    margin-bottom: 0;
+  }
 }
 .crate-col p {
   color: var(--c7);
@@ -1459,6 +1562,38 @@ section[id] {
   grid-column: 2;
   grid-row: 1 / span 4;
 }
+/* beside each other, the config card is two rows: the scene with the heading and its first paragraph beside it, then the rest of
+   the words beside the code they talk about. The flexible rows take up what the scene and the code are taller than their words */
+@media (min-width: 1200px) {
+  #config {
+    grid-template-rows: 1fr auto auto 1fr;
+  }
+  #config > .card-room {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+  #config > h3 {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+  }
+  #config > h3 + p {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  #config > .term {
+    grid-row: 3 / span 2;
+    margin-top: 16px;
+  }
+  #config > .term + p {
+    grid-row: 3;
+    margin-top: 16px;
+  }
+  #config > .more {
+    grid-row: 4;
+  }
+}
 /* the hold's recordings take the whole width under their words: in a column their terminal text was too small to read */
 #config > .recording,
 .cargo > .wide {
@@ -1484,12 +1619,13 @@ section[id] {
   color: var(--c14);
 }
 /* the way down: a hatch cut in the last beam, a ladder into the hold and a lantern hung from the beam.
-   Wide screens only, where the space beside the heading is free. */
+   Wide screens only, where the space beside the heading is free. They sit --hatch in from the column's right edge, clear of
+   the intro line (which is at most 800px wide, so from 1360px the ladder is well to its right) */
 @media (min-width: 1360px) {
   .below,
   .hold {
     --edge: max(var(--gut), calc(50% - 664px));
-    --roomw: calc(84 * var(--px));
+    --hatch: 60px;
   }
   .beam.last {
     position: relative;
@@ -1501,7 +1637,7 @@ section[id] {
     top: 0;
     height: calc(6 * var(--px));
     width: calc(18 * var(--px));
-    right: calc(var(--edge) + var(--roomw) + 132px - 8px);
+    right: calc(var(--edge) + var(--hatch) + 132px - 8px);
     background: var(--hold);
   }
   .beam.last::after {
@@ -1510,7 +1646,7 @@ section[id] {
     top: 0;
     width: calc(12 * var(--px));
     height: calc(74 * var(--px));
-    right: calc(var(--edge) + var(--roomw) + 132px);
+    right: calc(var(--edge) + var(--hatch) + 132px);
     background: url("../art/ladder.svg") 0 0 / calc(12 * var(--px)) calc(8 * var(--px)) repeat-y;
     image-rendering: pixelated;
   }
@@ -1521,7 +1657,7 @@ section[id] {
     top: 0;
     width: calc(9 * var(--px));
     height: calc(15 * var(--px));
-    right: calc(var(--edge) + var(--roomw) + 44px);
+    right: calc(var(--edge) + var(--hatch) + 44px);
     background: url("../art/lantern.svg") 0 0 / 100% 100%;
     image-rendering: pixelated;
   }
@@ -1532,7 +1668,7 @@ section[id] {
     top: calc(-10 * var(--px));
     width: calc(41 * var(--px));
     height: calc(41 * var(--px));
-    right: calc(var(--edge) + var(--roomw) + 44px - 16 * var(--px));
+    right: calc(var(--edge) + var(--hatch) + 44px - 16 * var(--px));
     background: url("../art/glow.svg") 0 0 / 100% 100%;
     image-rendering: pixelated;
     animation: lamp 5s steps(1) infinite;
@@ -1562,6 +1698,96 @@ section[id] {
 .pile-s {
   right: auto;
   left: 38%;
+}
+/* ---- background crew (tools/backcrew.py): little neutral crewmates at odd jobs in the dark behind the copy, the way the
+   navigator rides the ratlines. Each is an .act loop, so site.js pauses it while it is off screen and, with reduced motion,
+   frame 0 shows. They sit behind the copy, never take a click, and are drawn in the muted grey that ink cannot be on
+   this ground. To drop them, remove this block and the three .bgcrew elements in body.html. */
+.bgcrew {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  line-height: 0;
+}
+/* the hold: a deckhand rolls a barrel to and fro along the floor. The barrel lies on its side and is seen end on, a disc
+   15 art pixels across, and each frame the whole sprite moves 3 art pixels while the disc turns 22.5 degrees: 3 / 7.5
+   radians, so it rolls without slipping. The walk is the same animation clock as the frames (one step a frame), and the
+   sprite turns on the spot at each end. --rs is how many frames each way */
+.a-bgbarrel {
+  --w: 46;
+  --h: 25;
+  --n: 8;
+  --dt: 0.24s;
+  --lag: -0.7s;
+  --rs: 20;
+  background-image: url("../art/crew-bg-barrel.svg");
+  animation:
+    act calc(var(--n) * var(--dt)) steps(var(--n)) var(--lag) infinite,
+    pace calc(var(--rs) * var(--dt) * 2) steps(var(--rs)) var(--lag) infinite;
+}
+@keyframes pace {
+  0% {
+    transform: translateX(0) scaleX(1);
+  }
+  50% {
+    transform: translateX(calc(var(--rs) * 3 * var(--px))) scaleX(1);
+  }
+  50.01% {
+    transform: translateX(calc(var(--rs) * 3 * var(--px))) scaleX(-1);
+  }
+  100% {
+    transform: translateX(0) scaleX(-1);
+  }
+}
+.bg-roll {
+  left: var(--gut);
+  bottom: calc(17 * var(--px));
+} /* the cargo piles' own floor line */
+/* below deck: the lookout asleep in a hammock on the blank wall above a recording, a cook mopping the beam under another */
+.a-bghammock {
+  --w: 56;
+  --h: 32;
+  --n: 12;
+  --dt: 0.5s;
+  --lag: -1.1s;
+  background-image: url("../art/crew-bg-hammock.svg");
+}
+.a-bgmop {
+  --w: 42;
+  --h: 26;
+  --n: 8;
+  --dt: 0.28s;
+  --lag: -0.7s;
+  background-image: url("../art/crew-bg-mop.svg");
+}
+.bg-hammock {
+  right: 60px;
+  top: 36px;
+}
+.bg-mop {
+  right: 86px;
+  bottom: 0;
+}
+/* the walk shortens with the floor it has: the small pile stands at 38% of the width. Below 1100px the floors stack and
+   have no blank wall, and below 900px the hold floor is full of cargo, so they go */
+@media (max-width: 1359px) {
+  .a-bgbarrel {
+    --rs: 13;
+  }
+}
+@media (max-width: 1099px) {
+  .a-bgbarrel {
+    --rs: 6;
+  }
+  .bg-hammock,
+  .bg-mop {
+    display: none;
+  }
+}
+@media (max-width: 899px) {
+  .bg-roll {
+    display: none;
+  }
 }
 .floor-boards {
   position: absolute;
@@ -1609,8 +1835,39 @@ section[id] {
 .seabed h2 {
   margin: 0 0 40px;
 }
+/* the three install commands (hero, hold, seabed) are shown whole: a block is as wide as its command, up to its column.
+   Where the column is narrower the command wraps at a slash (the <wbr>s in the markup) and breaks inside a word only if no
+   break fits. "install.sh | sh" is one nowrap span, so a lone "sh" never sits on a line of its own. None of them scrolls,
+   so none is a tab stop */
 .install-final {
-  max-width: 640px;
+  max-width: none;
+}
+.install-quick .cmd,
+#install .cmd,
+.install-final .cmd {
+  width: max-content;
+  max-width: 100%;
+}
+@media (min-width: 1400px) {
+  .install-quick .cmd {
+    max-width: calc(
+      100% + 32px
+    ); /* the 768px block is 26px wider than the hero's words column at 1440, and the gap before the sign is 56px */
+  }
+}
+@media (max-width: 600px) {
+  .install-quick .cmd,
+  #install .cmd,
+  .install-final .cmd {
+    padding-top: 42px;
+    padding-inline: 12px;
+  } /* the copy button gets its own strip above the lines so the lines can use the whole width. 34 characters,
+       "https://raw.githubusercontent.com/", fit a 360px phone on one line at these paddings */
+  .install-quick .cmd pre,
+  #install .cmd pre,
+  .install-final .cmd pre {
+    padding-right: 0;
+  }
 }
 .install-final p {
   color: var(--c7);
@@ -1623,9 +1880,11 @@ section[id] {
   z-index: 1;
   pointer-events: none;
 }
+/* the cable hangs at 9% of the width, but never over the words: the column starts at 56px (or half of what is left beside its 1000px),
+   and the chain is 16px wide with the anchor's 64px under it, so the cable stops 76px short of the column's left edge */
 .cable {
   position: absolute;
-  left: max(24px, 9%);
+  left: clamp(0px, calc(max(var(--gut), (100% - 1000px) / 2) - 76px), max(24px, 9%));
   top: 0;
   bottom: 0;
   display: flex;
@@ -1659,7 +1918,7 @@ section[id] {
   transform-origin: bottom;
 }
 .k3 {
-  left: 62%;
+  left: 76%;
   animation-delay: -1.7s;
 }
 @keyframes sway {
@@ -1678,12 +1937,12 @@ section[id] {
 .starfish {
   position: absolute;
   bottom: calc(-1 * var(--px));
-  left: 48%;
+  left: 44%;
 }
 .crab {
   position: absolute;
   bottom: 0;
-  left: 70%;
+  left: max(70%, calc(50% + 272px)); /* clear of the chest's 256px at 50%, which the 70% reaches below 1250px */
   background: url("../art/crab.svg") 0 0 / calc(32 * var(--px)) calc(9 * var(--px));
   image-rendering: pixelated;
   animation:
@@ -1719,8 +1978,56 @@ section[id] {
     -60s;
   animation-duration: 0.9s, 110s;
 }
+/* two more (tools/seabed.py): three small fish that keep together, and a yellow one that swims through the lantern's light */
+.fish.s6 {
+  bottom: 250px;
+  left: 0;
+  background: url("../art/fish-school.svg") 0 0 / calc(40 * var(--px)) calc(9 * var(--px));
+  animation:
+    tail-school 1.1s steps(1) infinite,
+    swim 120s linear infinite;
+  animation-delay:
+    -0.3s,
+    -85s;
+}
+.fish.s7 {
+  bottom: 105px;
+  left: 0;
+  background-image: url("../art/fish-glow.svg");
+  animation-delay:
+    -0.1s,
+    -70s;
+  animation-duration: 0.8s, 95s;
+}
+@keyframes tail-school {
+  0% {
+    background-position: 0 0;
+  }
+  50% {
+    background-position: calc(-20 * var(--px)) 0;
+  }
+}
 .reef .fish {
   opacity: 0.6;
+}
+.reef .fish.s7 {
+  opacity: 0.95;
+}
+/* the second diver and the chest he has found: the lantern's light is the one warm thing in the water. The reef around it
+   moved over to make room (the starfish, the third kelp) */
+.chest {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-2 * var(--px));
+  line-height: 0;
+}
+.a-chest {
+  --w: 64;
+  --h: 38;
+  --n: 8;
+  --dt: 0.55s;
+  --lag: -1.1s;
+  background-image: url("../art/seabed-chest.svg");
 }
 .diver {
   position: absolute;
@@ -2002,6 +2309,54 @@ html .term.mount {
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 1199px) {
+  #config {
+    grid-template-columns: minmax(0, 1fr);
+  } /* the scene is 336px wide, and the words column of the two-column config is under that below 1200px */
+  #config > .term {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+@media (max-width: 1249px) {
+  .flotsam .dinghy,
+  .flotsam .f5,
+  .flotsam .f6 {
+    display: none;
+  }
+  .dinghy-flow {
+    display: block;
+    position: relative;
+    left: auto;
+    top: auto;
+    justify-self: end;
+    margin: -16px 0 -8px;
+    z-index: 1;
+  }
+}
+@media (max-width: 899px) {
+  /* the lantern diver and his chest are 256px wide and the reef is laid out in percentages: on a narrow screen they take the
+     middle of the floor, the rocks, the starfish, the crab and two of the kelp step aside, and the third (first) kelp stands by the anchor */
+  .chest {
+    left: 22%;
+  }
+  .reef .rocks,
+  .reef .starfish,
+  .reef .crab,
+  .reef .k2,
+  .reef .k3 {
+    display: none;
+  }
+  .k1 {
+    left: 12%;
+  }
+  .cable {
+    left: 8px;
+  }
+  .seabed-in {
+    padding-left: 28px;
+  } /* the page margin is 28px or less here, so the words stand off to the cable's right */
+}
 @media (max-width: 760px) {
   .floor {
     grid-template-columns: minmax(0, 1fr);
@@ -2252,12 +2607,6 @@ html .term.mount {
     font-size: 44px;
     line-height: 55px;
   }
-  .cable {
-    left: 8px;
-  }
-  .seabed-in {
-    padding-left: 28px;
-  }
   .diver {
     right: 12px;
   }
@@ -2330,7 +2679,7 @@ p code {
   border-top: 2px dashed var(--c8);
 }
 /* agents, mouse and saved tabs: one row each, the words on the left and the recording on two thirds of the width */
-@media (min-width: 1100px) {
+@media (min-width: 1200px) {
   .cargo-more > .crate-col {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);

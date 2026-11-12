@@ -34,9 +34,9 @@
       <div class="install-quick">
         <div class="term cmd">
           <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh">copy</button>
-<pre tabindex="0" role="region" aria-label="install command, scroll sideways if it is wide"><span class="t-prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh</pre>
+<pre role="region" aria-label="install command at the top of the page"><span class="t-prompt">$ </span>curl -fsSL https://<wbr>raw.githubusercontent.com/<wbr>shipmux/<wbr>ship/<wbr>main/<wbr><span class="nb">install.sh | sh</span></pre>
         </div>
-        <p>a work in progress you can try today, on linux and macos.</p>
+        <p>used every day on linux and macos.</p>
         <div class="links"><a href="#install">install and try ship</a><a href="#waterline" class="watch">watch a real session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
       </div>
     </div>
@@ -106,6 +106,7 @@
         <ul class="works">
           <li><h4 class="pixel p22"><a href="/docs/scripting/">a cli for scripts and agents</a></h4><p>open panes, send text or keys and read output with <code>ship</code> commands. use explicit pane ids so changing your selection doesn't redirect a script.</p></li>
           <li><h4 class="pixel p22"><a href="/docs/scripting/handing-work-to-another-agent/">hand work to another agent</a></h4><p>an agent can open a second pane, give another agent a task, wait for its status report and read the reply. no sdk or plugin needed.</p></li>
+          <li><h4 class="pixel p22"><a href="/docs/scripting/writing-a-plugin/">put your own text on tabs</a></h4><p>a script can follow ship with <code>ship watch</code> and put short text, called tags, on tabs and panes. the git example shows each tab's branch and pull request in the sidebar.</p></li>
           <li><h4 class="pixel p22"><a href="/docs/configuration/">keep your habits</a></h4><p>change keys and menus, add a tmux-style prefix, or run your own scripts from a key. save the config and open windows pick up the changes.</p></li>
         </ul>
       </div>
@@ -114,7 +115,7 @@
     <div class="notyet" role="group" aria-labelledby="notyet-title">
       <h3 id="notyet-title" class="pixel p22">not built yet</h3>
       <ul>
-        <li>releases and packages.</li>
+        <li>packages, and prebuilt releases for platforms other than linux and macos. elsewhere, <a href="/docs/building-from-source/">build from source</a>.</li>
         <li>built-in history search and keyboard copy mode. <a href="/docs/panes/#edit-scrollback">use your editor</a> instead.</li>
         <li>resuming agent conversations or rerunning programs after a server restart. saved tabs start fresh shells.</li>
         <li>a combined view of servers on several machines. you can already <a href="/docs/windows-and-the-server/#using-ship-on-another-machine">run ship over ssh or forward a remote socket</a>.</li>
@@ -181,6 +182,12 @@
     <img class="px art f2" style="--w:18;--h:12" src="art/float-sign.svg" alt="">
     <img class="px art f3" style="--w:16;--h:10" src="art/buoy.svg" alt="">
     <img class="px art f4" style="--w:18;--h:4" src="art/float-plank.svg" alt="">
+    <img class="px art f5" style="--w:14;--h:14" src="art/flot-pr.svg" alt="">
+    <img class="px art f6" style="--w:43;--h:18" src="art/flot-refactor.svg" alt="">
+    <div class="dinghy" data-react data-play aria-hidden="true">
+      <span class="act1 b-dinghy"></span>
+      <i class="eyes" style="--x:17;--y:14;animation-delay:-1.5s"></i>
+    </div>
   </div>
   <button class="bottle" type="button"><img class="px art" style="--w:7;--h:10" src="art/bottle.svg" alt=""><span class="tag" aria-hidden="true"><i class="g s-unseen">◆</i> <b>unseen</b></span><span class="sr-only">a bottle floats by. it is marked unseen: it finished while you were looking elsewhere. press to look at it.</span></button>
   <div class="deepwater" aria-hidden="true">
@@ -190,8 +197,12 @@
   <div class="water-in">
     <div class="water-copy">
       <h2 id="waterline-title" class="pixel p33"><span class="place">waterline</span> <span class="nb">the ocean of slop</span> <span class="plain">why ship</span></h2>
-      <p>this is the water everyone else keeps shipping into: readmes that promise everything, pull requests nobody read to the end, and features that exist because generating them was cheaper than deciding not to.</p>
-      <p>ship can't review your work for you. it gives you somewhere to stay involved, with your editor beside the agents, a sidebar that tells you who needs an answer, and room to check what came back before you send it out.</p>
+      <p>this is the water everyone else keeps shipping into, like readmes that promise everything, pull requests nobody read to the end, and features that exist because generating them was cheaper than deciding not to.</p>
+      <p>ship can't review your work for you, and it doesn't try. it gives you somewhere to stay involved, with your editor beside the agents, a sidebar that tells you who needs an answer, and room to check what came back before you send it out.</p>
+    </div>
+    <div class="dinghy dinghy-flow" data-react data-play aria-hidden="true">
+      <span class="act1 b-dinghy"></span>
+      <i class="eyes" style="--x:17;--y:14;animation-delay:-1.5s"></i>
     </div>
     <figure class="recording">
       <div class="screen mount"><video src="demo/waterline.webm" poster="demo/waterline.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="a ship session: claude code and pi work side by side in nested tabs, claude stops on a permission question and the sidebar marks it blocked, the window detaches and reattaches with both agents still working"></video></div>
@@ -239,6 +250,7 @@
         </div>
         <figcaption>a window is a view. the work lives on the server, so closing a window ends none of it.</figcaption>
       </figure>
+      <div class="bgcrew bg-mop" aria-hidden="true"><span class="act a-bgmop"></span></div>
     </article>
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
 
@@ -250,7 +262,7 @@
       <div class="floor-text">
         <h3 class="pixel p22">tabs and panes</h3>
         <p>keep an editor beside a test run, nest smaller tasks under a project tab, or stack a spare shell over a busy pane. new splits and stacked shells open in the directory you were working in. zoom in when you need more room, then return to the same layout.</p>
-        <p>claude code, codex, pi and crush report their own state through the <a href="/docs/agents/">program status protocol</a>. ship shows it in the sidebar and on their tabs, so an agent waiting for permission stays visible even when its tab is folded.</p>
+        <p>claude code, codex, pi and crush report their own state through the <a href="/docs/agents/">program status protocol</a>. ship shows it in the sidebar and on their tabs, so an agent waiting for permission stays visible even when its tab is folded. ship keeps no list of agents to update, so any program that reports its own state shows up the same way.</p>
       </div>
       <figure class="floor-fig recording">
         <div class="screen mount"><video src="demo/panes.webm" poster="demo/panes.png" width="1920" height="1080" muted loop playsinline controls preload="metadata" aria-label="in a ship tab, a shell is split right and then down, a second shell is stacked in front of one pane and put back, and one pane is zoomed to fill the tab and back"></video></div>
@@ -280,6 +292,7 @@ Apply changes?
         </div>
         <figcaption data-sketch="a hand-drawn sketch of the layout, not a recording. the selected pane has the cyan border.">split right, split down, a shell stacked in front and back, then zoom and back. a real take, recorded in CI for each release; the selected pane has the cyan border.</figcaption>
       </figure>
+      <div class="bgcrew bg-hammock" aria-hidden="true"><span class="act a-bghammock"></span></div>
     </article>
     <div class="beam tile" style="--tw:16;--th:6" aria-hidden="true"></div>
 
@@ -335,23 +348,24 @@ Apply changes?
     <div class="hold-head">
       <div>
         <h2 id="hold-title" class="pixel p33"><span class="place">the hold</span> install, keys and more</h2>
-        <p class="intro">build ship, open a shell and try a split. these are enough to get started, with the rest in the docs when you want it.</p>
-      </div>
-      <div class="room hold-room" data-react data-play aria-hidden="true">
-        <span class="act1 r-hold"></span>
-        <i class="eyes" style="--x:12;--y:40;animation-delay:-6s"></i>
+        <p class="intro">install ship, open a shell and try a split. these are enough to get started, with the rest in the docs when you want it.</p>
       </div>
     </div>
 
     <div class="cargo">
       <section class="crate-col" id="install" aria-labelledby="install-title">
+        <div class="room card-room" data-react data-play aria-hidden="true">
+          <span class="act1 r-hold"></span>
+          <i class="eyes" style="--x:12;--y:40;animation-delay:-6s"></i>
+        </div>
         <h3 id="install-title" class="pixel p22">install</h3>
         <p>on linux or macos, install the latest release:</p>
         <div class="term cmd">
           <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh">copy</button>
-<pre tabindex="0" role="region" aria-label="install command in the hold, scroll sideways if it is wide"><span class="t-prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh</pre>
+<pre role="region" aria-label="install command in the hold"><span class="t-prompt">$ </span>curl -fsSL https://<wbr>raw.githubusercontent.com/<wbr>shipmux/<wbr>ship/<wbr>main/<wbr><span class="nb">install.sh | sh</span></pre>
         </div>
         <p data-downloads hidden></p>
+        <p>later, <code>ship update</code> gets newer releases.</p>
         <p>elsewhere, or to build it yourself, follow <a href="/docs/building-from-source/">building from source</a>.</p>
         <p>run <code>ship</code> to open a shell. try <code>alt-|</code> to split it, then <code>alt-q</code> to detach. run <code>ship</code> again and both shells are still there.</p>
         <p class="note">on macos, set your terminal to use option as alt, often called "option as meta", or ship's keys will type special characters instead.</p>
@@ -359,8 +373,16 @@ Apply changes?
       </section>
 
       <section class="crate-col" id="keys" aria-labelledby="keys-title">
-        <h3 id="keys-title" class="pixel p22">keys</h3>
-        <p>in normal mode, ship uses alt chords and other keys go to the selected pane. start with these, and keep the <a href="/docs/keys/">full key list</a> nearby.</p>
+        <div class="card-head">
+          <div class="room card-room" data-react data-play aria-hidden="true">
+            <span class="act1 r-keys"></span><span class="act a-lamp" style="--lag:-1.2s"></span>
+            <i class="eyes" style="--x:13;--y:40;animation-delay:-2s"></i>
+          </div>
+          <div>
+            <h3 id="keys-title" class="pixel p22">keys</h3>
+            <p>in normal mode, ship uses alt chords and other keys go to the selected pane. start with these, and keep the <a href="/docs/keys/">full key list</a> nearby.</p>
+          </div>
+        </div>
         <table class="keys">
           <caption class="sr-only">a selection of default keys</caption>
           <tbody>
@@ -391,6 +413,10 @@ Apply changes?
     </figure>
 
       <section class="crate-col" id="config" aria-labelledby="config-title">
+        <div class="room card-room" data-react data-play aria-hidden="true">
+          <span class="act1 r-config"></span><span class="act a-lamp" style="--lag:-3.4s"></span>
+          <i class="eyes" style="--x:13;--y:40;animation-delay:-4s"></i>
+        </div>
         <h3 id="config-title" class="pixel p22">config</h3>
         <p>ship reads <code>~/.config/ship/config.toml</code>, or <code>$XDG_CONFIG_HOME/ship/config.toml</code>. without one it uses its defaults, and a running window picks up changes as soon as you save.</p>
         <div class="term cmd">
@@ -422,6 +448,10 @@ Apply changes?
 
     <div class="cargo cargo-more">
       <section class="crate-col" id="agents" aria-labelledby="agents-title">
+        <div class="room card-room" data-react data-play aria-hidden="true">
+          <span class="act1 r-agents"></span><span class="act a-lamp" style="--lag:-0.6s"></span>
+          <i class="eyes" style="--x:13;--y:40;animation-delay:-5s"></i>
+        </div>
         <h3 id="agents-title" class="pixel p22">agents</h3>
         <p>claude code, codex, pi and crush report their own state, so they show up in the sidebar with no setup. a sound plays when one finishes or needs you, and <code>alt-a</code> takes you there.</p>
         <figure class="recording">
@@ -432,6 +462,9 @@ Apply changes?
       </section>
 
       <section class="crate-col" id="mouse" aria-labelledby="mouse-title">
+        <div class="room card-room" data-react data-play aria-hidden="true">
+          <span class="act1 r-mouse"></span><span class="act a-lamp r" style="--lag:-2.6s"></span>
+        </div>
         <h3 id="mouse-title" class="pixel p22">mouse</h3>
         <p>click a pane, a tab or an agent to select it, scroll with the wheel and drag to copy text. drag borders to resize, drag sidebar rows to move tabs, and right-click for actions.</p>
         <figure class="recording">
@@ -442,6 +475,10 @@ Apply changes?
       </section>
 
       <section class="crate-col" id="saved-tabs" aria-labelledby="saved-tabs-title">
+        <div class="room card-room" data-react data-play aria-hidden="true">
+          <span class="act1 r-saved"></span><span class="act a-lamp" style="--lag:-4.2s"></span>
+          <i class="eyes" style="--x:23;--y:40;animation-delay:-3s"></i>
+        </div>
         <h3 id="saved-tabs-title" class="pixel p22">saved tabs</h3>
         <p>stop the server or restart the machine, and your tabs, splits, stacks and directories come back with fresh shells. the layout comes back, not the programs that were running.</p>
         <figure class="recording">
@@ -452,6 +489,7 @@ Apply changes?
       </section>
     </div>
   </div>
+  <div class="bgcrew bg-roll" aria-hidden="true"><span class="act a-bgbarrel"></span></div>
   <div class="pile" aria-hidden="true"><img loading="lazy" class="px art" style="--w:64;--h:40" src="art/pile.svg" alt=""></div>
   <div class="pile pile-s" aria-hidden="true"><img loading="lazy" class="px art" style="--w:40;--h:28" src="art/pile-small.svg" alt=""></div>
   <div class="floor-boards planks tile" style="--tw:48;--th:18" aria-hidden="true"></div>
@@ -467,7 +505,7 @@ Apply changes?
       <div class="install-final">
         <div class="term cmd">
           <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh">copy</button>
-<pre tabindex="0" role="region" aria-label="install command at the seabed, scroll sideways if it is wide"><span class="t-prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/shipmux/ship/main/install.sh | sh</pre>
+<pre role="region" aria-label="install command at the seabed"><span class="t-prompt">$ </span>curl -fsSL https://<wbr>raw.githubusercontent.com/<wbr>shipmux/<wbr>ship/<wbr>main/<wbr><span class="nb">install.sh | sh</span></pre>
         </div>
         <p>start with one shell, add a split, and see how it fits the way you work.</p>
         <div class="links"><a href="/docs/#first-run">try your first session</a><a href="https://github.com/shipmux/ship">see it on github</a></div>
@@ -479,6 +517,8 @@ Apply changes?
       <img loading="lazy" class="px art starfish" style="--w:11;--h:9" src="art/starfish.svg" alt="">
       <span class="crab art" style="--w:16;--h:9"></span>
       <span class="fish s4 art" style="--w:12;--h:6"></span><span class="fish s5 art" style="--w:12;--h:6"></span>
+      <span class="fish s6 art" style="--w:20;--h:9"></span><span class="fish s7 art" style="--w:12;--h:6"></span>
+      <div class="chest"><span class="act a-chest"></span></div>
       <div class="diver" data-react data-ms="1700"><i class="hose"></i><span class="act a-diver"></span><i class="pop" style="--x:21;--dx:2;--rise:24;--d:0s"></i><i class="pop" style="--x:23;--dx:-1;--rise:30;--d:.15s"></i><i class="pop" style="--x:20;--dx:3;--rise:36;--d:.3s"></i><i class="pop" style="--x:22;--dx:0;--rise:44;--d:.5s"></i></div>
       <img loading="lazy" class="bubble px art b4" style="--w:3;--h:3" src="art/bubble.svg" alt=""><img loading="lazy" class="bubble px art b5" style="--w:3;--h:3" src="art/bubble.svg" alt=""><img loading="lazy" class="bubble px art b6" style="--w:3;--h:3" src="art/bubble.svg" alt="">
     </div>
@@ -487,7 +527,7 @@ Apply changes?
   <footer class="foot">
     <p class="log"><span class="pixel">captain's log</span> ship started out more than five times slower than herdr on a keystroke. <a href="/blog/optimal-ish/">optimal-ish</a> is the couple of weeks after that, in the order they happened, with the benchmark if you want to run it yourself.</p>
     <img loading="lazy" class="px mark" src="marks/app-large.svg" width="72" height="72" alt="">
-    <p>ship is licensed under the <a href="https://github.com/shipmux/ship/blob/main/LICENSE">gnu general public license v3.0 or later</a>. it is a work in progress.</p>
+    <p>ship is licensed under the <a href="https://github.com/shipmux/ship/blob/main/LICENSE">gnu general public license v3.0 or later</a>.</p>
     <nav aria-label="footer"><!-- footer links --><a href="#sky">back to the sky</a></nav>
   </footer>
 </section>

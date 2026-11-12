@@ -118,8 +118,11 @@ jobs:
         continue-on-error: true
         run: |
           status=0
-          for tape in panes.tape keys.tape config.tape saved-tabs.tape mouse.mjs; do
-            OUT="$RUNNER_TEMP/demo" POSTER_AT=4 website/tapes/record.sh "$tape" --shell || status=1
+          # tape:second. The poster is the frame at that second, chosen from a real take so it shows the point of
+          # the take (a split pane, the search hit, the widened sidebar, the restored tabs, the right-click menu)
+          # and not an empty terminal. Check the second again if a tape's script changes.
+          for take in panes.tape:7 keys.tape:5 config.tape:5 saved-tabs.tape:9 mouse.mjs:6; do
+            OUT="$RUNNER_TEMP/demo" POSTER_AT="${take##*:}" website/tapes/record.sh "${take%%:*}" --shell || status=1
           done
           exit $status
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
