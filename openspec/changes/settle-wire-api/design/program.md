@@ -1,6 +1,6 @@
 # Settle the wire API: program
 
-Status: Locked on 2026-11-11 (Plannotator, "LGTM", with the four slices merged into two as asked in review), amended through A-1.
+Status: Locked on 2026-11-11 (Plannotator, "LGTM", with the four slices merged into two as asked in review), amended through A-2.
 
 ## Summary
 
@@ -106,7 +106,7 @@ None. Every change lands in an existing file.
      -> Result<impl Stream<Item = Result<SseEvent>> + use<>>;   // attach_lines + try_filter_map(decode)
 
 +/// One event, or `None` when its `type` names no `SseKind`. A known type that
-+/// fails to decode stays an error, which sends the client to its /health check.
++/// fails to decode stays an error, which ends the full client.
 +fn decode(data: &str) -> Result<Option<SseEvent>>;
 ```
 
@@ -136,15 +136,16 @@ None. Every change lands in an existing file.
 -    reconnect: Option<Request<'a, Events>>,
 +    reconnect: Option<Request<'a, Reattached>>,
      backoff: Duration,
-+    /// Attached, but no event since. The backoff resets on the first one, so a
-+    /// server whose events don't decode can't pin reconnects at the shortest delay.
-+    unproven: bool,
++    // (A-2) dropped: `unproven`, which slowed reconnects to a server whose events don't decode
  }
 
  pub(super) enum Link {
      Event(SseEvent),
      Shutdown,
      Lost,
++    /// An event on this protocol didn't decode. Reattaching would get the
++    /// same bytes, so the client ends. (A-2)
++    Broken(AppError),
 +    /// /health before a reattach reported another protocol.
 +    Incompatible(HealthResponse),
      PutFailed(AppError),
@@ -162,12 +163,13 @@ None. Every change lands in an existing file.
 +async fn reattach_after(client: &Client, request: AttachRequest, delay: Duration) -> Result<Reattached>;
 ```
 
-`Connection::open` calls `client.attach` directly. Its protocol is already checked at startup (`ui/mod.rs:173`, `main.rs:106`). In `read`, `EndReason::Unknown` already falls into the `lost` arm (`connection.rs:142-151`).
+`Connection::open` calls `client.attach` directly. Its protocol is already checked at startup (`ui/mod.rs:173`, `main.rs:106`). In `read`, `EndReason::Unknown` already falls into the `lost` arm (`connection.rs:142-151`). (A-2) A `Serialization` error maps to `Link::Broken`; other errors still map to `Link::Lost`, and the backoff still resets on `Attached`.
 
 **`crates/ship-client/src/ui/mod.rs`** (slice 2)
 
 ```diff
  fn take(link: Link, …) -> Result<Option<Effect>> {
++    Link::Broken(error) => return Err(error),                                    // (A-2)
 +    Link::Incompatible(server) => return Err(err!(Validation, "{}", updates::mismatch(&server))),
 ```
 
@@ -228,16 +230,20 @@ None.
 
 2. **Tolerant client: skipping decoder, watch pipe, health on reattach.**
    Files: `protocol.rs` (`SseKind`, `EndReason::Unknown`), `model.rs` (`MapSkipError`), `api.rs`, `automation.rs`, `ui/connection.rs`, `ui/mod.rs`, `ship/src/commands.rs`.
-   Delivers: FR-001 to FR-005. Unknown event types are skipped, unknown end reasons reconnect, unknown records are left out, watch prints lines as sent, and a protocol mismatch on reattach exits with the startup mismatch text; otherwise reconnects back off.
+   Delivers: FR-001 to FR-005. Unknown event types are skipped, unknown end reasons reconnect, unknown records are left out, watch prints lines as sent, and a protocol mismatch on reattach exits with the startup mismatch text; ~~otherwise reconnects back off~~ (A-2) an event that doesn't decode on a matching protocol exits with the decode error.
    Needs: slice 1.
-   Checks: build, clippy and fmt; a temporary fake server (a small script on a Unix socket answering `/health` and `/api/attach` with a canned SSE body: `attached`, an unknown `bell` event, `state` with a root record in state `thinking`, `ended` with reason `rebooting`). Against it, `ship watch` output equals the canned data lines byte for byte (SC-002), and the full client stays up, draws the pane like one without a report, and logs exactly one reconnect (SC-001). The same fake server sending an undecodable known event shows the reconnect delays growing in the client log. Then attach the full client to a real server, stop it, and start one built with `PROTOCOL_VERSION = 25` (a temporary local edit, not committed) under the same name: the client exits with the mismatch message after one reconnect, and the server log shows no repeated attaches (SC-003).
+   Checks: build, clippy and fmt; a temporary fake server (a small script on a Unix socket answering `/health` and `/api/attach` with a canned SSE body: `attached`, an unknown `bell` event, `state` with a root record in state `thinking`, `ended` with reason `rebooting`). Against it, `ship watch` output equals the canned data lines byte for byte (SC-002), and the full client stays up, draws the pane like one without a report, and logs exactly one reconnect (SC-001). ~~The same fake server sending an undecodable known event shows the reconnect delays growing in the client log.~~ (A-2) The same fake server sending an undecodable known event after `attached` makes the full client exit 1 with "cannot decode attach event" after one attach. Then attach the full client to a real server, stop it, and start one built with `PROTOCOL_VERSION = 25` (a temporary local edit, not committed) under the same name: the client exits with the mismatch message after one reconnect, and the server log shows no repeated attaches (SC-003).
 
 ## Deviation log
 
 - ~~**2026-11-11, while writing the delta specs (slice 1).** For an unknown field, schema validation reports the error on the parent object, so `explain` would answer pointer `""` rather than `/nmae` (FR-006). `flatten` in `crates/ship-server/src/body.rs:209` gets an `ErrorKind::AdditionalProperties` arm that gives each field its own pointer, mirroring its `Required` arm. `body::decode` itself is unchanged. This fills a gap with an existing pattern and changes no decision.~~ (A-1) Moot: unknown fields are ignored, so `body.rs` is untouched.
-- **2026-11-11, slice 2: the backoff grows after an unproven attach.** Resetting on the first event after `Attached` stops a reset at 250 ms, but nothing doubled the delay when a reattach succeeded and its events then failed to decode, so it would have stayed flat. `Connection::cut` now doubles the backoff (capped at `MAX_BACKOFF`) when the connection was still unproven, the same doubling a failed reattach gets. Three lines; it delivers architecture decision 2's "doesn't pin reconnects at 250 ms". Also, `observer`'s doc comment drops a stray `(FR-003)` tag.
+- ~~**2026-11-11, slice 2: the backoff grows after an unproven attach.** Resetting on the first event after `Attached` stops a reset at 250 ms, but nothing doubled the delay when a reattach succeeded and its events then failed to decode, so it would have stayed flat. `Connection::cut` now doubles the backoff (capped at `MAX_BACKOFF`) when the connection was still unproven, the same doubling a failed reattach gets. Three lines; it delivers architecture decision 2's "doesn't pin reconnects at 250 ms".~~ (A-2) Gone: the client exits instead. Also, `observer`'s doc comment drops a stray `(FR-003)` tag.
 
 ## Amendments
+
+### A-2 (2026-11-11): exit when an event doesn't decode
+
+Follows product A-2 and architecture A-3: `Link::Broken` replaces the `unproven` flag and the growing backoff, and slice 2's check becomes "exits with the decode error". Approved in chat: "i thinnk that makes more sense. go for it!" Touches the `connection.rs`, `ui/mod.rs` and `api.rs` entries, slice 2, the deviation log.
 
 ### A-1 (2026-11-11): request bodies stay lenient
 

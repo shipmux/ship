@@ -1,6 +1,6 @@
 # Settle the wire API: product
 
-Status: Locked on 2026-11-11 (Plannotator, "LGTM"), amended through A-1.
+Status: Locked on 2026-11-11 (Plannotator, "LGTM"), amended through A-2.
 
 ## Summary
 
@@ -54,7 +54,7 @@ Tested by a stream containing an unknown type between two `state` lines; all thr
 
 ### P3: A real break says what to do instead of looping
 
-Given a client attached to a server, when an event fails to decode and the server's `/health` reports another protocol, then the client exits with the same restart guidance `ship` prints at startup. When the protocol matches, it keeps reconnecting with growing backoff rather than at the shortest delay.
+Given a client attached to a server, when an event fails to decode and the server's `/health` reports another protocol, then the client exits with the same restart guidance `ship` prints at startup. ~~When the protocol matches, it keeps reconnecting with growing backoff rather than at the shortest delay.~~ (A-2) When the protocol matches, it exits with the decode error: reattaching would get the same bytes.
 
 Tested by swapping the server for one on another protocol while a client is attached.
 
@@ -131,7 +131,7 @@ Tested by reading a running pane, an exited pane and the CLI wait flags.
 - **FR-002** `ship watch` SHALL print every attach-stream line exactly as the server sent it, including unknown types, and SHALL still exit as today on `ended`.
 - **FR-003** A client SHALL treat an `ended` reason it doesn't know as a stream to reconnect, not as a shutdown.
 - **FR-004** A client SHALL show a `program` record whose `state` it doesn't know like a pane without that record.
-- **FR-005** When an attach event still fails to decode, the full client SHALL check `/health`. If the server's protocol differs, it SHALL exit with the existing mismatch message. Otherwise it SHALL reconnect with growing backoff.
+- **FR-005** When an attach event still fails to decode, the full client SHALL check `/health`. If the server's protocol differs, it SHALL exit with the existing mismatch message. ~~Otherwise it SHALL reconnect with growing backoff.~~ (A-2) Otherwise it SHALL exit with the decode error.
 - ~~**FR-006** Every request body SHALL be rejected with 400 `validation` when it contains a field the server doesn't know, naming the field's JSON pointer, and SHALL change nothing.~~ (A-1) Dropped: request bodies keep ignoring unknown fields.
 - **FR-007** Pane JSON SHALL carry the program's lifecycle as `process`, with the shape `status` has today, and SHALL NOT carry `status`.
 - **FR-008** Every HTTP route under `/api/v0/` SHALL move to `/api/` with the same method, body and answer. `/health` SHALL stay where it is.
@@ -155,6 +155,10 @@ Tested by reading a running pane, an exited pane and the CLI wait flags.
 None.
 
 ## Amendments
+
+### A-2 (2026-11-11): exit when an event doesn't decode
+
+A decode failure on a server whose protocol matches is a bug or an unbumped break, and a reattach gets the same bytes, so retrying only hides it while the screen sits stale. The full client now exits with the decode error; reconnecting stays for a cut stream or `ended`, which a fresh attach fixes. Approved in chat: "i thinnk that makes more sense. go for it!" Touches P3, FR-005.
 
 ### A-1 (2026-11-11): request bodies stay lenient
 

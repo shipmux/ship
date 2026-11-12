@@ -1,6 +1,6 @@
 # Settle the wire API: architecture
 
-Status: Locked on 2026-11-11 (Plannotator, "LGTM"), amended through A-2.
+Status: Locked on 2026-11-11 (Plannotator, "LGTM"), amended through A-3.
 
 ## Summary
 
@@ -76,7 +76,8 @@ ship-core
 
 ship-client
   Client::attach_lines ──▶ Client::attach (skip unknown types)
-  ui::Connection: /health before each reattach → Link::Mismatch; backoff resets on the first event after Attached
+  ~~ui::Connection: /health before each reattach → Link::Mismatch; backoff resets on the first event after Attached~~ (A-3)
+  ui::Connection: /health before each reattach → Link::Incompatible; an event that doesn't decode → Link::Broken, the client exits
 
 ship
   watch: attach_lines → stdout; EOF or error → Unavailable "the server ended the stream"
@@ -93,7 +94,7 @@ ship-server
 ## Key decisions
 
 1. **Unknown event types.** Shape A. Rejected: B (a hand-written `Deserialize` plus an arm at every match) and C (a second parse just for `ended`).
-2. **`/health` on every reattach, not only after a decode error.** A reattach is rare and the check is one small request, and it also catches a server swapped between two reconnects. A differing protocol ends the client with `updates::probe::mismatch`. The backoff now resets on the first event after `Attached`, so a server that attaches and then sends something undecodable doesn't pin reconnects at 250 ms. Rejected: checking only after a decode error, which ties the check to one kind of failure for no saving. Approved in chat: "i agree with 2".
+2. **`/health` on every reattach, not only after a decode error.** A reattach is rare and the check is one small request, and it also catches a server swapped between two reconnects. A differing protocol ends the client with `updates::probe::mismatch`. ~~The backoff now resets on the first event after `Attached`, so a server that attaches and then sends something undecodable doesn't pin reconnects at 250 ms.~~ (A-3) An event that doesn't decode once the protocol is known to match ends the client with the decode error instead of reconnecting: a reattach would get the same bytes. The backoff keeps resetting on `Attached`, as today. Rejected: checking only after a decode error, which ties the check to one kind of failure for no saving. Approved in chat: "i agree with 2".
 3. ~~**Strict bodies through `#[serde(deny_unknown_fields)]` on each request-only type**: the 15 lenient bodies plus `NewTab`, `NewPane` and `InputFrame`. utoipa then writes `additionalProperties: false` for them, so the schema matches the server. `Size` stays lenient because the client also reads it from screens: making it strict would turn any new `Size` field into a protocol bump, and a typo inside it already fails as a missing required field. A temporary probe sends an unknown field to every route; no permanent test. Rejected: `serde_ignored` in `body::decode`, which puts the policy in the decoder and leaves the schema looser than the server; and flipping `additionalProperties` in the generated schema, which would also close response schemas through shared components and misbehave under `allOf`. Settled in chat: "A is better just because it's more consistent", and for `Size`, "just leave it lenient then with a comment explaining why".~~ (A-2)
 
    **Request bodies stay lenient.** No `deny_unknown_fields` on request types, no change to `body::decode`, `Size` needs no comment. Three shapes were weighed:
@@ -118,6 +119,10 @@ ship-server
 - **Anything that changes how the client draws** (`Layout`, `Attr`, `CursorShape`, `BlockedKind`, the process state) still fails to decode on an unknown value. It goes through FR-005 and needs a protocol bump, as the product paper intends.
 
 ## Amendments
+
+### A-3 (2026-11-11): exit when an event doesn't decode
+
+Follows product A-2. `Connection::read` maps a `Serialization` error to `Link::Broken`, and the client exits with it. The `unproven` flag and the backoff change are gone. Transient failures (a cut stream, `ended`) still reconnect, and `/health` before each reattach still catches a swapped server. Approved in chat: "i thinnk that makes more sense. go for it!" Touches Structure, Key decision 2.
 
 ### A-2 (2026-11-11): request bodies stay lenient
 

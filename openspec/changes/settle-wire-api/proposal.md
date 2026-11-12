@@ -9,7 +9,7 @@ Ship's first release freezes the JSON that scripts and older clients read. Today
 ## What Changes
 
 - Clients skip attach-stream events, `ended` reasons and status records they don't know. `ship watch` passes every line through exactly as sent.
-- A running client checks `/health` before each reconnect and exits with the restart guidance when the protocol differs, instead of looping.
+- A running client checks `/health` before each reconnect and exits with the restart guidance when the protocol differs, instead of looping. An event that doesn't decode on a matching protocol ends the client with the decode error.
 - **BREAKING** Pane JSON carries the process state as `process`; `status` is gone.
 - **BREAKING** Routes move from `/api/v0/...` to `/api/...`. `/health` stays.
 - **BREAKING** `PROTOCOL_VERSION` goes from 23 to 24. A protocol-24 `ship server stop` can't stop a protocol-23 server, whose stop route is still under `/api/v0`; stop it with the older binary or a signal.

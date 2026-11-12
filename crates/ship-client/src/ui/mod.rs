@@ -1064,6 +1064,7 @@ fn take(link: Link, local: &mut Local, guard: &mut TerminalGuard) -> Result<Opti
         }
         Link::Event(event) => local.apply(event).then_some(Effect::Redraw),
         Link::Lost => Some(Effect::Cut),
+        Link::Broken(error) => return Err(error),
         Link::Incompatible(server) => return Err(err!(Validation, "{}", mismatch(&server))),
         Link::PutFailed(error) => {
             local.message = Some(error.to_string());

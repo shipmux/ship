@@ -2,7 +2,7 @@
 //! reconnecting with backoff, cutting a broken connection and the
 //! throttled area PUT.
 
-use std::{cell::RefCell, mem, time::Duration};
+use std::{cell::RefCell, time::Duration};
 
 use futures_util::FutureExt;
 use ship_core::{
@@ -29,9 +29,6 @@ pub(super) struct Connection<'a> {
     events: Option<Events>,
     reconnect: Option<Request<'a, Reattached>>,
     backoff: Duration,
-    /// Attached, but no event since. The backoff resets on the first one, so a
-    /// server whose events don't decode can't pin reconnects at the shortest delay.
-    unproven: bool,
     putting: Option<Request<'a>>,
 }
 
@@ -44,14 +41,17 @@ pub(super) struct ViewPut {
 
 /// What the connection has to say to the loop.
 pub(super) enum Link {
-    /// Any event but `ended`. On `attached`, numbering has started and the
-    /// span names the new attachment.
+    /// Any event but `ended`. On `attached`, numbering has started, the
+    /// backoff has reset and the span names the new attachment.
     Event(SseEvent),
     /// `ended` with `server_shutdown`.
     Shutdown,
     /// The stream broke, fell behind, or ended without notice. Logged here;
     /// the loop cuts.
     Lost,
+    /// An event on this protocol didn't decode. Reattaching would get the
+    /// same bytes, so the client ends.
+    Broken(AppError),
     /// /health before a reattach reported another protocol.
     Incompatible(HealthResponse),
     /// The area PUT failed.
@@ -90,7 +90,6 @@ impl<'a> Connection<'a> {
             events: Some(events),
             reconnect: None,
             backoff: FIRST_BACKOFF,
-            unproven: false,
             putting: None,
         })
     }
@@ -143,9 +142,6 @@ impl<'a> Connection<'a> {
                 reason: EndReason::ServerShutdown,
             }))) => Link::Shutdown,
             Some(Ok(event)) if !matches!(event, SseEvent::Ended(_)) => {
-                if mem::take(&mut self.unproven) {
-                    self.backoff = FIRST_BACKOFF;
-                }
                 if let SseEvent::Attached(attached) = &event {
                     let span = tracing::info_span!(
                         parent: None,
@@ -155,9 +151,12 @@ impl<'a> Connection<'a> {
                     span.in_scope(|| tracing::info!("attached"));
                     self.span.replace(span);
                     self.client.order(Some(attached.attachment));
-                    self.unproven = true;
+                    self.backoff = FIRST_BACKOFF;
                 }
                 Link::Event(event)
+            }
+            Some(Err(error)) if matches!(error.code(), ErrorCode::Serialization) => {
+                Link::Broken(error)
             }
             lost => {
                 match lost {
@@ -176,9 +175,6 @@ impl<'a> Connection<'a> {
     pub fn cut(&mut self, reattach: Reattach) {
         (self.events, self.putting) = (None, None);
         self.client.forget();
-        if mem::take(&mut self.unproven) {
-            self.backoff = (self.backoff * 2).min(MAX_BACKOFF);
-        }
         if let Reattach::Remembered(request) = reattach {
             self.request = request;
         }

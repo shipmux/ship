@@ -352,7 +352,7 @@ impl Client {
 }
 
 /// One event, or `None` when its `type` names no `SseKind`. A known type that
-/// fails to decode stays an error, which sends the client to its /health check.
+/// fails to decode stays an error, which ends the full client.
 fn decode(data: &str) -> Result<Option<SseEvent>> {
     let _decode = tracing::debug_span!("decode", bytes = data.len()).entered();
     let error = match serde_json::from_str(data) {
