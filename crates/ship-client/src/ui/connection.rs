@@ -2,10 +2,11 @@
 //! reconnecting with backoff, cutting a broken connection and the
 //! throttled area PUT.
 
-use std::{cell::RefCell, time::Duration};
+use std::{cell::RefCell, mem, time::Duration};
 
 use futures_util::FutureExt;
 use ship_core::{
+    HealthResponse, PROTOCOL_VERSION,
     id::{Attachment, IdOf},
     prelude::*,
     protocol::{AttachRequest, EndReason, Ended, SseEvent, ViewInput},
@@ -26,8 +27,11 @@ pub(super) struct Connection<'a> {
     /// What the next attach sends; its area is refreshed before each retry.
     request: AttachRequest,
     events: Option<Events>,
-    reconnect: Option<Request<'a, Events>>,
+    reconnect: Option<Request<'a, Reattached>>,
     backoff: Duration,
+    /// Attached, but no event since. The backoff resets on the first one, so a
+    /// server whose events don't decode can't pin reconnects at the shortest delay.
+    unproven: bool,
     putting: Option<Request<'a>>,
 }
 
@@ -40,16 +44,24 @@ pub(super) struct ViewPut {
 
 /// What the connection has to say to the loop.
 pub(super) enum Link {
-    /// Any event but `ended`. On `attached`, numbering has started, the
-    /// backoff has reset and the span names the new attachment.
+    /// Any event but `ended`. On `attached`, numbering has started and the
+    /// span names the new attachment.
     Event(SseEvent),
     /// `ended` with `server_shutdown`.
     Shutdown,
     /// The stream broke, fell behind, or ended without notice. Logged here;
     /// the loop cuts.
     Lost,
+    /// /health before a reattach reported another protocol.
+    Incompatible(HealthResponse),
     /// The area PUT failed.
     PutFailed(AppError),
+}
+
+/// What a reattach found.
+enum Reattached {
+    Events(Events),
+    Incompatible(HealthResponse),
 }
 
 /// What a cut connection reattaches with.
@@ -70,7 +82,7 @@ impl<'a> Connection<'a> {
         request: AttachRequest,
         span: &'a RefCell<tracing::Span>,
     ) -> Result<Self> {
-        let events = attach_after(client, request.clone(), Duration::ZERO).await?;
+        let events = Box::pin(client.attach(&request).await?);
         Ok(Self {
             client,
             span,
@@ -78,6 +90,7 @@ impl<'a> Connection<'a> {
             events: Some(events),
             reconnect: None,
             backoff: FIRST_BACKOFF,
+            unproven: false,
             putting: None,
         })
     }
@@ -93,9 +106,13 @@ impl<'a> Connection<'a> {
             tokio::select! {
                 event = next(&mut self.events) => return self.read(event),
                 result = finish(&mut self.reconnect) => match result {
-                    Ok(stream) => {
+                    Ok(Reattached::Events(stream)) => {
                         self.reconnect = None;
                         self.events = Some(stream);
+                    }
+                    Ok(Reattached::Incompatible(server)) => {
+                        self.reconnect = None;
+                        return Link::Incompatible(server);
                     }
                     Err(error) => {
                         tracing::debug!(%error, backoff = ?self.backoff, "reconnect failed");
@@ -126,6 +143,9 @@ impl<'a> Connection<'a> {
                 reason: EndReason::ServerShutdown,
             }))) => Link::Shutdown,
             Some(Ok(event)) if !matches!(event, SseEvent::Ended(_)) => {
+                if mem::take(&mut self.unproven) {
+                    self.backoff = FIRST_BACKOFF;
+                }
                 if let SseEvent::Attached(attached) = &event {
                     let span = tracing::info_span!(
                         parent: None,
@@ -135,7 +155,7 @@ impl<'a> Connection<'a> {
                     span.in_scope(|| tracing::info!("attached"));
                     self.span.replace(span);
                     self.client.order(Some(attached.attachment));
-                    self.backoff = FIRST_BACKOFF;
+                    self.unproven = true;
                 }
                 Link::Event(event)
             }
@@ -156,6 +176,9 @@ impl<'a> Connection<'a> {
     pub fn cut(&mut self, reattach: Reattach) {
         (self.events, self.putting) = (None, None);
         self.client.forget();
+        if mem::take(&mut self.unproven) {
+            self.backoff = (self.backoff * 2).min(MAX_BACKOFF);
+        }
         if let Reattach::Remembered(request) = reattach {
             self.request = request;
         }
@@ -163,7 +186,7 @@ impl<'a> Connection<'a> {
     }
 
     fn retry(&mut self) {
-        self.reconnect = Some(Box::pin(attach_after(
+        self.reconnect = Some(Box::pin(reattach_after(
             self.client,
             self.request.clone(),
             self.backoff,
@@ -183,10 +206,18 @@ impl<'a> Connection<'a> {
     }
 }
 
-/// Attach after `delay`.
-async fn attach_after(client: &Client, request: AttachRequest, delay: Duration) -> Result<Events> {
+/// After `delay`, check /health, then attach if the protocol matches.
+async fn reattach_after(
+    client: &Client,
+    request: AttachRequest,
+    delay: Duration,
+) -> Result<Reattached> {
     time::sleep(delay).await;
-    Ok(Box::pin(client.attach(&request).await?))
+    let server = client.health().await?;
+    if server.protocol_version != PROTOCOL_VERSION {
+        return Ok(Reattached::Incompatible(server));
+    }
+    Ok(Reattached::Events(Box::pin(client.attach(&request).await?)))
 }
 
 /// The server refused a number: this connection's sequence is broken.

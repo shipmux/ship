@@ -444,7 +444,12 @@ fn attachment_schema() -> RefOr<Schema> {
 /// `{"type": "screen", "data": {"pane": "pane:...", "screen": {...}}}`.
 // Adjacently tagged: serde reads `type` first and deserializes `data` directly.
 // Internally tagged, it buffered every screen cell to find the tag.
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, strum::EnumDiscriminants)]
+#[strum_discriminants(
+    name(SseKind),
+    derive(strum::EnumString),
+    strum(serialize_all = "snake_case")
+)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum SseEvent {
     /// Always first: the new attachment's ID and the state it starts from.
@@ -489,6 +494,9 @@ pub enum EndReason {
     ServerShutdown,
     /// An every-revision stream fell behind the server's ring.
     Lost,
+    /// A reason from a newer server; clients reconnect (FR-003).
+    #[serde(other, skip_serializing)]
+    Unknown,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]

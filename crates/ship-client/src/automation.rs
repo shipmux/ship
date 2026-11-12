@@ -222,13 +222,25 @@ impl Client {
         &self,
         feed: FeedMode,
     ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
-        self.attach(&AttachRequest {
-            selection: None,
-            area: None,
-            focused: false,
-            feed,
-        })
-        .await
+        self.attach(&observer(feed)).await
+    }
+
+    /// `observe`, undecoded, for `ship watch`.
+    pub async fn observe_lines(
+        &self,
+        feed: FeedMode,
+    ) -> Result<impl Stream<Item = Result<String>> + use<>> {
+        self.attach_lines(&observer(feed)).await
+    }
+}
+
+/// The attach request of an observer: no selection or area.
+fn observer(feed: FeedMode) -> AttachRequest {
+    AttachRequest {
+        selection: None,
+        area: None,
+        focused: false,
+        feed,
     }
 }
 
@@ -297,7 +309,7 @@ async fn next(
             Some(Ok(SseEvent::State(replica))) => return Ok(replica),
             Some(Ok(SseEvent::Screen(_) | SseEvent::Clipboard(_))) => {}
             Some(Ok(SseEvent::Ended(Ended {
-                reason: EndReason::Lost,
+                reason: EndReason::Lost | EndReason::Unknown,
             }))) => {
                 return Err(err!(
                     Unavailable,

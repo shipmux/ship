@@ -13,7 +13,7 @@ use ship_core::{
     command::Command,
     config::ServerSettings,
     prelude::*,
-    protocol::{EndReason, Ended, FeedMode, SelectView, SseEvent},
+    protocol::{FeedMode, SelectView},
 };
 
 use crate::{
@@ -52,32 +52,24 @@ pub async fn view(client: &Client, command: ViewCommand) -> Result<()> {
     }
 }
 
-/// `ship watch`: the health answer (C2), then every attach event as the
-/// client receives it, one JSON line each (amendment P3). After `ended`,
-/// or a cut stream, it fails (FR-004); a closed stdout is a normal end.
+/// `ship watch`: the health answer, then every attach line as the server sent
+/// it. The server closes the stream after `ended`, which says why; watch then
+/// fails. A closed stdout is a normal end.
 pub async fn watch(client: &Client, health: &HealthResponse, feed: FeedMode) -> Result<()> {
     let mut out = io::stdout();
-    let mut events = std::pin::pin!(client.observe(feed).await?);
+    let mut lines = std::pin::pin!(client.observe_lines(feed).await?);
     if closed(line(&mut out, health))? {
         return Ok(());
     }
     loop {
-        let event = match events.next().await {
-            Some(Ok(event)) => event,
+        match lines.next().await {
+            Some(Ok(data)) => {
+                if closed(writeln!(out, "{data}"))? {
+                    return Ok(());
+                }
+            }
             Some(Err(error)) => return Err(error.context("lost the connection to the server")),
-            None => return Err(err!(Network, "lost the connection to the server")),
-        };
-        if closed(line(&mut out, &event))? {
-            return Ok(());
-        }
-        match event {
-            SseEvent::Ended(Ended {
-                reason: EndReason::ServerShutdown,
-            }) => return Err(err!(Unavailable, "the server shut down")),
-            SseEvent::Ended(Ended {
-                reason: EndReason::Lost,
-            }) => return Err(err!(Unavailable, "fell behind the server")),
-            _ => {}
+            None => return Err(err!(Unavailable, "the server ended the stream")),
         }
     }
 }

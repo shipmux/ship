@@ -115,7 +115,7 @@ None. Every change lands in an existing file.
 **`crates/ship-client/src/automation.rs`** (slices 1 and 2)
 
 ```diff
-+/// The attach request of an observer: no selection or area (FR-003).
++/// The attach request of an observer: no selection or area.
 +fn observer(feed: FeedMode) -> AttachRequest;
 
  pub async fn observe(&self, feed: FeedMode) -> Result<impl Stream<Item = Result<SseEvent>> + use<>>;
@@ -235,6 +235,7 @@ None.
 ## Deviation log
 
 - ~~**2026-11-11, while writing the delta specs (slice 1).** For an unknown field, schema validation reports the error on the parent object, so `explain` would answer pointer `""` rather than `/nmae` (FR-006). `flatten` in `crates/ship-server/src/body.rs:209` gets an `ErrorKind::AdditionalProperties` arm that gives each field its own pointer, mirroring its `Required` arm. `body::decode` itself is unchanged. This fills a gap with an existing pattern and changes no decision.~~ (A-1) Moot: unknown fields are ignored, so `body.rs` is untouched.
+- **2026-11-11, slice 2: the backoff grows after an unproven attach.** Resetting on the first event after `Attached` stops a reset at 250 ms, but nothing doubled the delay when a reattach succeeded and its events then failed to decode, so it would have stayed flat. `Connection::cut` now doubles the backoff (capped at `MAX_BACKOFF`) when the connection was still unproven, the same doubling a failed reattach gets. Three lines; it delivers architecture decision 2's "doesn't pin reconnects at 250 ms". Also, `observer`'s doc comment drops a stray `(FR-003)` tag.
 
 ## Amendments
 

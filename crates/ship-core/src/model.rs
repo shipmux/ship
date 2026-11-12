@@ -2,6 +2,7 @@ use std::{fmt, str::FromStr};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use serde_with::{MapSkipError, serde_as};
 
 use crate::{
     AppError, config, err,
@@ -32,6 +33,7 @@ pub struct Tab {
 }
 
 /// A leaf running one program in its own terminal. Owns no layout or children.
+#[serde_as]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct Pane {
@@ -63,6 +65,8 @@ pub struct Pane {
     #[serde(alias = "status")]
     pub process: ProcessState,
     /// OSC 7501 records keyed by id, oldest update first; ROOT is the root.
+    /// A record this client can't read is left out, as if never reported (FR-004).
+    #[serde_as(as = "MapSkipError<_, _>")]
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub program: IndexMap<String, StatusRecord>,
     #[serde(default, skip_serializing_if = "Tags::is_empty")]

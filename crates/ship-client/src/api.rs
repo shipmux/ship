@@ -1,16 +1,17 @@
 use std::{
     fmt,
     future::ready,
+    str::FromStr,
     sync::{
         Mutex,
         atomic::{AtomicU64, Ordering},
     },
 };
 
-use futures_util::{Stream, StreamExt, TryStreamExt};
+use futures_util::{Stream, TryStreamExt};
 use indexmap::IndexMap;
 use reqwest::{Method, StatusCode};
-use serde::de::DeserializeOwned;
+use serde::{Deserialize, de::DeserializeOwned};
 use ship_core::{
     HEALTH_PATH, HealthResponse, LogChange, LogFilter,
     endpoint::Endpoint,
@@ -19,8 +20,8 @@ use ship_core::{
     prelude::*,
     protocol::{
         AttachRequest, CreatePane, CreateTab, CyclePane, InputBody, InputFrame, MovePane,
-        MoveTabBody, ReadPane, ResizePane, RunCommand, ScrollPane, SelectView, SseEvent, SwapPane,
-        ViewInput, ViewingRecord,
+        MoveTabBody, ReadPane, ResizePane, RunCommand, ScrollPane, SelectView, SseEvent, SseKind,
+        SwapPane, ViewInput, ViewingRecord,
     },
     tree::Tabs,
 };
@@ -248,16 +249,16 @@ impl Client {
             .await
     }
 
-    /// Open the attach stream. The two-second timeout covers only the
-    /// response head. The returned stream yields decoded events and ends on EOF.
+    /// The attach stream's data lines as sent; SSE framing removed. The
+    /// two-second timeout covers only the response head. The stream ends on EOF.
     ///
     /// `sse-stream` scans each received chunk once; `eventsource-stream`
     /// rescanned a partial line on every chunk, which was quadratic in the size
     /// of a screen event. Blocks without data are skipped.
-    pub async fn attach(
+    pub async fn attach_lines(
         &self,
         request: &AttachRequest,
-    ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
+    ) -> Result<impl Stream<Item = Result<String>> + use<>> {
         let mut prepared = self.build(Method::POST, "/api/attach", None, self.next_order());
         prepared.request = prepared.request.json(request);
         let response = self
@@ -268,21 +269,25 @@ impl Client {
             .inspect_ok(|chunk| tracing::debug!(bytes = chunk.len(), "attach chunk"));
         Ok(SseByteStream::new(body)
             .try_filter_map(|block| ready(Ok(block.data)))
-            .map(|data| match data {
-                Ok(data) => {
-                    let _decode = tracing::debug_span!("decode", bytes = data.len()).entered();
-                    serde_json::from_str(&data).map_err(
-                        |error| err!(Serialization, "cannot decode attach event", @external: error),
-                    )
-                }
-                Err(sse_stream::Error::Body(error)) => match error.downcast::<reqwest::Error>() {
-                    Ok(error) => Err(http_error(*error)),
-                    Err(error) => {
-                        Err(err!(Serialization, "malformed attach stream", @external: error))
-                    }
+            .map_err(|error| match error {
+                sse_stream::Error::Body(error) => match error.downcast::<reqwest::Error>() {
+                    Ok(error) => http_error(*error),
+                    Err(error) => err!(Serialization, "malformed attach stream", @external: error),
                 },
-                Err(error) => Err(err!(Serialization, "malformed attach stream", @external: error)),
+                error => err!(Serialization, "malformed attach stream", @external: error),
             }))
+    }
+
+    /// Open the attach stream. The returned stream yields decoded events and
+    /// ends on EOF. Events whose type this client doesn't know are skipped.
+    pub async fn attach(
+        &self,
+        request: &AttachRequest,
+    ) -> Result<impl Stream<Item = Result<SseEvent>> + use<>> {
+        Ok(self
+            .attach_lines(request)
+            .await?
+            .try_filter_map(|data| ready(decode(&data))))
     }
 
     /// Send `frames` to their panes in one request; nothing is routed if the
@@ -343,5 +348,24 @@ impl Client {
         );
         prepared.request = prepared.request.json(view);
         self.exchange(prepared, StatusCode::OK, crate::json).await
+    }
+}
+
+/// One event, or `None` when its `type` names no `SseKind`. A known type that
+/// fails to decode stays an error, which sends the client to its /health check.
+fn decode(data: &str) -> Result<Option<SseEvent>> {
+    let _decode = tracing::debug_span!("decode", bytes = data.len()).entered();
+    let error = match serde_json::from_str(data) {
+        Ok(event) => return Ok(Some(event)),
+        Err(error) => error,
+    };
+    #[derive(Deserialize)]
+    struct Kind<'a> {
+        #[serde(rename = "type")]
+        kind: &'a str,
+    }
+    match serde_json::from_str::<Kind>(data) {
+        Ok(Kind { kind }) if SseKind::from_str(kind).is_err() => Ok(None),
+        _ => Err(err!(Serialization, "cannot decode attach event", @external: error)),
     }
 }
