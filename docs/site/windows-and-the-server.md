@@ -29,6 +29,18 @@ ship --server-name scratch
 
 That starts the `scratch` server if it isn't running, with its own [saved tabs](saved-tabs.md) and logs. CLI commands take `--server-name` too, or set `SHIP_SERVER_NAME` once. Inside a pane, commands reach the server that owns the pane unless you pass `--server-name` or `--server-url`.
 
+## After updating Ship
+
+A new version doesn't replace a server that's already running. It keeps running the old version until you restart it, and restarting ends every program in it. When you update with `ship update`, it ends with what to do:
+
+```text
+installed ship 0.2.0 (protocol 25); server ship 0.1.0 (protocol 24)
+server must restart to stay in sync
+restart the server: ship server stop && ship (ends running programs; tabs are restored)
+```
+
+If both versions speak the same protocol, it says the server is compatible and you can restart when it suits you. If they don't, `ship` won't open a window onto the old server and prints the same two versions and the restart command instead. Saved tabs come back with fresh shells, as after any [restart](saved-tabs.md). `ship update` itself never starts or stops a server.
+
 ## Using Ship on another machine
 
 The simplest way is to run Ship over SSH:

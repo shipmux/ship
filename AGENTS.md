@@ -32,7 +32,7 @@ Profile before consequential architecture decisions and before anything that loo
 
 ## Platforms
 
-Linux is Cyan's primary environment. Linux and macOS are priority platforms; Windows and others are best effort. Choose cross-platform dependencies, validate Linux and macOS deliberately, and report any check not run on a platform as unverified there. Run checks only on the machine you are working on. Don't start Docker containers, VMs or other environments to reach another platform; report that platform as unverified instead. Add platform-specific code when a concrete platform need appears.
+Linux is Cyan's primary environment. Linux and macOS are priority platforms; Windows and others are best effort. Best effort means Ship keeps compiling there and takes small, clean fixes (tens of lines) for breakage, while anything bigger waits for a platform need Cyan approves; point users at WSL. Choose cross-platform dependencies, validate Linux and macOS deliberately, and report any check not run on a platform as unverified there. Run checks only on the machine you are working on. Don't start Docker containers, VMs or other environments to reach another platform; report that platform as unverified instead. Add platform-specific code when a concrete platform need appears.
 
 ## Issues and pull requests
 
@@ -47,6 +47,8 @@ An openspec change usually ships as one pull request; its slices and task groups
 ## Reference multiplexers
 
 Herdr, Zellij and tmux show what established multiplexers do and what users expect. Use them to ground behavior and to check whether an idea is settled practice. They are inspiration, not templates: Ship's structure and command surface are its own.
+
+In public writing (the site, the blog, the README), Herdr is a friendly rival and the project that got Ship started. Credit it, and compare on measured numbers and design tradeoffs rather than on its code quality or its maintainers.
 
 ## Agent skills
 

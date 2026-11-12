@@ -5,14 +5,15 @@ import { withBase } from "../base";
 
 {version.channel === "main" && (
   <aside class="banner" aria-label="docs version" data-pagefind-ignore>
-    <span class="tag pixel p11">main</span> these docs follow the main branch, which is unreleased.
+    <span class="tag pixel p11">main</span>
     {version.latest ? (
       <>
         {" "}
-        the latest release is <a href={withBase(`${version.root}/`)}>{version.latest}</a>.
+        these docs follow the main branch, which can be ahead of the latest release,{" "}
+        <a href={withBase(`${version.root}/`)}>{version.latest}</a>.
       </>
     ) : (
-      " there are no releases yet, so a build from source matches them."
+      " these docs follow the main branch. there are no releases yet, so a build from source matches them."
     )}
   </aside>
 )}

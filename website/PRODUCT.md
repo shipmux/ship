@@ -32,7 +32,7 @@ Herdr (herdr.dev) is the reference. The goal is to go further than it on charact
 
 ## Operating Context
 
-Ship runs in a terminal on Linux and macOS (Windows best effort). Users install it with `cargo install` from source today; there are no releases yet. Default keys are Alt chords. Config is a TOML file that applies on save.
+Ship runs in a terminal on Linux and macOS (Windows best effort). Users install releases for Linux and macOS with `install.sh` and get later ones with `ship update`; elsewhere they build from source. Default keys are Alt chords. Config is a TOML file that applies on save.
 
 ## Capabilities and Constraints
 

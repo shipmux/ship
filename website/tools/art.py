@@ -11,6 +11,12 @@ plain neutral face, so a sheet can always rest on it.
 beats.py: the crew's one-shot reactions (a press plays a sheet once) and the props that play over the deck crew.
 crewrooms.py: the five rooms below deck and in the hold, each a sheet with one beat.
 fx.py: the props that play over the deck crew when you press them, and the hold's other one-shot extras.
+holdscenes.py: the hold's card scenes, one lit room at the head of each card (keys, config, agents, mouse, saved tabs;
+install keeps crewrooms.py's hold room), and the swaying lantern they hang.
+seabed.py: the seabed's additions: a second diver and the chest it has found, and two more fish.
+waterline.py: the waterline's additions: the cook in a dinghy netting slop words, and a "pr" crate and a plank adrift.
+backcrew.py: samples of background crew (a barrel rolled along the hold floor, a sleeper in a hammock, a mopper on a beam),
+not on the page yet.
 """
 import os
 import sys
@@ -49,8 +55,16 @@ def build(out=OUT):
     sys.path.insert(0, HERE)
     import beats  # noqa: E402
     import crewrooms  # noqa: E402
+    import holdscenes  # noqa: E402
+    import seabed  # noqa: E402
+    import waterline  # noqa: E402
+    import backcrew  # noqa: E402
     written += beats.build(out)
     written += crewrooms.build(out)
+    written += holdscenes.build(out)
+    written += seabed.build(out)
+    written += waterline.build(out)
+    written += backcrew.build(out)
     return written
 
 

@@ -5,33 +5,44 @@ Scope: Following Ship from a script with `ship watch`, and showing text on tabs 
 Not here: the sidebar rows settings (configuration.md), JSON shapes (openspec/specs).
 -->
 
-A plugin is a script that uses `ship` like any other client. Ship has no plugin runtime or install step: you run the script, it follows Ship's state with `ship watch` and puts text on tabs and panes with tags.
+A plugin is a script that puts short text on your tabs and panes. The git example, for instance, shows each tab's branch and pull request under its name in the sidebar:
+
+```text
+     api
+     fix-login · ○ #118 ✓
+     docs
+     main
+```
+
+A plugin uses `ship` like any other client. Ship has no plugin runtime or install step: you run the script, it follows Ship's state with `ship watch` and puts text on tabs and panes with tags.
 
 ## Watching
 
 `ship watch` prints Ship's state as JSON, one line per change, until you stop it:
 
 ```json
-{"service":"ship","protocol_version":23,"version":"0.1.0",…}
+{"service":"ship","protocol_version":24,"version":"0.1.0",…}
 {"type":"attached","data":{"attachment":"attachment:…","replica":{"revision":1,"tabs":{…},…}}}
 {"type":"state","data":{"revision":2,"tabs":{…},…}}
 ```
 
-The first line is what `ship server status` prints. After it comes the same stream the Ship client receives: `attached` holds the first state, and each `state` line holds a newer one. This filter turns them into one state per line:
+The first line is what `ship server status` prints. The lines after it are what Ship's own window receives: `attached` holds the first state, and each later `state` line holds a newer one. To get only the states, one per line:
 
 ```sh
 ship watch | jq -c '.data.replica // select(.type == "state").data'
 ```
 
-Watching changes nothing in Ship: it doesn't select or resize anything, and it gets no screen contents or clipboard text. It never starts a server either, so it fails if none is running.
+Watching is read-only. It doesn't select or resize anything, and it never sees screen contents or clipboard text. It never starts a server either, so it fails if none is running.
 
-A reader that falls behind gets the newest state and skips the ones in between. To see every state in order, use `ship watch --feed every`; it ends if the reader falls too far behind.
+If your script is slow, `ship watch` skips ahead to the newest state. To get every state in order, use `ship watch --feed every`. That stream ends if your script falls too far behind.
 
-When the stream ends, the last line says why, and `watch` exits with an error. The reason is `server_shutdown` when the server stops, and `lost` when an `every` feed fell behind:
+When the stream ends, the last line says why, and `watch` exits with an error:
 
 ```json
 {"type":"ended","data":{"reason":"server_shutdown"}}
 ```
+
+The reason is `server_shutdown` when the server stops, and `lost` when an `every` feed fell behind.
 
 ## Tags
 
@@ -62,28 +73,30 @@ To color a tag, add `--tag-fg NAME=COLOR` or `--tag-bg NAME=COLOR` beside the `-
 ship pane set --pane "$PANE" --tag gh.checks=failing --tag-fg gh.checks=white --tag-bg gh.checks=red
 ```
 
-Setting a tag replaces it whole, so a later `--tag gh.checks=ok` without color flags leaves it uncolored. For the same reason, a color flag needs a `--tag` for its name in the same call.
+Setting a tag replaces all of it, colors included. So `--tag gh.checks=ok` on its own leaves the tag uncolored, and a color flag only works beside a `--tag` for the same name.
 
-Tags last as long as their tab or pane and aren't saved: after the server restarts, a plugin sets them again. Whichever script writes a tag last wins, since tags have no owner.
+A tag lasts as long as its tab or pane. Tags aren't saved, so after the server restarts a plugin sets them again. If two scripts write the same tag, the last write wins.
 
 ## The git example
 
-[`examples/plugins/git.sh`](../../../examples/plugins/git.sh) tags each pane in a git checkout with its branch as `git.branch`, and with its pull request's state and checks as `git.pr`. Start it once the server is running, and show the tags under each tab's name:
+[`examples/plugins/git.sh`](../../../examples/plugins/git.sh) tags each pane in a git checkout with its branch as `git.branch`, and with its pull request's state and checks as `git.pr`. Start it once the server is running:
 
 ```sh
 sh examples/plugins/git.sh &
 ```
+
+Then show the tags under each tab's name, with [tab rows](../configuration.md#tab-rows):
 
 ```toml
 [client.tabs]
 rows = [["name"], [{ tag = "git.branch" }, { tag = "git.pr" }]]
 ```
 
-For each state from `ship watch`, it asks git for the branch of every pane's `dir` and runs `ship pane set` only where that differs from the pane's tags, so the script never keeps a copy of them. Pull requests change on GitHub without anything changing in Ship, so it also looks them up with `gh` every 30 seconds. [Its README](../../../examples/plugins/README.md) lists what each tag looks like and when it updates.
+On each state from `ship watch`, the script asks git for the branch of every pane's `dir`, and runs `ship pane set` only for panes whose tags differ. It keeps no copy of the tags itself. Pull requests can change on GitHub without anything changing in Ship, so it also checks them with `gh` every 30 seconds. [Its README](../../../examples/plugins/README.md) lists what each tag looks like and when it updates.
 
 ## Conventions
 
 - Name tags `plugin.key`, such as `git.branch`. Ship gives the `.` no meaning; it keeps plugins from colliding. Names starting with `ship.` are reserved for Ship.
-- Ignore JSON fields and `watch` line types you don't recognize, so a newer Ship doesn't break your script.
-- New fields and line types can appear in any release; ignore what you don't recognize. A change that breaks existing shapes bumps `protocol_version`, which `ship server status` reports, and the release notes say why.
+- Ignore JSON fields and `watch` line types you don't recognize. New ones can appear in any release, and ignoring them keeps a newer Ship from breaking your script.
+- A change that breaks existing shapes bumps `protocol_version`, which `ship server status` reports, and the release notes say why.
 - Object key order carries meaning: tabs, panes and status records are listed in order. Read them with `keys_unsorted` or `to_entries`, not `keys`.

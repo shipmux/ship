@@ -1,11 +1,11 @@
 # Keys
 
 <!--
-Scope: Every default key, resize, tabs and panes modes, and the mouse, one line each.
+Scope: Every default key, resize, tabs and panes modes, and the mouse, one row or line each.
 Not here: how to rebind (configuration.md), how scrolling and selection behave (scrolling-copying-and-the-mouse.md).
 -->
 
-In normal mode, Ship's default keys are Alt chords. Any other key goes to the program in the selected pane. On macOS, your terminal needs [Option set as Alt](README.md#first-run) for them to work.
+In normal mode, Ship's default keys are Alt chords, and any other key goes to the program in the selected pane. On macOS, your terminal needs [Option set as Alt](README.md#first-run) for them to work.
 
 | Key | Does |
 | --- | --- |
@@ -33,11 +33,33 @@ In normal mode, Ship's default keys are Alt chords. Any other key goes to the pr
 
 These modes stay active until you press `esc`.
 
-In resize mode, `h` / `j` / `k` / `l` move the pane's edge, `shift-h` / `shift-l` resize the sidebar and `shift-j` / `shift-k` move the line between tabs and agents.
+In resize mode:
 
-In tabs mode, `j` / `k` select tabs, `h` folds an open row or selects its parent, and `l` unfolds a folded row or selects its first child. `shift-k` / `shift-j` move a tab up / down among its siblings, while `shift-l` / `shift-h` move it [in / out](tabs.md). `r` [renames the tab](tabs.md#renaming).
+| Key | Does |
+| --- | --- |
+| `h` / `j` / `k` / `l` | Move the pane's edge |
+| `shift-h` / `shift-l` | Resize the sidebar |
+| `shift-j` / `shift-k` | Move the line between tabs and agents |
 
-In panes mode, `h` / `j` / `k` / `l` select the pane left, below, above or right, and `shift-h` / `shift-j` / `shift-k` / `shift-l` swap with that neighbor. `,` / `.` cycle the stack and `r` [renames the pane](panes.md#renaming).
+In tabs mode:
+
+| Key | Does |
+| --- | --- |
+| `j` / `k` | Select the next / previous tab |
+| `h` | Fold an open row, or select its parent |
+| `l` | Unfold a folded row, or select its first child |
+| `shift-k` / `shift-j` | Move the tab up / down among its siblings |
+| `shift-l` / `shift-h` | Move the tab [in / out](tabs.md) |
+| `r` | [Rename the tab](tabs.md#renaming) |
+
+In panes mode:
+
+| Key | Does |
+| --- | --- |
+| `h` / `j` / `k` / `l` | Select the pane left, below, above or right |
+| `shift-h` / `shift-j` / `shift-k` / `shift-l` | Swap with that neighbor |
+| `,` / `.` | Cycle the stack |
+| `r` | [Rename the pane](panes.md#renaming) |
 
 ## The mouse
 
