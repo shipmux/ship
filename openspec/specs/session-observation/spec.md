@@ -32,7 +32,7 @@ Bare `ship` SHALL attach a full-screen client to the whole server, as described 
 - **THEN** the client's state includes every created tab without any further edit
 
 #### Scenario: Quiet pane on attach
-- **WHEN** a user opens `ship`, presses `alt-right`, and the opened tab's panes show quiet shell prompts
+- **WHEN** a user opens `ship`, presses `alt-down`, and the opened tab's panes show quiet shell prompts
 - **THEN** the client shows all their visible prompts at once
 
 #### Scenario: Two observers converge
@@ -59,7 +59,7 @@ Each attached client SHALL have its own selection: a tab, a pane, or nothing. A 
 
 #### Scenario: Open with nothing selected
 - **WHEN** a server has three top-level tabs and a user runs `ship`
-- **THEN** the client selects nothing and shows `3 tabs · alt-right to open one`
+- **THEN** the client selects nothing and shows `3 tabs · alt-down to open one`
 
 #### Scenario: Different selections
 - **WHEN** two clients are on front panes of different slots in an unzoomed tab and one presses `alt-tab`
@@ -118,7 +118,7 @@ An attachment SHALL end only when its client detaches or the server shuts down. 
 
 #### Scenario: Tabs return
 - **WHEN** a client shows no tabs and a user then runs `ship tab create` twice
-- **THEN** the client's hint updates to `2 tabs · alt-right to open one` without reattaching
+- **THEN** the client's hint updates to `2 tabs · alt-down to open one` without reattaching
 
 ### Requirement: Latest state for slow observers
 A client SHALL never be shown state or a screen older than what it has already shown. A client on the `latest` feed that stops reading SHALL, once it resumes, receive the latest state and the latest screen of each pane it shows, even if no further change occurs. Intermediate states and screens on that feed are not guaranteed to be shown.
@@ -145,11 +145,11 @@ Server shutdown by SIGINT or SIGTERM SHALL end open attach streams so that the s
 `client.tab.next` and `client.tab.prev` SHALL select the next/previous visible sidebar row in tree order, wrapping around; from nothing they SHALL select the first/last visible row. Rows under expanded ancestors SHALL count even with the sidebar hidden. Landing SHALL use the tab's zoomed pane, else the client's last selected own pane there, else its first own pane in layout order, else the tab. The server SHALL accept selection of any existing tab, pane or nothing.
 
 #### Scenario: Cycle tabs
-- **WHEN** three visible top-level rows have no children and a client on the first presses `alt-right` three times
+- **WHEN** three visible top-level rows have no children and a client on the first presses `alt-down` three times
 - **THEN** the client visits each row's landing selection and returns to the first
 
 #### Scenario: From nothing selected
-- **WHEN** a client has nothing selected and presses `alt-left`
+- **WHEN** a client has nothing selected and presses `alt-up`
 - **THEN** the last visible row is opened using its landing selection
 
 #### Scenario: Tab without panes

@@ -11,13 +11,14 @@ In normal mode, Ship's default keys are Alt chords, and any other key goes to th
 | --- | --- |
 | `alt-n` | New tab with a shell |
 | `alt-shift-n` | New tab nested under the current one |
-| `alt-x` | Close the tab |
+| `alt-shift-x` | Close the tab |
 | `alt-\|` / `alt--` | Split the pane right / down |
 | `alt-s` | Stack a new shell in front of the pane |
 | `alt-,` / `alt-.` | Previous / next pane in the stack |
 | `alt-e` | Open [scrollback in your editor](panes.md#edit-scrollback) |
-| `alt-shift-x` | Close the pane |
-| `alt-left` / `alt-right` | Previous / next tab |
+| `alt-x` | Close the pane |
+| `alt-up` / `alt-down` | Previous / next tab |
+| `alt-left` / `alt-right` | Fold the tab or go to its parent / unfold it or go to its first child |
 | `alt-h` / `alt-j` / `alt-k` / `alt-l` | Move to the pane left, below, above or right |
 | `alt-tab` | Next pane in the tab |
 | `alt-a` | Jump to the next agent that needs you |
@@ -37,7 +38,7 @@ In resize mode:
 
 | Key | Does |
 | --- | --- |
-| `h` / `j` / `k` / `l` | Move the pane's edge |
+| `h` / `j` / `k` / `l` or arrows | Move the pane's edge |
 | `shift-h` / `shift-l` | Resize the sidebar |
 | `shift-j` / `shift-k` | Move the line between tabs and agents |
 
@@ -45,21 +46,25 @@ In tabs mode:
 
 | Key | Does |
 | --- | --- |
-| `j` / `k` | Select the next / previous tab |
-| `h` | Fold an open row, or select its parent |
-| `l` | Unfold a folded row, or select its first child |
+| `j` / `k` or `down` / `up` | Select the next / previous tab |
+| `h` or `left` | Fold an open row, or select its parent |
+| `l` or `right` | Unfold a folded row, or select its first child |
 | `shift-k` / `shift-j` | Move the tab up / down among its siblings |
 | `shift-l` / `shift-h` | Move the tab [in / out](tabs.md) |
 | `r` | [Rename the tab](tabs.md#renaming) |
+| `n` / `shift-n` | New tab after this one / nested under it |
+| `x` | Close the tab and everything in it |
 
 In panes mode:
 
 | Key | Does |
 | --- | --- |
-| `h` / `j` / `k` / `l` | Select the pane left, below, above or right |
+| `h` / `j` / `k` / `l` or arrows | Select the pane left, below, above or right |
 | `shift-h` / `shift-j` / `shift-k` / `shift-l` | Swap with that neighbor |
 | `,` / `.` | Cycle the stack |
 | `r` | [Rename the pane](panes.md#renaming) |
+| `n` | Split a new pane to the right |
+| `x` | Close the pane |
 
 ## The mouse
 

@@ -22,7 +22,7 @@ Source ship16.tape
 Hide
 Type `cd "$DEMO_PROJECT" && PS1="\W $ " && clear` Enter
 Type "ship" Enter
-Wait+Screen@20s /alt-right to open one/
+Wait+Screen@20s /to open one/
 
 # Fold infra: from claude in api, tabs mode goes tests, docs, infra.
 Alt+a
@@ -100,7 +100,7 @@ Wait+Screen@10s /detached/
 Sleep 1s
 Type "ship"
 Enter
-Wait+Screen@10s /alt-right to open one/
+Wait+Screen@10s /to open one/
 Sleep 1s
 Alt+a
 Wait+Screen@10s /π - harbor|stub-agent/

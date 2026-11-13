@@ -83,7 +83,7 @@ use crate::{
     Client, KeyScope, Scope,
     keymap::{
         Action, AgentSettings, ClientAction, ClientAgents, ClientPane, ClientSettings, ClientTab,
-        ClientUpdates, ConfigAction, Menus, ModeName, Sidebar as SidebarAction,
+        ClientUpdates, ConfigAction, Menus, Mode, ModeName, Sidebar as SidebarAction,
     },
     sound::Speaker,
     updates::{Freshness, UpdateContext, mismatch},
@@ -1095,7 +1095,7 @@ fn status<'a>(keys: &'a Keys, message: Option<&'a str>, note: Option<&'a str>) -
         hints: keys
             .shown_mode()
             .and_then(|mode| keys.keymap.modes.get(mode))
-            .map(|mode| mode.hints().collect())
+            .map(Mode::hints)
             .unwrap_or_default(),
     }
 }

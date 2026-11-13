@@ -234,6 +234,29 @@ pub struct Mode {
     pub keys: IndexMap<KeyCombination, Binding>,
 }
 
+impl Mode {
+    /// One hint per label, in the order its first chord appears; chords
+    /// sharing a label share a hint, as in `j/down next`.
+    pub fn hints(&self) -> Vec<Hint<'_>> {
+        let mut hints = IndexMap::<Cow<'_, str>, Vec<&str>>::new();
+        for binding in self.keys.values() {
+            if let Some(label) = binding.label() {
+                hints.entry(label).or_default().push(&binding.spelling);
+            }
+        }
+        hints
+            .into_iter()
+            .map(|(label, chords)| Hint { chords, label })
+            .collect()
+    }
+}
+
+/// One status-line hint: every chord bound under one label.
+pub struct Hint<'a> {
+    pub chords: Vec<&'a str>,
+    pub label: Cow<'a, str>,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeKind {
@@ -249,19 +272,12 @@ pub enum ModeKind {
 pub struct Binding {
     #[serde(default)]
     pub action: Option<Action>,
-    /// Completed into a `chord label` hint with the action's fallback on load.
+    /// The hint's label; the action's fallback when unset.
     #[serde(default)]
     label: Option<String>,
-}
-
-impl Mode {
-    /// Each chord's `chord label` hint, in the file's order.
-    pub fn hints(&self) -> impl Iterator<Item = &str> {
-        self.keys
-            .values()
-            .filter(|binding| binding.action.is_some())
-            .filter_map(|binding| binding.label.as_deref())
-    }
+    /// The chord as the file spells it, for the hint.
+    #[serde(skip)]
+    spelling: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -487,13 +503,7 @@ fn normalized<'de, D: Deserializer<'de>>(
     keys.into_iter()
         .map(|(spelling, mut binding)| {
             let chord: KeyCombination = spelling.parse().map_err(D::Error::custom)?;
-            if let Some(action) = &binding.action {
-                let label = binding
-                    .label
-                    .take()
-                    .map_or_else(|| action.label(), Cow::Owned);
-                binding.label = Some(format!("{spelling} {label}"));
-            }
+            binding.spelling = spelling;
             Ok((chord.normalized(), binding))
         })
         .collect()
@@ -577,6 +587,16 @@ impl From<ModeFile> for Mode {
 }
 
 impl Binding {
+    /// The set label, else the action's; `None` when unbound.
+    fn label(&self) -> Option<Cow<'_, str>> {
+        let action = self.action.as_ref()?;
+        Some(
+            self.label
+                .as_deref()
+                .map_or_else(|| action.label(), Cow::Borrowed),
+        )
+    }
+
     /// Whether running this enters a mode, so a one-shot mode doesn't leave
     /// for normal on its own.
     pub fn enters_mode(&self) -> bool {
