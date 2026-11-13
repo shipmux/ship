@@ -40,7 +40,9 @@ const INDENT: u16 = 2;
 const SEPARATOR: &str = " · ";
 
 pub(in crate::ui) struct Tabs {
-    collapsed: HashSet<IdOf<Tab>>,
+    /// Rows this client unfolded. Every other row with children starts
+    /// folded, including tabs created after attaching.
+    expanded: HashSet<IdOf<Tab>>,
     /// First drawn row. Never leaves blank rows below the last one, and
     /// moves to keep the selected row in view when that row changes.
     offset: usize,
@@ -121,7 +123,7 @@ pub(in crate::ui) struct Pointed {
 impl Tabs {
     pub fn new(settings: TabSettings) -> Self {
         Self {
-            collapsed: HashSet::new(),
+            expanded: HashSet::new(),
             offset: 0,
             area: Rect::ZERO,
             rows: Vec::new(),
@@ -155,10 +157,10 @@ impl Tabs {
         }
     }
 
-    /// Forget folds for removed tabs or tabs without children.
+    /// Forget unfolds for removed tabs. A tab without children keeps its
+    /// entry, so one unfolded just before a move into it lands stays open.
     pub fn reconcile(&mut self, tabs: &TabTree) {
-        self.collapsed
-            .retain(|id| tree::tab(tabs, *id).is_ok_and(|tab| !tab.tabs.is_empty()));
+        self.expanded.retain(|id| tree::tab(tabs, *id).is_ok());
     }
 
     /// Open the selection's ancestors, leaving its own row's fold unchanged.
@@ -171,7 +173,7 @@ impl Tabs {
             if let NodeId::Tab(id) = node
                 && Some(id) != selected
             {
-                self.collapsed.remove(&id);
+                self.expanded.insert(id);
             }
         }
     }
@@ -186,10 +188,10 @@ impl Tabs {
             for (position, tab) in tabs.values().enumerate() {
                 let fold = if tab.tabs.is_empty() {
                     Fold::Leaf
-                } else if section.collapsed.contains(&tab.id) {
-                    Fold::Folded
-                } else {
+                } else if section.expanded.contains(&tab.id) {
                     Fold::Open
+                } else {
+                    Fold::Folded
                 };
                 entries.push(Entry {
                     tab: tab.id,
@@ -234,25 +236,25 @@ impl Tabs {
 
     /// Whether this client folded `tab`'s row.
     pub fn folded(&self, tab: IdOf<Tab>) -> bool {
-        self.collapsed.contains(&tab)
+        !self.expanded.contains(&tab)
     }
 
     pub fn collapse(&mut self, tab: IdOf<Tab>) {
-        self.collapsed.insert(tab);
+        self.expanded.remove(&tab);
     }
 
     pub fn expand(&mut self, tab: IdOf<Tab>) {
-        self.collapsed.remove(&tab);
+        self.expanded.insert(tab);
     }
 
-    /// How many tabs are folded; each fold or unfold changes it.
+    /// How many tabs are unfolded; each fold or unfold changes it.
     pub fn fold_count(&self) -> usize {
-        self.collapsed.len()
+        self.expanded.len()
     }
 
     pub fn toggle(&mut self, tab: IdOf<Tab>) {
-        if !self.collapsed.remove(&tab) {
-            self.collapsed.insert(tab);
+        if !self.expanded.remove(&tab) {
+            self.expanded.insert(tab);
         }
     }
 

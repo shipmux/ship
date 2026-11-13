@@ -13,7 +13,7 @@ Keep related work under one tab, with smaller tasks nested below it. For example
   ▸ docs
 ```
 
-Each tab can hold panes, other tabs, or both, and in the sidebar `▾` means unfolded and `▸` means folded. A tab without a name shows its first pane's directory as its label.
+Each tab can hold panes, other tabs, or both, and in the sidebar `▾` means unfolded and `▸` means folded. A window opens with every tab folded except the ones holding the pane you're on, and it unfolds a tab when you move into it. A tab without a name shows its first pane's directory as its label.
 
 | Key | Does |
 | --- | --- |
