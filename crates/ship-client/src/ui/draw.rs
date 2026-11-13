@@ -19,7 +19,7 @@ use super::{
     panes,
     sidebar::Sidebar,
 };
-use crate::keymap::ModeName;
+use crate::keymap::{Hint, ModeName};
 
 /// What the status line shows besides the selection.
 pub(super) struct Status<'a> {
@@ -29,8 +29,8 @@ pub(super) struct Status<'a> {
     pub message: Option<&'a str>,
     /// An update's one-time note.
     pub note: Option<&'a str>,
-    /// The mode's `chord label` hints, in the file's order.
-    pub hints: Vec<&'a str>,
+    /// The mode's hints, in the file's order.
+    pub hints: Vec<Hint<'a>>,
 }
 
 /// `area` split into the sidebar's columns and the pane area beside them,
@@ -159,17 +159,17 @@ pub(super) fn draw(frame: &mut Frame, local: &mut Local) -> Option<Cursor> {
 }
 
 /// "connecting" while the observer has no record; with nothing selected,
-/// `3 tabs · alt-right to open one` or `no tabs · ship tab create`; with a tab
-/// and no pane, `no pane: ship pane create --tab <tab-id>`.
+/// `3 tabs · alt-down to open one` or `no tabs · ship tab create`; with a tab
+/// and no pane, `no pane · alt-| to make one`.
 fn hint(observer: &Observer, selected: Option<&Selected>) -> String {
     let (Some(replica), Some(_)) = (&observer.replica, observer.record()) else {
         return "connecting".into();
     };
     match (selected, replica.tabs.len()) {
-        (Some(selected), _) => format!("no pane: ship pane create --tab {}", selected.tab.id),
+        (Some(_), _) => "no pane · alt-| to make one".into(),
         (None, 0) => "no tabs · ship tab create".into(),
-        (None, 1) => "1 tab · alt-right to open one".into(),
-        (None, count) => format!("{count} tabs · alt-right to open one"),
+        (None, 1) => "1 tab · alt-down to open one".into(),
+        (None, count) => format!("{count} tabs · alt-down to open one"),
     }
 }
 
@@ -211,10 +211,11 @@ fn status_line<'a>(
         .hints
         .iter()
         .map(|hint| {
-            let (chord, label) = hint.split_once(' ').unwrap_or((hint, ""));
             Line::from(vec![
-                Span::from(format!("  {chord}")).cyan().bold(),
-                Span::from(format!(" {label}")).gray(),
+                Span::from(format!("  {}", hint.chords.join("/")))
+                    .cyan()
+                    .bold(),
+                Span::from(format!(" {}", hint.label)).gray(),
             ])
         })
         .collect();

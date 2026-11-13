@@ -19,10 +19,11 @@ Each tab can hold panes, other tabs, or both, and in the sidebar `▾` means unf
 | --- | --- |
 | `alt-n` | New tab with a shell |
 | `alt-shift-n` | New tab nested under the current one |
-| `alt-left` / `alt-right` | Previous / next tab |
-| `alt-t` | [Tabs mode](keys.md#resize-tabs-and-panes-modes) to navigate, fold, move or rename tabs; `esc` leaves |
+| `alt-up` / `alt-down` | Previous / next tab |
+| `alt-left` / `alt-right` | Fold the tab or go to its parent / unfold it or go to its first child |
+| `alt-t` | [Tabs mode](keys.md#resize-tabs-and-panes-modes) to navigate, fold, move, rename, create or close tabs; `esc` leaves |
 | `alt-b` | Hide or show the sidebar |
-| `alt-x` | Close the tab and everything in it |
+| `alt-shift-x` | Close the tab and everything in it |
 
 Coming back to a tab puts you on the pane you last used there. You can also click a tab to select it, click its `▾`/`▸` to fold it, or drag it to reorder or nest it.
 

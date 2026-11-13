@@ -36,7 +36,7 @@ All of Ship's default keys are Alt chords, and any other key goes to the program
 | `alt-\|` / `alt--` | Split the pane right / down |
 | `alt-h` / `alt-j` / `alt-k` / `alt-l` | Move to the pane left, below, above or right |
 | `alt-a` | Jump to the next agent that needs you |
-| `alt-x` | Close the tab |
+| `alt-x` | Close the pane |
 | `alt-q` | Detach |
 
 That's all you need for now. [Keys](keys.md) lists the rest when you want them.

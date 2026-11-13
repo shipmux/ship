@@ -7,10 +7,10 @@ Let users drive the client from the keyboard through modes of chord bindings, wh
 ## Requirements
 
 ### Requirement: Default keys
-With no bindings in the file, normal mode SHALL bind `alt-n` (new sibling tab with shell), `alt-shift-n` (new child tab with shell), `alt-x` (close tab) and `alt-q` (detach). `alt-1..9` SHALL NOT be bound by default.
+With no bindings in the file, normal mode SHALL bind `alt-n` (new sibling tab with shell), `alt-shift-n` (new child tab with shell), `alt-shift-x` (close tab) and `alt-q` (detach). `alt-1..9` SHALL NOT be bound by default.
 
 #### Scenario: Herdr chords on the first run
-- **WHEN** a user with no config runs `ship` and presses `alt-n`, `alt-|`, `alt-right`, `alt-left`, `alt-tab` and `alt-q`
+- **WHEN** a user with no config runs `ship` and presses `alt-n`, `alt-|`, `alt-down`, `alt-up`, `alt-tab` and `alt-q`
 - **THEN** a tab with a shell is created and selected, a pane is split right and selected, the selection moves between visible tab rows and panes, and the client detaches
 
 #### Scenario: Unbound key reaches the program
@@ -22,7 +22,7 @@ With no bindings in the file, normal mode SHALL bind `alt-n` (new sibling tab wi
 - **THEN** the chord reaches the program rather than attempting row selection
 
 ### Requirement: Default pane keys
-With no bindings in the file, normal mode SHALL bind `alt--`/`alt-|` (split down/right), `alt-shift-x` (close pane), `alt-h/j/k/l` (pane focus), `alt-tab` (next pane), `alt-f` (`client.pane.zoom = { zoomed = "toggle" }`) and `alt-p` (`client.mode = "panes"`). Normal mode SHALL NOT bind `alt-shift-h/j/k/l`.
+With no bindings in the file, normal mode SHALL bind `alt--`/`alt-|` (split down/right), `alt-x` (close pane), `alt-h/j/k/l` (pane focus), `alt-tab` (next pane), `alt-f` (`client.pane.zoom = { zoomed = "toggle" }`) and `alt-p` (`client.mode = "panes"`). Normal mode SHALL NOT bind `alt-shift-h/j/k/l`.
 
 #### Scenario: Zoom and swap defaults
 - **WHEN** a user with no config presses `alt-f` in an unzoomed split tab, and later presses `alt-p`
@@ -33,7 +33,7 @@ With no bindings in the file, normal mode SHALL bind `alt--`/`alt-|` (split down
 - **THEN** nothing happens in Ship and the program receives the chord
 
 ### Requirement: Default view keys
-With no bindings in the file, normal mode SHALL bind `alt-left`/`alt-right` (previous/next visible tab row), `alt-b` (sidebar), `alt-t`/`alt-r` (tabs/resize mode), `alt-pageup`/`alt-pagedown` (scroll the selected pane up/down one page) and `alt-a` (`client.agents.next`). `alt-g` SHALL NOT be bound by default.
+With no bindings in the file, normal mode SHALL bind `alt-up`/`alt-down` (previous/next visible tab row), `alt-left`/`alt-right` (`client.tab.collapse`/`client.tab.expand`), `alt-b` (sidebar), `alt-t`/`alt-r` (tabs/resize mode), `alt-pageup`/`alt-pagedown` (scroll the selected pane up/down one page) and `alt-a` (`client.agents.next`). `alt-g` SHALL NOT be bound by default.
 
 #### Scenario: Tabs mode mnemonic
 - **WHEN** a user with no config presses `alt-t`
@@ -52,7 +52,7 @@ With no bindings in the file, normal mode SHALL bind `alt-left`/`alt-right` (pre
 - **THEN** the blocked agent's pane is selected, and the chord doesn't reach the program
 
 ### Requirement: Default resize keys
-The default resize mode's `h/j/k/l` SHALL omit `amount`, moving one cell per press. Resize mode SHALL also bind `shift-h` and `shift-l` to `client.sidebar.resize` left and right, with the hints `sidebar left` and `sidebar right`, and `shift-j` and `shift-k` to `client.sidebar.resize` down and up, with the hints `split down` and `split up`.
+The default resize mode's `h/j/k/l` and arrow keys SHALL omit `amount`, moving one cell per press, with the hints `resize left`, `resize down`, `resize up` and `resize right`. Resize mode SHALL also bind `shift-h` and `shift-l` to `client.sidebar.resize` left and right, with the hints `sidebar left` and `sidebar right`, and `shift-j` and `shift-k` to `client.sidebar.resize` down and up, with the hints `divider down` and `divider up`.
 
 #### Scenario: Sidebar keys in resize mode
 - **WHEN** a user with no config presses `alt-r` and then `shift-l` three times
@@ -143,11 +143,15 @@ Every binding SHALL name one action, under `server.` or `client.`. A `server.` a
 - **THEN** both produce the same tree
 
 ### Requirement: Default tabs keys
-Default `tabs` mode SHALL bind `j`/`k` to `client.tab.next`/`prev`, `h`/`l` to `client.tab.collapse`/`expand`, `r` to `client.tab.rename`, `esc` to normal, and `shift-k`, `shift-j`, `shift-l` and `shift-h` to `client.tab.move` `up`, `down`, `in` and `out`, with the labels `move up`, `move down`, `move in` and `move out`.
+Default `tabs` mode SHALL bind `j`/`k` and `down`/`up` to `client.tab.next`/`prev`, `h`/`l` and `left`/`right` to `client.tab.collapse`/`expand`, `r` to `client.tab.rename`, `n` to `server.tab.create` with the shell starter, labeled `new`, `shift-n` to the same with `child = true`, labeled `new child`, `x` to `server.tab.close`, labeled `close`, `esc` to normal, and `shift-k`, `shift-j`, `shift-l` and `shift-h` to `client.tab.move` `up`, `down`, `in` and `out`, with the labels `move up`, `move down`, `move in` and `move out`.
 
 #### Scenario: Labels in tabs mode
 - **WHEN** a user with no config presses `alt-t`
-- **THEN** the status line shows `move up`, `move down`, `move in` and `move out` for the four shifted keys, and `rename` for `r`
+- **THEN** the status line shows `move up`, `move down`, `move in` and `move out` for the four shifted keys, `rename` for `r`, `new` for `n`, `new child` for `shift-n` and `close` for `x`
+
+#### Scenario: Close from tabs mode
+- **WHEN** `api` has a child `tests`, `tests` is selected, and the user presses `x` in `tabs` mode
+- **THEN** `tests` and its panes close, `api` is selected, and the client is still in `tabs` mode
 
 ### Requirement: Bindings in any mode
 Any action SHALL be bindable in any mode.
@@ -197,7 +201,7 @@ A chord in the file SHALL replace the default binding on that chord in that mode
 In normal mode, an unbound key SHALL reach the selected pane's program. In a sticky mode other than normal, a mode SHALL stay active until another mode is entered, and an unbound key SHALL do nothing. A one-shot mode SHALL return to normal after one key, bound or not, unless that key's action enters a mode.
 
 #### Scenario: Sticky mode swallows keys
-- **WHEN** the client is in `tabs` mode and the user presses `x`, which `tabs` does not bind
+- **WHEN** the client is in `tabs` mode and the user presses `z`, which `tabs` does not bind
 - **THEN** nothing is sent to the program and the client stays in `tabs`
 
 #### Scenario: One-shot mode exits on an unbound key
@@ -208,15 +212,15 @@ In normal mode, an unbound key SHALL reach the selected pane's program. In a sti
 A key binding SHALL act on the client's selection as it is at the binding's turn in the client's input order, not at press (see terminal-client's Ordered input). A `server.` action whose target is not selected, such as `server.pane.close` with only a tab selected, SHALL report that on the status line and change nothing. Every action SHALL take its turn, including `client.mode`, `client.sidebar.toggle`, `client.sidebar.resize` and `client.config.reload`.
 
 #### Scenario: Close the selected pane
-- **WHEN** a pane is selected and the user presses `alt-shift-x`
+- **WHEN** a pane is selected and the user presses `alt-x`
 - **THEN** that pane closes
 
 #### Scenario: Pane action with a tab selected
-- **WHEN** a tab without panes is selected and the user presses `alt-shift-x`
+- **WHEN** a tab without panes is selected and the user presses `alt-x`
 - **THEN** the status line reports that no pane is selected and nothing changes
 
 #### Scenario: Close what the previous key made
-- **WHEN** on a slow link the user presses `alt-|` then `alt-shift-x` before the split appears
+- **WHEN** on a slow link the user presses `alt-|` then `alt-x` before the split appears
 - **THEN** the new pane closes, not the one that was selected at the first press
 
 #### Scenario: Mode change while input waits
@@ -480,7 +484,7 @@ Create actions SHALL send their target and `place` to the server. The server SHA
 - **THEN** the field opens for the tab `j` selected
 
 ### Requirement: Default panes keys
-Default `panes` mode SHALL be sticky and bind `h`, `j`, `k` and `l` to `client.pane.focus` left, down, up and right; `shift-h`, `shift-j`, `shift-k` and `shift-l` to `client.pane.swap` in those directions, labeled `swap left`, `swap down`, `swap up` and `swap right`; `.` and `,` to `server.pane.cycle` next and previous; `r` to `client.pane.rename`; and `esc` to normal.
+Default `panes` mode SHALL be sticky and bind `h`, `j`, `k` and `l` and the arrow keys to `client.pane.focus` left, down, up and right, labeled `focus left`, `focus down`, `focus up` and `focus right`; `shift-h`, `shift-j`, `shift-k` and `shift-l` to `client.pane.swap` in those directions, labeled `swap left`, `swap down`, `swap up` and `swap right`; `.` and `,` to `server.pane.cycle` next and previous, labeled `stack next` and `stack prev`; `r` to `client.pane.rename`; `n` to `server.pane.create` with `place = "right"` and `select = true`, labeled `split right`; `x` to `server.pane.close`, labeled `close`; and `esc` to normal.
 
 #### Scenario: Focus stays in panes mode
 - **WHEN** a tab has two panes side by side, the left one is selected, and the user presses `alt-p` then `l`
@@ -496,7 +500,11 @@ Default `panes` mode SHALL be sticky and bind `h`, `j`, `k` and `l` to `client.p
 
 #### Scenario: Labels in panes mode
 - **WHEN** a user with no config presses `alt-p`
-- **THEN** the status line shows `swap left`, `swap down`, `swap up` and `swap right` for the four shifted keys, and `rename` for `r`
+- **THEN** the status line shows `swap left`, `swap down`, `swap up` and `swap right` for the four shifted keys, `rename` for `r`, `split right` for `n` and `close` for `x`
+
+#### Scenario: New and close from panes mode
+- **WHEN** a tab has one pane and the user presses `alt-p`, `n`, then `x`
+- **THEN** `n` splits a new shell to the right and selects it, `x` closes it, and the client is still in `panes` mode
 
 ### Requirement: Updates actions
 `client.updates.open = {}` SHALL open the updates panel. `client.updates.check = {}` SHALL check for the latest release at once, as the panel's `[check]` does. `client.updates.update = {}` SHALL start an update, as the panel's `[update]` does, and SHALL do nothing when this install has no update method. None SHALL be bound to a key by default, and each SHALL be usable from any mode's bindings and from menu items.

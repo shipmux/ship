@@ -5,7 +5,7 @@ Scope: Splitting, moving between, renaming, zooming and closing panes, what happ
 Not here: scrolling and copying (scrolling-copying-and-the-mouse.md), scripting recipes (scripting/).
 -->
 
-Every pane runs a program in its own terminal, your shell unless you say otherwise. By default a pane closes when its program exits, and you can also close it with `alt-shift-x`.
+Every pane runs a program in its own terminal, your shell unless you say otherwise. By default a pane closes when its program exits, and you can also close it with `alt-x`.
 
 | Key | Does |
 | --- | --- |
@@ -15,10 +15,10 @@ Every pane runs a program in its own terminal, your shell unless you say otherwi
 | `alt-e` | Open the pane's scrollback in your editor |
 | `alt-h` / `alt-j` / `alt-k` / `alt-l` | Move to the pane left, below, above or right |
 | `alt-tab` | Next visible pane in the tab, skipping panes behind |
-| `alt-p` | [Panes mode](keys.md#resize-tabs-and-panes-modes) to move, swap or rename; `esc` leaves |
+| `alt-p` | [Panes mode](keys.md#resize-tabs-and-panes-modes) to move, swap, rename, split or close; `esc` leaves |
 | `alt-f` | Zoom the pane to fill the tab, or unzoom |
 | `alt-r` | Resize mode: `h` / `j` / `k` / `l` move the pane's edge, `esc` leaves |
-| `alt-shift-x` | Close the pane |
+| `alt-x` | Close the pane |
 
 A new split or stacked shell opens in the directory you were working in, so after `cd ~/src/ship`, `alt--` gives you a shell there. You can also resize by dragging the border between two panes.
 

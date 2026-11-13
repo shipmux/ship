@@ -51,7 +51,7 @@ Several clients SHALL be able to view the same pane and send it input at the sam
 - **THEN** the pane receives input from both and both clients show the same screen
 
 ### Requirement: Empty state
-When nothing is selected, the client SHALL show the number of top-level tabs and the default key that opens one, such as `3 tabs · alt-right to open one`, or `no tabs · ship tab create` when there are none. When the selection is a tab rather than a pane, the client SHALL show a hint for creating a pane, such as `no pane: ship pane create --tab <tab-id>`.
+When nothing is selected, the client SHALL show the number of top-level tabs and the default key that opens one, such as `3 tabs · alt-down to open one`, or `no tabs · ship tab create` when there are none. When the selection is a tab rather than a pane, the client SHALL show the default key that creates a pane there, such as `no pane · alt-| to make one`.
 
 #### Scenario: Last pane removed
 - **WHEN** the last pane of the viewed tab is removed
@@ -59,7 +59,7 @@ When nothing is selected, the client SHALL show the number of top-level tabs and
 
 #### Scenario: Nothing selected
 - **WHEN** a client opens on a server with two top-level tabs
-- **THEN** it shows `2 tabs · alt-right to open one` and keys that reach programs are dropped
+- **THEN** it shows `2 tabs · alt-down to open one` and keys that reach programs are dropped
 
 ### Requirement: Pane size
 A tab's area SHALL follow the smallest reported viewing-client area in each dimension, excluding that client's sidebar. The status line overlay SHALL NOT reduce the area. A client viewing another tab SHALL NOT constrain it. Unviewed tabs and zoom-hidden panes SHALL retain their last terminal sizes. Larger clients SHALL draw the shared geometry at the pane area's top-left and mark unused space.
@@ -109,11 +109,15 @@ The status line SHALL be shown only while it has content: outside normal mode, w
 - **THEN** the status line does not show `work` or `nvim`
 
 ### Requirement: Mode key hints
-Outside normal mode the status line SHALL show the active mode's name and key hints for that mode: each bound chord in the config file's order, labeled by its binding's `label` when set, else by a word from its action: the mode's name, the direction, the key sent, else the action's name. A hint SHALL NOT be split across rows or cut partway.
+Outside normal mode the status line SHALL show the active mode's name and key hints for that mode: each label in the config file's order of its first chord, with every chord bound under that label joined by `/`, such as `j/down next`. A chord's label is its binding's `label` when set, else a word from its action: the mode's name, the direction, the key sent, else the action's name. A hint SHALL NOT be split across rows or cut partway.
 
 #### Scenario: Active mode
 - **WHEN** the user presses `alt-r`
-- **THEN** the status line appears showing `resize` and the hints `h left`, `j down`, `k up`, `l right`, `shift-h sidebar left`, `shift-l sidebar right`, `shift-j split down`, `shift-k split up` and `esc normal` in that order, and disappears after `esc`
+- **THEN** the status line appears showing `resize` and the hints `h/left resize left`, `j/down resize down`, `k/up resize up`, `l/right resize right`, `shift-h sidebar left`, `shift-l sidebar right`, `shift-j divider down`, `shift-k divider up` and `esc normal` in that order, and disappears after `esc`
+
+#### Scenario: Chords sharing a label
+- **WHEN** a user with no config presses `alt-t`
+- **THEN** the hints begin `j/down next`, `k/up prev`, `h/left collapse` and `l/right expand`
 
 #### Scenario: Custom binding hint
 - **WHEN** the file binds `"f" = { action = { client.pane.zoom = { zoomed = "toggle" } } }` in `resize` mode and the user enters it
@@ -268,7 +272,7 @@ A client's bindings, menu items, keys, pastes, `client.send`, clicks, fold click
 - **THEN** the new pane is the one zoomed, in ten runs of ten
 
 #### Scenario: Type then close
-- **WHEN** 500 ms of delay is added each way, and the user types `ls` into a shell pane and presses `alt-shift-x` at once
+- **WHEN** 500 ms of delay is added each way, and the user types `ls` into a shell pane and presses `alt-x` at once
 - **THEN** the server routes both keys to that pane before removing it, and its debug log shows no input dropped for a removed pane, in ten runs of ten
 
 #### Scenario: Idle typing
@@ -294,7 +298,7 @@ A border position still waiting its turn SHALL be replaced in place by a newer p
 A key action that fails SHALL show its error on the status line, and input after it SHALL still take effect in order.
 
 #### Scenario: Keys after a failure
-- **WHEN** a tab without panes is selected, and the user presses `alt-shift-x`, `alt-right` to a shell pane, and types `ls` and Enter
+- **WHEN** a tab without panes is selected, and the user presses `alt-x`, `alt-down` to a shell pane, and types `ls` and Enter
 - **THEN** the status line reports that no pane is selected, and `ls` runs in the shell
 
 #### Scenario: Selection target removed during a request
