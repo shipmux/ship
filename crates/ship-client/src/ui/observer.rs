@@ -88,6 +88,12 @@ impl Observer {
         self.record()?.selection
     }
 
+    /// The tabs from the top down to this client's selection, ending with
+    /// the selection itself.
+    pub fn selection_path(&self) -> Option<Vec<NodeId>> {
+        tree::path(self.tabs()?, self.selection()?)
+    }
+
     pub fn tabs(&self) -> Option<&Tabs> {
         self.replica.as_ref().map(|replica| &replica.tabs)
     }

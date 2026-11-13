@@ -583,7 +583,9 @@ impl<'a> Local<'a> {
     fn apply(&mut self, event: SseEvent) -> bool {
         let screen = matches!(event, SseEvent::Screen(_));
         let attached = matches!(event, SseEvent::Attached(_));
-        let previous = self.observer.selection();
+        // A path, not a node, so a move that carries the selection into a
+        // folded tab reveals it too.
+        let previous = self.observer.selection_path();
         let visible = self.observer.apply(event);
         if attached {
             self.attention.attached(&self.observer);
@@ -594,7 +596,7 @@ impl<'a> Local<'a> {
         if !screen && let Some(replica) = &self.observer.replica {
             let selection = self.observer.selection();
             self.memory.observe(&replica.tabs, selection);
-            if previous != selection {
+            if previous != self.observer.selection_path() {
                 self.sidebar.tabs.reveal(&replica.tabs, selection);
             }
             return self.reconcile() | visible;
