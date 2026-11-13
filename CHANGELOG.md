@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/shipmux/ship/compare/v0.1.0...v0.1.1) - 2026-11-13
+
+### Added
+
+- *(client)* start sidebar tabs folded
+
+### Other
+
+- Merge pull request #131 from shipmux/default-keys-fit-the-tree
+
 ## [0.1.0](https://github.com/shipmux/ship/releases/tag/v0.1.0) - 2026-11-12
 
 Ship is a terminal multiplexer, like tmux or Zellij, with a sidebar that shows what your coding agents are doing. Your programs run on a background server, so closing the window doesn't stop them. This is the first release, so everything is new, and these are the parts I'd try first.
