@@ -143,11 +143,14 @@ Every binding SHALL name one action, under `server.` or `client.`. A `server.` a
 - **THEN** both produce the same tree
 
 ### Requirement: Default tabs keys
-Default `tabs` mode SHALL bind `j`/`k` and `down`/`up` to `client.tab.next`/`prev`, `h`/`l` and `left`/`right` to `client.tab.collapse`/`expand`, `r` to `client.tab.rename`, `n` to `server.tab.create` with the shell starter, labeled `new`, `shift-n` to the same with `child = true`, labeled `new child`, `x` to `server.tab.close`, labeled `close`, `esc` to normal, and `shift-k`, `shift-j`, `shift-l` and `shift-h` to `client.tab.move` `up`, `down`, `in` and `out`, with the labels `move up`, `move down`, `move in` and `move out`.
+Default `tabs` mode SHALL bind `j`/`k` and `down`/`up` to `client.tab.next`/`prev`, `h`/`l` and `left`/`right` to `client.tab.collapse`/`expand`, `r` to `client.tab.rename`, `esc` to normal, and `shift-k`, `shift-j`, `shift-l` and `shift-h` to `client.tab.move` `up`, `down`, `in` and `out`, with the labels `move up`, `move down`, `move in` and `move out`.
 
 #### Scenario: Labels in tabs mode
 - **WHEN** a user with no config presses `alt-t`
-- **THEN** the status line shows `move up`, `move down`, `move in` and `move out` for the four shifted keys, `rename` for `r`, `new` for `n`, `new child` for `shift-n` and `close` for `x`
+- **THEN** the status line shows `move up`, `move down`, `move in` and `move out` for the four shifted keys, and `rename` for `r`
+
+### Requirement: Create and close in tabs mode
+Default `tabs` mode SHALL bind `n` to `server.tab.create` with the shell starter and `select = true`, labeled `new`; `shift-n` to the same with `child = true`, labeled `new child`; and `x` to `server.tab.close`, labeled `close`.
 
 #### Scenario: Close from tabs mode
 - **WHEN** `api` has a child `tests`, `tests` is selected, and the user presses `x` in `tabs` mode
@@ -484,7 +487,7 @@ Create actions SHALL send their target and `place` to the server. The server SHA
 - **THEN** the field opens for the tab `j` selected
 
 ### Requirement: Default panes keys
-Default `panes` mode SHALL be sticky and bind `h`, `j`, `k` and `l` and the arrow keys to `client.pane.focus` left, down, up and right, labeled `focus left`, `focus down`, `focus up` and `focus right`; `shift-h`, `shift-j`, `shift-k` and `shift-l` to `client.pane.swap` in those directions, labeled `swap left`, `swap down`, `swap up` and `swap right`; `.` and `,` to `server.pane.cycle` next and previous, labeled `stack next` and `stack prev`; `r` to `client.pane.rename`; `n` to `server.pane.create` with `place = "right"` and `select = true`, labeled `split right`; `x` to `server.pane.close`, labeled `close`; and `esc` to normal.
+Default `panes` mode SHALL be sticky and bind `h`, `j`, `k` and `l` and the arrow keys to `client.pane.focus` left, down, up and right, labeled `focus left`, `focus down`, `focus up` and `focus right`; `shift-h`, `shift-j`, `shift-k` and `shift-l` to `client.pane.swap` in those directions, labeled `swap left`, `swap down`, `swap up` and `swap right`; `.` and `,` to `server.pane.cycle` next and previous, labeled `stack next` and `stack prev`; `r` to `client.pane.rename`; and `esc` to normal.
 
 #### Scenario: Focus stays in panes mode
 - **WHEN** a tab has two panes side by side, the left one is selected, and the user presses `alt-p` then `l`
@@ -500,7 +503,10 @@ Default `panes` mode SHALL be sticky and bind `h`, `j`, `k` and `l` and the arro
 
 #### Scenario: Labels in panes mode
 - **WHEN** a user with no config presses `alt-p`
-- **THEN** the status line shows `swap left`, `swap down`, `swap up` and `swap right` for the four shifted keys, `rename` for `r`, `split right` for `n` and `close` for `x`
+- **THEN** the status line shows `swap left`, `swap down`, `swap up` and `swap right` for the four shifted keys, and `rename` for `r`
+
+### Requirement: Create and close in panes mode
+Default `panes` mode SHALL bind `n` to `server.pane.create` with `place = "right"` and `select = true`, labeled `split right`, and `x` to `server.pane.close`, labeled `close`.
 
 #### Scenario: New and close from panes mode
 - **WHEN** a tab has one pane and the user presses `alt-p`, `n`, then `x`
