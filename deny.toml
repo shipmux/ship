@@ -2,7 +2,11 @@
 all-features = true
 
 [advisories]
-ignore = []
+ignore = [
+    # chrono is unmaintained (soft-deprecated by its maintainer), not broken. Ship
+    # only formats local timestamps with it, and the API is stable, so it stays.
+    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained; only used for local timestamps" },
+]
 
 [licenses]
 # Every license here is compatible with Ship's GPL-3.0-or-later. Add a new one
