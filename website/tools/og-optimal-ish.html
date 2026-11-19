@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>optimal-ish: link preview</title>
+    <!-- The link preview for the Optimal-ish post (public/og-optimal-ish.png), 1200 by 630. Not a site page: og_optimal_ish.py
+     captures it. One art pixel is 4px, the site's own grid, and every sprite sits on it. The colours and the pixel face are
+     the site's (public/css/site.css); the sprites come from tools/race.py and the art the landing page already uses. -->
+    <style>
+      @font-face {
+        font-family: "Departure Mono";
+        src: url("https://cdn.jsdelivr.net/gh/rektdeckard/departure-mono@main/public/assets/DepartureMono-Regular.woff2")
+          format("woff2");
+      }
+      :root {
+        --px: 4px;
+        --ink: #1c1a27;
+        --paper: #fbf8f1;
+        --yellow: #ffd462;
+        --sky: #cfe7f3;
+        --sea: #1f4fa8;
+        --blue: #2f63cc;
+        --bright-blue: #79a4ff;
+        --pixel: "Departure Mono", ui-monospace, monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: var(--sky);
+      }
+      .card {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: var(--sky);
+      }
+      .art {
+        position: absolute;
+        width: calc(var(--w) * var(--px));
+        height: calc(var(--h) * var(--px));
+        max-width: none;
+        image-rendering: pixelated;
+        display: block;
+      }
+      .tile {
+        position: absolute;
+        left: 0;
+        width: 1200px;
+        background-repeat: repeat-x;
+        image-rendering: pixelated;
+      }
+      .gull {
+        position: absolute;
+        width: calc(19 * var(--px));
+        height: calc(9 * var(--px));
+        background: url("../public/art/gull.svg") 0 0 / calc(38 * var(--px)) calc(9 * var(--px));
+        image-rendering: pixelated;
+      }
+
+      /* the sea: the landing page's waterline, a dithered step from the waves into the water */
+      .sea {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 340px;
+        bottom: 0;
+        background: var(--sea);
+      }
+      .step-a {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 340px;
+        height: 16px;
+        background: repeating-conic-gradient(var(--blue) 0 25%, var(--bright-blue) 0 50%) 0 0 / 8px 8px;
+      }
+      .step-b {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 356px;
+        height: 8px;
+        background: var(--blue);
+      }
+      .step-c {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 364px;
+        height: 16px;
+        background: repeating-conic-gradient(var(--sea) 0 25%, var(--blue) 0 50%) 0 0 / 8px 8px;
+      }
+      .wave-back {
+        top: 332px;
+        height: 16px;
+        background-image: url("../public/art/wave-back.svg");
+        background-size: 64px 16px;
+      }
+      .wave {
+        top: 340px;
+        height: 20px;
+        background-image: url("../public/art/wave.svg");
+        background-size: 64px 20px;
+      }
+
+      h1,
+      .hook {
+        font-family: var(--pixel);
+        font-weight: 400;
+        position: absolute;
+        left: 56px;
+        white-space: nowrap;
+      }
+      h1 {
+        top: 44px;
+        font-size: 66px;
+        line-height: 77px;
+        color: var(--ink);
+      }
+      .hook {
+        color: var(--paper);
+      }
+      .hook.then {
+        top: 428px;
+        font-size: 66px;
+        line-height: 77px;
+      }
+      .hook.now {
+        top: 505px;
+        font-size: 88px;
+        line-height: 99px;
+        color: var(--yellow);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img class="art" style="--w: 51; --h: 22; left: 716px; top: 48px" src="../public/art/cloud.svg" alt="" />
+      <img class="art" style="--w: 23; --h: 15; left: 980px; top: 60px" src="../public/art/cloud-c.svg" alt="" />
+      <img class="art" style="--w: 34; --h: 18; left: 200px; top: 224px" src="../public/art/cloud-b.svg" alt="" />
+      <span class="gull" style="left: 548px; top: 208px"></span>
+
+      <div class="sea"></div>
+      <div class="step-a"></div>
+      <div class="step-b"></div>
+      <div class="step-c"></div>
+      <div class="tile wave-back"></div>
+
+      <img class="art" style="--w: 24; --h: 54; left: 1000px; top: 132px" src="../public/art/race-pole.svg" alt="" />
+      <img class="art" style="--w: 64; --h: 58; left: 640px; top: 144px" src="../public/art/race-rival.svg" alt="" />
+      <img class="art" style="--w: 64; --h: 58; left: 352px; top: 148px" src="../public/art/race-ship.svg" alt="" />
+      <div class="tile wave"></div>
+
+      <h1>optimal-ish</h1>
+      <div class="hook then">5x behind</div>
+      <div class="hook now">→ 0.8 ms behind</div>
+    </div>
+  </body>
+</html>
