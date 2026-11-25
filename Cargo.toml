@@ -33,8 +33,8 @@ kameo = "0.22"
 libc = "0.2"
 # Same revision as ratatui-ghostty; named here for the `tracing` bridge.
 libghostty-vt = { git = "https://github.com/uzaaft/libghostty-rs", rev = "9ede35b8ea94a55ed3608408d67e102883129f1e", features = ["tracing"] }
-mitsein = { version = "0.9", features = ["serde"] }
-nix = { version = "0.31", features = ["process", "signal"] }
+mitsein = { version = "0.10", features = ["serde"] }
+nix = { version = "0.32", features = ["process", "signal"] }
 notify-debouncer-mini = "0.7"
 portable-pty = "=0.9.0"
 ratatui = "0.30"
